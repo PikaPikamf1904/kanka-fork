@@ -16,6 +16,12 @@ return [
     'default' => env('DB_CONNECTION', 'mysql'),
 
     /*
+    | Route guest web requests to the read-only "replica" connection. Disable
+    | when no replica is configured for the current driver (e.g. SQLite tests).
+    */
+    'replica_enabled' => env('DB_REPLICA_ENABLED', true),
+
+    /*
     |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
