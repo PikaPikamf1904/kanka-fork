@@ -3,7 +3,7 @@
  * @var \App\Models\Attribute $attribute
  * @var \App\Models\Entity $entity
  */
-$attributes = $entity->starredAttributes();
+$attributes = Gate::allows('view-attributes', [$entity, $campaign]) ? $entity->starredAttributes() : [];
 ?>
 @if (count($attributes) > 0)
     @foreach ($attributes as $attribute)

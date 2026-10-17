@@ -14,7 +14,9 @@ if (!empty($layout)) {
 }
 ?>
 
-@if (!empty($template) && $entity->hasChild())
+@cannot('view-attributes', [$entity, $campaign])
+    {{-- The DM hid this entity's properties from the reader. --}}
+@elseif (!empty($template) && $entity->hasChild())
     <x-box class="box-entity-attributes">
         @include($template->view(), ['model' => $model ?? $entity->child])
     </x-box>

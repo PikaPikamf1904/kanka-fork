@@ -3,11 +3,14 @@
 namespace App\Http\Resources;
 
 use App\Facades\Avatar;
+use App\Facades\CampaignLocalization;
 use App\Models\Entity;
 use App\Models\Item;
 use App\Models\MiscModel;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
 class EntityResource extends JsonResource
@@ -35,6 +38,22 @@ class EntityResource extends JsonResource
         $this->withMisc = true;
 
         return $this;
+    }
+
+    /**
+     * The properties of an entity, unless the DM hid them from the reader.
+     */
+    protected function visibleAttributes(Entity $entity): Collection
+    {
+        $campaign = CampaignLocalization::getCampaign();
+        if ($campaign?->id !== $entity->campaign_id) {
+            $campaign = $entity->campaign;
+        }
+        if (Gate::denies('view-attributes', [$entity, $campaign])) {
+            return new Collection;
+        }
+
+        return $entity->attributes;
     }
 
     /**
@@ -109,7 +128,7 @@ class EntityResource extends JsonResource
 
         if (request()->get('related', false)) {
             $data['attributes'] = AttributeResource::collection(
-                $entity->attributes,
+                $this->visibleAttributes($entity),
             );
             $data['posts'] = PostResource::collection($entity->posts);
             $data['entity_events'] = ReminderResource::collection(
@@ -280,7 +299,7 @@ class EntityResource extends JsonResource
 
         if (request()->get('related', false) || $this->withRelated) {
             $merged['attributes'] = AttributeResource::collection(
-                $misc->entity->attributes,
+                $this->visibleAttributes($misc->entity),
             );
             $merged['posts'] = PostResource::collection($misc->entity->posts);
             $merged['entity_events'] = ReminderResource::collection(

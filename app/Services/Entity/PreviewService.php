@@ -10,6 +10,7 @@ use App\Models\Location;
 use App\Models\MiscModel;
 use App\Traits\CampaignAware;
 use App\Traits\EntityAware;
+use Illuminate\Support\Facades\Gate;
 
 class PreviewService
 {
@@ -84,6 +85,9 @@ class PreviewService
     protected function attributes(): array
     {
         $attributes = [];
+        if (Gate::denies('view-attributes', [$this->entity, $this->campaign])) {
+            return $attributes;
+        }
         /** @var Attribute $attr */
         foreach ($this->entity->starredAttributes() as $attr) {
             if ($attr->isCheckbox()) {
