@@ -43,7 +43,7 @@
         @includeWhen($entity->abilities->count() > 0, 'entities.pages.print._abilities')
         @includeWhen($entity->inventories->count() > 0, 'entities.pages.print._inventory')
         @includeWhen($entity->relationships->count() > 0, 'entities.pages.print._relations')
-        @includeWhen($entity->attributes->count() > 0 && !$entity->isAttributeTemplate(), 'entities.pages.print._attributes')
+        @includeWhen($entity->attributes->count() > 0 && !$entity->isAttributeTemplate() && Gate::allows('view-attributes', [$entity, $campaign]), 'entities.pages.print._attributes')
         <div class="pagebreak"></div>
     @endforeach
 

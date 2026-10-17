@@ -22,6 +22,10 @@ deploy/dev/run.sh pest tests/Feature/Auth
 ```
 
 ```bash
+deploy/dev/run.sh pest-mariadb tests/Feature/Privacy
+```
+
+```bash
 deploy/dev/run.sh exec "vendor/bin/phpstan analyse --memory-limit=2G"
 ```
 
@@ -36,10 +40,27 @@ deploy/dev/run.sh exec "yarn install --frozen-lockfile && yarn build"
 `pest` runs the whole suite without stopping at the first failure. Tests use SQLite and
 synthetic data only; never point them at a real campaign database.
 
+`pest-mariadb` runs the same tests against a throwaway MariaDB started inside the
+container (no password, no network, gone when the run ends). Use it for anything that
+touches search: Kanka's search uses MariaDB-only SQL, so those tests skip on SQLite.
+Run it on a folder or a file, not the whole suite: about 100 upstream tests assume
+SQLite (foreign keys off, tables created twice, an index name) and fail on MariaDB
+for that reason alone. The full suite on SQLite has 18 known upstream failures.
+
+Raw joins and `whereExists` subqueries skip Eloquent's global scopes, so a filter on a
+private table (memberships, attributes, relations, posts, files) has to go through
+`whereVisible()` in `App\Models\Concerns\FiltersEntityFields`, or a player can learn that
+a DM-only row exists by filtering on it.
+
 Privacy tests: two of Kanka's visibility scopes (`VisibilityIDScope`, `PrivateScope`) turn
 themselves off when the app runs in the console, which includes tests. A test that checks
 what a player can see must make the app behave as a web request, or it passes for the
-wrong reason. See the existing privacy tests under `tests/Feature` for the pattern.
+wrong reason. Call `$this->asWebRequest()` after creating the fixtures and again after
+switching user; it also forgets what Kanka's services cached for the previous user. Web
+mode switches CSRF protection back on, so a POST then needs a token (see the docblock).
+`tests/Feature/Privacy/DmOnlyContentTest.php` shows the pattern: each test builds DM-only
+content whose names start with `dmonly`, then checks that no page or JSON response a
+player can reach contains that text, and that the DM still sees it.
 
 ## Staging rehearsal (a Big Bertha look-alike)
 

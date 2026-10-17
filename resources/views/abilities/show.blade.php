@@ -9,7 +9,7 @@
 
         <div class="entity-main-block grow flex flex-col gap-5 min-w-0">
             @include('entities.components.posts', ['withEntry' => true])
-            @includeWhen($entity->entityAttributes->count() > 0, 'entities.pages.attributes._story')
+            @includeWhen($entity->entityAttributes->count() > 0 && Gate::allows('view-attributes', [$entity, $campaign]), 'entities.pages.attributes._story')
 
             @includeWhen($entity->children()->count() > 0, 'abilities.panels.abilities', ['onload' => true])
         </div>

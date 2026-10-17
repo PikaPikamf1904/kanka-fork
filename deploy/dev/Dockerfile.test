@@ -22,4 +22,10 @@ RUN apt-get update -qq \
 
 RUN printf 'memory_limit=2G\n' > /etc/php/8.4/cli/conf.d/99-test.ini
 
+# For "run.sh pest-mariadb": a throwaway MariaDB like Big Bertha's, started per run. Some
+# queries (search) use MariaDB-only SQL that SQLite cannot run.
+RUN apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends mariadb-server \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app

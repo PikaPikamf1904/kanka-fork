@@ -4,7 +4,14 @@ namespace App\Models\Concerns;
 
 use App\Enums\AttributeType;
 use App\Enums\EntityAssetType;
+use App\Models\Attribute;
+use App\Models\Entity;
+use App\Models\EntityAsset;
+use App\Models\Post;
+use App\Models\Relation;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Str;
 
 trait FiltersEntityFields
@@ -67,17 +74,18 @@ trait FiltersEntityFields
             'entity_id',
             $value,
             fn ($query) => $query->where('entity_assets.type_id', EntityAssetType::file->value),
+            EntityAsset::class,
         );
     }
 
     protected function applyEntityPostsFilter(Builder $query, string $entityTable, mixed $value): void
     {
-        $this->applyEntityRelationPresenceFilter($query, $entityTable, 'posts', 'entity_id', $value);
+        $this->applyEntityRelationPresenceFilter($query, $entityTable, 'posts', 'entity_id', $value, null, Post::class);
     }
 
     protected function applyEntityAttributesPresenceFilter(Builder $query, string $entityTable, mixed $value): void
     {
-        $this->applyEntityRelationPresenceFilter($query, $entityTable, 'attributes', 'entity_id', $value);
+        $this->applyEntityRelationPresenceFilter($query, $entityTable, 'attributes', 'entity_id', $value, null, Attribute::class);
     }
 
     protected function applyEntityAttributeFilter(
@@ -97,6 +105,7 @@ trait FiltersEntityFields
                     ->from('attributes as entity_filter_attributes')
                     ->whereColumn('entity_filter_attributes.entity_id', $entityTable . '.id')
                     ->where('entity_filter_attributes.name', $filterName);
+                $this->whereVisible($subquery, 'entity_filter_attributes.id', Attribute::class);
             });
 
             return;
@@ -107,6 +116,7 @@ trait FiltersEntityFields
                 ->from('attributes as entity_filter_attributes')
                 ->whereColumn('entity_filter_attributes.entity_id', $entityTable . '.id')
                 ->where('entity_filter_attributes.name', $filterName);
+            $this->whereVisible($subquery, 'entity_filter_attributes.id', Attribute::class);
 
             if ($attributeValue === '!') {
                 $subquery->where('entity_filter_attributes.value', '<>', '');
@@ -139,6 +149,9 @@ trait FiltersEntityFields
             $subquery->selectRaw('1')
                 ->from('relations as entity_filter_relations')
                 ->whereColumn('entity_filter_relations.owner_id', $entityTable . '.id');
+            // A relation the player can see can still point at an entity hidden from them.
+            $this->whereVisible($subquery, 'entity_filter_relations.id', Relation::class);
+            $this->whereVisible($subquery, 'entity_filter_relations.target_id', Entity::class);
 
             if ($targetId !== '' && $targetId !== null) {
                 $subquery->where('entity_filter_relations.target_id', $targetId);
@@ -240,14 +253,18 @@ trait FiltersEntityFields
         string $foreignKey,
         mixed $value,
         ?callable $constraint = null,
+        ?string $model = null,
     ): void {
-        $callback = function ($subquery) use ($entityTable, $relationTable, $foreignKey, $constraint): void {
+        $callback = function ($subquery) use ($entityTable, $relationTable, $foreignKey, $constraint, $model): void {
             $subquery->selectRaw('1')
                 ->from($relationTable)
                 ->whereColumn($relationTable . '.' . $foreignKey, $entityTable . '.id');
 
             if ($constraint) {
                 $constraint($subquery);
+            }
+            if ($model) {
+                $this->whereVisible($subquery, $relationTable . '.id', $model);
             }
         };
 
@@ -256,5 +273,17 @@ trait FiltersEntityFields
         } else {
             $query->whereNotExists($callback);
         }
+    }
+
+    /**
+     * Raw joins and subqueries skip a model's visibility scopes, so without this a filter could
+     * match a DM-only row (a private membership, attribute or relation) and tell a player that
+     * it exists. Only match the rows that the model's own scopes let the current user see.
+     *
+     * @param  class-string<Model>  $model
+     */
+    protected function whereVisible(Builder|QueryBuilder $query, string $column, string $model): void
+    {
+        $query->whereIn($column, $model::query()->select((new $model)->getQualifiedKeyName()));
     }
 }

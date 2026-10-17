@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +19,10 @@ use Tests\TestCase;
 uses(
     TestCase::class,
     // DatabaseMigrations::class,
-    RefreshDatabase::class,
+    // The helpers expect fresh ids (campaign 1, roles 1-3). SQLite gets them back when each
+    // test's transaction rolls back; MariaDB does not, so there ("run.sh pest-mariadb") every
+    // test starts from emptied tables instead.
+    getenv('DB_CONNECTION') === 'mysql' ? DatabaseTruncation::class : RefreshDatabase::class,
 )->in('Feature');
 
 /*
