@@ -150,8 +150,28 @@ deploy/local/push-release.sh --first-install
 `--first-install` creates the database tables and reference data, **once**. Never use it
 again: later updates have no flag. The script stops with an error if anything fails,
 before the site goes live. It also refuses to run when a release is already live or the
-database already has tables; if a first install stopped halfway, run
-`deploy/local/push-release.sh` again **without** the flag (that path backs up first).
+database already has tables.
+
+**First install stopped partway.** Read the error and fix its cause first. If the refusal
+says the database has migrations or a release is live, and **nobody has used the site yet**
+(no campaign, no accounts beyond a test), start the database again from empty, as root on
+Bertha. This deletes everything in the `kanka` database, so never do it once real data
+exists; then deploy normally without the flag instead.
+
+```bash
+rm -f /srv/kanka/current
+```
+
+```bash
+mariadb -e 'DROP DATABASE kanka'
+```
+
+```bash
+bash /home/pika/kanka-kit/server/provision.sh
+```
+
+provision.sh recreates the empty database and its grants and keeps `.env` as it is. Then
+run step 8 again with `--first-install`.
 
 The archive's checksum (`.sha256`, written by `build-release.sh`) is checked on the PC
 before the upload and again on Big Bertha before anything is unpacked.
