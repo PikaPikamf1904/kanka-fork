@@ -31,10 +31,6 @@
                     </div>
                 </div>
             </div>
-            <a href="https://docs.kanka.io/en/latest/features/properties.html" class="btn2 btn-ghost btn-sm" v-if="!hasSelected()">
-                <i class="fa-regular fa-question-circle" aria-hidden="true" />
-                <span v-html="trans('actions.help')"></span>
-            </a>
         </div>
 
         <!-- Middle -->
