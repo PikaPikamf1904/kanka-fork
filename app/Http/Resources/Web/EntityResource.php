@@ -31,6 +31,9 @@ class EntityResource extends JsonResource
             'image' => Avatar::entity($entity)->size(192)->fallback()->thumbnail(),
             'link' => route('entities.show', [$this->campaign, $entity]),
             'tooltip' => route('entities.tooltip', [$this->campaign, $entity]),
+            // For the graph's type filter
+            'type_id' => $entity->type_id,
+            'type' => $entity->entityType->name(),
         ];
     }
 }

@@ -102,6 +102,8 @@ class MapService
      */
     public function map(): array
     {
+        $this->reset();
+
         $entityHook = 'init' . ucfirst($this->entity->entityType->code);
         if (method_exists($this, $entityHook)) {
             $this->$entityHook();
@@ -131,6 +133,24 @@ class MapService
         $this->cleanup();
 
         return ['relations' => $this->relations, 'entities' => $this->entities];
+    }
+
+    /**
+     * The controller keeps this service between requests in a long-running process, so each
+     * map starts empty, or one user's map would end up in the next user's response.
+     */
+    protected function reset(): void
+    {
+        $this->entities = [];
+        $this->relations = [];
+        $this->relationIds = [];
+        $this->orgMembers = [];
+        $this->mirrors = [];
+        $this->entityIds = [];
+        $this->family = false;
+        $this->organisation = false;
+        $this->withRelations = true;
+        $this->withEntity = false;
     }
 
     /**
@@ -203,6 +223,9 @@ class MapService
             ->has('target')
             ->leftJoin('entities as t', 't.id', '=', 'relations.target_id')
             ->get();
+        // Same check as the relation's edit page, so a read-only player isn't offered a dialog
+        // that refuses them.
+        $canEdit = auth()->check() && auth()->user()->can('update', $entity);
 
         foreach ($relations as $relation) {
             if ($relation->target === null) {
@@ -224,24 +247,29 @@ class MapService
                 $this->addEntity($relation->target);
             }
 
-            $this->relations[] = [
+            // A mirror hidden from this user makes it a one-way relation for them.
+            $mirrored = $relation->isMirrored() && $relation->mirror !== null;
+            $edge = [
                 'source' => $relation->owner_id,
                 'target' => $relation->target_id,
                 'text' => $relation->relation,
                 'colour' => $relation->colour,
                 'attitude' => $relation->attitude,
                 'type' => 'entity-relation',
-                'is_mirrored' => $relation->isMirrored(),
-                'shape' => $relation->isMirrored() && $relation->mirror && $relation->relation == $relation->mirror->relation ? 'none' : 'triangle',
-                'edit_url' => route('entities.relations.edit', [
+                'is_mirrored' => $mirrored,
+                'shape' => $mirrored && $relation->relation == $relation->mirror->relation ? 'none' : 'triangle',
+            ];
+            if ($canEdit) {
+                $edge['edit_url'] = route('entities.relations.edit', [
                     'campaign' => $this->campaign,
                     'entity' => $relation->owner_id,
                     'relation' => $relation,
                     'from' => $this->entity->id,
                     'mode' => 'map',
                     'option' => $this->option,
-                ]),
-            ];
+                ]);
+            }
+            $this->relations[] = $edge;
 
             if ($relation->isMirrored() && $relation->mirror && $relation->relation && $relation->relation == $relation->mirror->relation) {
                 $this->mirrors[$relation->id . '-' . $relation->mirror_id] = true;
@@ -941,9 +969,13 @@ class MapService
         }
 
         /** @var EntityMention[] $mentions */
+        // filterValid() drops mentions written in content the user can't see (a DM-only post,
+        // timeline or quest element), as the mentions page does. has('entity') alone only
+        // checks the entity that content belongs to.
         $mentions = $this->entity->targetMentions()->with(['entity', 'entity.image', 'entity.entityType'])
             ->has('entity')
             ->whereNotNull('entity_id')
+            ->filterValid()
             ->get();
         foreach ($mentions as $mention) {
             // Skip mentions to self
