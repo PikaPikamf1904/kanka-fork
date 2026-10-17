@@ -18,7 +18,7 @@ Route::get('auth/{provider}', [AuthController::class, 'redirectToProvider'])->na
 Route::get('debug/auth/{provider}', [AuthController::class, 'debugProviderLogin'])->name('debug.auth.provider');
 
 // Password Reset Routes...
-Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->middleware('throttle:6,1')->name('password.email');
 
 include 'oauth.php';
 /*
