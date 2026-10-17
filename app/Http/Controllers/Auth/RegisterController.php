@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Rules\AccountEmail;
 use App\Rules\AccountName;
 use App\Rules\Recaptcha;
+use App\Rules\RegistrationCode;
 use App\Services\Referrals\JoinService;
 use Illuminate\Foundation\Auth\RegistersUsers;
 use Illuminate\Support\Facades\Hash;
@@ -36,6 +37,10 @@ class RegisterController extends Controller
     {
         $this->middleware('guest');
         $this->middleware('login.redirect');
+        if (filled(config('auth.register_code'))) {
+            // Slow down guessing of the invite code
+            $this->middleware('throttle:6,1')->only('register');
+        }
     }
 
     /**
@@ -52,6 +57,9 @@ class RegisterController extends Controller
         ];
         if (config('auth.recaptcha.enabled')) {
             $rules['g-recaptcha-response'] = ['required', 'string', new Recaptcha];
+        }
+        if (filled(config('auth.register_code'))) {
+            $rules['registration_code'] = ['required', 'string', 'max:255', new RegistrationCode];
         }
 
         return Validator::make($data, $rules);

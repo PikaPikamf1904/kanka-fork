@@ -61,7 +61,11 @@ return [
                  * Set to `null` to include complete absolute path
                  * Example: base_path()
                  */
-                'relative_path' => null,
+                // With uploads included, store them as "public/..." in the archive so a
+                // restore does not depend on where they were taken from. spatie strips this
+                // prefix from the include path as written (it does not resolve symlinks), so
+                // it must match the include entry exactly.
+                'relative_path' => env('BACKUP_INCLUDE_UPLOADS', false) ? storage_path('app') : null,
             ],
 
             /*
@@ -248,12 +252,12 @@ return [
             /*
              * The number of days for which backups must be kept.
              */
-            'keep_all_backups_for_days' => 20,
+            'keep_all_backups_for_days' => (int) env('BACKUP_KEEP_ALL_DAYS', 20),
 
             /*
              * The number of days for which daily backups must be kept.
              */
-            'keep_daily_backups_for_days' => 16,
+            'keep_daily_backups_for_days' => (int) env('BACKUP_KEEP_DAILY_DAYS', 16),
 
             /*
              * The number of weeks for which one weekly backup must be kept.
@@ -263,7 +267,7 @@ return [
             /*
              * The number of months for which one monthly backup must be kept.
              */
-            'keep_monthly_backups_for_months' => 4,
+            'keep_monthly_backups_for_months' => (int) env('BACKUP_KEEP_MONTHLY_MONTHS', 4),
 
             /*
              * The number of years for which one yearly backup must be kept.
@@ -274,7 +278,7 @@ return [
              * After cleaning up the backups remove the oldest backup until
              * this amount of megabytes has been reached.
              */
-            'delete_oldest_backups_when_using_more_megabytes_than' => 100000,
+            'delete_oldest_backups_when_using_more_megabytes_than' => (int) env('BACKUP_MAX_MEGABYTES', 100000),
         ],
     ],
 

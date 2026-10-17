@@ -107,6 +107,10 @@ class AuthController extends Controller
         if (! config('auth.register_enabled')) {
             throw new AccessDeniedHttpException('ACCOUNT REGISTRATION DISABLED');
         }
+        // Social sign-up cannot ask for the invite code
+        if (filled(config('auth.register_code'))) {
+            throw new AccessDeniedHttpException('ACCOUNT REGISTRATION REQUIRES AN INVITE CODE');
+        }
 
         $referrer = $this->referralService->referrer();
         $authUser = User::create([

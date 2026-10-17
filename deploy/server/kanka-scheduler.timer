@@ -4,6 +4,7 @@ Description=Run the Kanka scheduler every minute
 [Timer]
 OnCalendar=*-*-* *:*:00
 AccuracySec=1s
+# Missed ticks while the machine was off are skipped; daily jobs run at their next slot.
 Persistent=false
 
 [Install]

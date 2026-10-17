@@ -8,3 +8,8 @@
 
 /.github export-ignore
 CHANGELOG.md export-ignore
+
+# Server scripts and configs run on Linux: keep LF even in Windows checkouts.
+*.sh text eol=lf
+/deploy/server/* text eol=lf
+/deploy/env.production.example text eol=lf

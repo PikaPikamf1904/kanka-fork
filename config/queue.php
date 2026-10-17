@@ -68,7 +68,15 @@ return [
         // hours on very large images — retry_after must exceed the longest realistic
         // job runtime, or Redis's visibility timeout re-delivers an in-flight job to
         // another worker as a spurious duplicate.
-        'heavy' => [
+        // Self-hosted installs without Redis set QUEUE_HEAVY_DRIVER=database: heavy jobs then
+        // share the "jobs" table with exports and imports (queue "heavy"), and one worker on
+        // this connection runs them all with the long retry_after.
+        'heavy' => env('QUEUE_HEAVY_DRIVER', 'redis') === 'database' ? [
+            'driver' => 'database',
+            'table' => 'jobs',
+            'queue' => 'heavy',
+            'retry_after' => (int) env('QUEUE_HEAVY_RETRY_AFTER', 21600),
+        ] : [
             'driver' => 'redis',
             'connection' => 'default',
             'queue' => env('REDIS_HEAVY_QUEUE', 'heavy'),

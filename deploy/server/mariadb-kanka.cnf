@@ -1,0 +1,29 @@
+# MariaDB tuning for Big Bertha: 4 GB RAM, old dual-core CPU, spinning HDD, shared with
+# nginx + PHP. Installed to /etc/mysql/mariadb.conf.d/90-kanka.cnf.
+[mysqld]
+# Loopback only. MariaDB is never reachable from the network.
+bind-address = 127.0.0.1
+skip-name-resolve
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+# A bigger buffer pool keeps a whole campaign in RAM so the HDD is rarely read.
+innodb_buffer_pool_size = 512M
+innodb_log_file_size = 128M
+innodb_log_buffer_size = 16M
+# Full durability: every commit reaches the disk (safe on power loss).
+innodb_flush_log_at_trx_commit = 1
+innodb_flush_method = O_DIRECT
+# Spinning disk: low IO capacity, no neighbour flushing tricks needed.
+innodb_io_capacity = 200
+innodb_io_capacity_max = 400
+innodb_flush_neighbors = 1
+
+max_connections = 40
+table_open_cache = 800
+table_definition_cache = 800
+thread_cache_size = 8
+tmp_table_size = 32M
+max_heap_table_size = 32M
+key_buffer_size = 16M
+performance_schema = OFF

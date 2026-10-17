@@ -1,18 +1,23 @@
 [Unit]
-Description=Kanka queue worker
+Description=Kanka queue worker (default queue: notifications, cleanup, small jobs)
 After=network.target mariadb.service
 Requires=mariadb.service
+# Before the first deploy there is nothing to run: skip quietly instead of crash-looping.
+ConditionPathExists=/srv/kanka/current/artisan
+# A worker that keeps crashing at boot is retried every 10 s, forever.
+StartLimitIntervalSec=0
 
 [Service]
 User=kanka
 Group=kanka
 WorkingDirectory=/srv/kanka/current
-# --max-time makes the worker restart regularly so it never grows unbounded and
-# always runs the newest release after a deploy.
-ExecStart=/usr/bin/php -d memory_limit=256M artisan queue:work database --sleep=5 --tries=3 --max-time=3600 --memory=192
+# --max-time makes the worker restart regularly so it never grows unbounded and picks
+# up a new release; release.sh also asks it to restart (queue:restart) after deploys.
+ExecStart=/usr/bin/php -d memory_limit=256M artisan queue:work database --queue=default --sleep=5 --tries=3 --timeout=75 --max-time=3600 --memory=192
 Restart=always
-RestartSec=5
+RestartSec=10
 Nice=5
+MemoryMax=400M
 
 [Install]
 WantedBy=multi-user.target

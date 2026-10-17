@@ -1,0 +1,25 @@
+# Disposable PHP 8.4 test runner that matches Big Bertha's OS (Debian 13 "trixie").
+# Used for Pest, PHPStan, Pint and Vite builds. Not a production image.
+#
+#   docker build -t kanka-test-php84 -f deploy/dev/Dockerfile.test deploy/dev
+#
+# See deploy/dev/README.md for the full local test workflow.
+FROM debian:trixie
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends \
+        ca-certificates curl git unzip rsync gnupg mariadb-client \
+        php8.4-cli php8.4-bcmath php8.4-intl php8.4-gd php8.4-zip php8.4-mbstring \
+        php8.4-xml php8.4-curl php8.4-sqlite3 php8.4-mysql php8.4-gmp php8.4-igbinary \
+        php8.4-redis \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y -qq --no-install-recommends nodejs \
+    && npm install -g yarn@1.22.22 \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN printf 'memory_limit=2G\n' > /etc/php/8.4/cli/conf.d/99-test.ini
+
+WORKDIR /app

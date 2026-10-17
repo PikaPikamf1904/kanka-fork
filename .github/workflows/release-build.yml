@@ -1,0 +1,51 @@
+name: Release build
+
+# Manual only. Builds the same release archive as deploy/local/build-release.sh on GitHub's
+# runners, as a check that a commit builds, or for when no PC with Docker is at hand.
+# Nothing is sent to the server from here: download the artifact and push it from your
+# own network with deploy/local/push-release.sh (deploy/README.md, "Updating").
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, intl, gd, zip, mbstring, xml, curl, pdo_mysql, gmp
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Build the release
+        # spatie/laravel-backup refuses to boot without APP_EMAIL; the server's .env sets the real one.
+        env:
+          APP_EMAIL: build@kanka.test
+        run: |
+          name="kanka-$(date -u +%Y%m%d-%H%M)-$(git rev-parse --short HEAD).tar.gz"
+          mkdir "$RUNNER_TEMP/build"
+          git archive --format=tar HEAD | tar -xf - -C "$RUNNER_TEMP/build"
+          cd "$RUNNER_TEMP/build"
+          composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+          yarn install --frozen-lockfile --non-interactive --silent
+          yarn build > /dev/null
+          rm -rf node_modules tests
+          mkdir "$RUNNER_TEMP/out"
+          tar -czf "$RUNNER_TEMP/out/$name" --exclude=./storage --exclude=./.env --exclude='./.env.*' .
+          (cd "$RUNNER_TEMP/out" && sha256sum "$name" > "$name.sha256" && ls -lh)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kanka-release
+          path: ${{ runner.temp }}/out/
+          retention-days: 7

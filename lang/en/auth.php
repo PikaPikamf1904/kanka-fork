@@ -48,10 +48,12 @@ return [
     'register'  => [
         'already'   => 'Already have an account? :login',
         'errors'    => [
+            'code'          => 'That invite code is not right. Ask whoever runs this wiki for it.',
             'general_error' => 'An error occurred while registering your account. Please try again.',
             'unavailable'   => 'An account for :email is already registered with another login method.',
         ],
         'fields'    => [
+            'code'      => 'Invite code',
             'email'     => 'Email',
             'name'      => 'Username',
             'password'  => 'Password',

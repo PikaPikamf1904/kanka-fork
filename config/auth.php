@@ -107,6 +107,12 @@ return [
     'register_enabled' => env('APP_REGISTRATION_ENABLED', true),
 
     /**
+     * Self-hosting: when set, signing up requires this invite code, and new accounts
+     * through Google/Facebook/X are refused (they cannot ask for it)
+     */
+    'register_code' => env('APP_REGISTRATION_CODE'),
+
+    /**
      * If set to true, show a dropdown of users for the login instead of a text field
      */
     'user_list' => env('APP_LOGIN_LIST', false),

@@ -1,0 +1,29 @@
+[Unit]
+Description=Kanka heavy queue worker (map tiling, campaign exports and imports)
+After=network.target mariadb.service
+Requires=mariadb.service
+# Before the first deploy there is nothing to run: skip quietly instead of crash-looping.
+ConditionPathExists=/srv/kanka/current/artisan
+StartLimitIntervalSec=0
+
+[Service]
+User=kanka
+Group=kanka
+WorkingDirectory=/srv/kanka/current
+# One job at a time, then a fresh process (--max-jobs=1) so a big export or map never
+# leaves memory behind. --timeout stays below the connection's retry_after (21600 s) so
+# a long tiling job is never handed to a second worker.
+ExecStart=/usr/bin/php -d memory_limit=1024M artisan queue:work heavy --queue=heavy --sleep=10 --tries=3 --timeout=21000 --max-jobs=1 --memory=900
+Restart=always
+RestartSec=5
+# Keep the website responsive while a job runs: low CPU and disk priority, capped RAM.
+Nice=15
+CPUWeight=20
+IOSchedulingClass=idle
+MemoryHigh=1200M
+MemoryMax=1600M
+# Let a running job finish its current step on shutdown before it is killed.
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
