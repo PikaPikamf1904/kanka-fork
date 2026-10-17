@@ -24,7 +24,9 @@ $text = function (string $key) use ($attributes, $values): string {
 $number = fn (string $key) => $values[$key] === null ? '—' : (string) $values[$key];
 $identity = array_keys(Dnd2024Sheet::IDENTITY);
 ?>
-<div class="character-sheet flex flex-col gap-5 print:gap-3" data-sheet="dnd2024">
+{{-- Columns follow the sheet's own width (container queries), as the sidebar and the entity menu
+     leave it much less room than the screen width suggests on tablets. --}}
+<div class="character-sheet @container flex flex-col gap-5 print:gap-3" data-sheet="dnd2024">
     @if (empty(array_filter($attributes)))
         <x-box>
             <p class="m-0">{{ __('entities/sheet.empty') }}</p>
@@ -33,7 +35,7 @@ $identity = array_keys(Dnd2024Sheet::IDENTITY);
 
     <x-box class="character-sheet-identity print:shadow-none">
         <h3 class="text-lg m-0 mb-3 font-semibold">{{ __('entities/sheet.groups.identity') }}</h3>
-        <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 m-0">
+        <dl class="grid grid-cols-2 @sm:grid-cols-3 @2xl:grid-cols-4 gap-3 m-0">
             @foreach ($identity as $key)
                 <div class="flex flex-col gap-0.5 min-w-0" data-field="{{ $key }}">
                     <dt class="text-xs uppercase tracking-wide text-neutral-content">{{ $fields[$key]['base'] }}</dt>
@@ -55,7 +57,7 @@ $identity = array_keys(Dnd2024Sheet::IDENTITY);
 
     <section class="character-sheet-abilities" aria-labelledby="sheet-abilities">
         <h3 id="sheet-abilities" class="text-lg m-0 mb-3 font-semibold">{{ __('entities/sheet.groups.abilities') }}</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 print:grid-cols-6">
+        <div class="grid grid-cols-2 @sm:grid-cols-3 @3xl:grid-cols-6 gap-3 print:grid-cols-6">
             @foreach (Dnd2024Sheet::ABILITIES as $ability => $name)
                 <div class="rounded-lg bg-box shadow-xs p-3 flex flex-col items-center gap-1 text-center print:shadow-none print:border" data-ability="{{ $ability }}">
                     <span class="text-xs uppercase tracking-wide text-neutral-content">{{ $name }}</span>
@@ -75,7 +77,7 @@ $identity = array_keys(Dnd2024Sheet::IDENTITY);
         </div>
     </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 print:grid-cols-2">
+    <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-5 print:grid-cols-2">
         <x-box class="character-sheet-skills print:shadow-none">
             <h3 class="text-lg m-0 mb-1 font-semibold">{{ __('entities/sheet.groups.skills') }}</h3>
             <p class="text-xs text-neutral-content m-0 mb-3 print:hidden">{{ __('entities/sheet.helpers.skills') }}</p>
@@ -97,8 +99,8 @@ $identity = array_keys(Dnd2024Sheet::IDENTITY);
         </x-box>
 
         <div class="flex flex-col gap-5 print:gap-3">
-            <x-box class="character-sheet-senses print:shadow-none">
-                <dl class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-1 lg:grid-cols-3 gap-3 m-0">
+            <x-box class="character-sheet-senses @container print:shadow-none">
+                <dl class="grid grid-cols-1 @2xs:grid-cols-3 gap-3 m-0">
                     <div class="flex flex-col gap-0.5" data-computed="passive_perception">
                         <dt class="text-xs uppercase tracking-wide text-neutral-content">{{ __('entities/sheet.computed.passive_perception') }}</dt>
                         <dd class="m-0 text-xl font-semibold">{{ $computed['passive_perception'] ?? '—' }}</dd>
@@ -126,7 +128,7 @@ $identity = array_keys(Dnd2024Sheet::IDENTITY);
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 print:block">
+    <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-5 print:block">
         @foreach (['features', 'equipment', 'spells', 'backstory'] as $key)
             <x-box class="print:shadow-none print:mb-3" data-field="{{ $key }}">
                 <h3 class="text-lg m-0 mb-2 font-semibold">{{ $fields[$key]['base'] }}</h3>
@@ -135,5 +137,5 @@ $identity = array_keys(Dnd2024Sheet::IDENTITY);
         @endforeach
     </div>
 
-    <p class="text-xs text-neutral-content m-0 character-sheet-attribution">{{ __('entities/sheet.attribution') }}</p>
+    <p class="text-xs text-neutral-content m-0 break-words character-sheet-attribution">{{ __('entities/sheet.attribution') }}</p>
 </div>
