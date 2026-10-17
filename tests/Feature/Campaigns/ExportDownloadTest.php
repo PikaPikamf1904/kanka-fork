@@ -11,6 +11,8 @@ use App\Models\CampaignRoleUser;
 use App\Models\CampaignUser;
 use App\Models\Character;
 use App\Models\User;
+use App\Services\Campaign\Exports\QueueService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -230,4 +232,44 @@ it('stores a real export privately and cleans it up from the same disk', functio
         return true;
     });
     Storage::disk('s3')->assertMissing($export->path);
+});
+
+it('runs a queued export on the heavy queue worker', function () {
+    // The self-hosted setup (deploy/env.production.example): both connections use the
+    // database "jobs" table, and kanka-queue-heavy runs "queue:work heavy --queue=heavy".
+    config([
+        'queue.default' => 'database',
+        'queue.connections.heavy' => [
+            'driver' => 'database',
+            'table' => 'jobs',
+            'queue' => 'heavy',
+            'retry_after' => 21600,
+            'after_commit' => false,
+        ],
+    ]);
+    Notification::fake();
+    $this->asUser()->withCampaign();
+    Character::factory()->count(3)->create(['campaign_id' => 1]);
+
+    app(QueueService::class)->campaign(Campaign::find(1))->user(auth()->user())->queue();
+    expect(DB::table('jobs')->where('queue', 'heavy')->count())->toBe(1);
+
+    $this->artisan('queue:work', ['connection' => 'heavy', '--queue' => 'heavy', '--once' => true])
+        ->assertExitCode(0);
+
+    $export = CampaignExport::sole();
+    expect($export->finished())->toBeTrue()
+        ->and(DB::table('jobs')->where('queue', 'heavy')->count())->toBe(0)
+        ->and(DB::table('failed_jobs')->count())->toBe(0);
+    Storage::disk('s3')->assertExists($export->path);
+    expect(Storage::disk('s3')->visibility($export->path))->toBe('private');
+
+    // The clean-up waits on the default queue (kanka-queue) until the export expires.
+    $cleanup = DB::table('jobs')->where('queue', 'default')->sole();
+    expect($cleanup->payload)->toContain('FileCleanup')
+        ->and($cleanup->available_at)->toBeGreaterThan(now()->addHours((int) config('limits.campaigns.export') - 1)->timestamp);
+
+    $this->get(route('campaign.export-download', [1, $export]))
+        ->assertOk()
+        ->assertDownload(basename($export->path));
 });
