@@ -48,4 +48,6 @@ git archive --format=tar "$ref" | docker run --rm -i \
         rm -rf node_modules tests
         tar -czf "/out/$NAME" --exclude=./storage --exclude=./.env --exclude="./.env.*" .
     '
+(cd "$out" && sha256sum "$name" > "$name.sha256")
 ls -lh "$out/$name"
+cat "$out/$name.sha256"

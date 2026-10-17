@@ -15,6 +15,8 @@ set -euo pipefail
 
 BASE=${KANKA_BASE:-/srv/kanka}
 KEEP=${KANKA_KEEP_RELEASES:-3}
+# The live release and the one before it (for --rollback) are always kept.
+[[ "$KEEP" =~ ^[0-9]+$ ]] && [ "$KEEP" -ge 2 ] || { echo "KANKA_KEEP_RELEASES must be a number of at least 2"; exit 1; }
 HEALTH_BASE=${KANKA_HEALTH_BASE:-http://127.0.0.1}
 SUDO=${KANKA_SUDO-sudo -n}
 
@@ -101,6 +103,17 @@ newest_db_backup() {
     echo "$archive"
 }
 
+# Rows in the migrations table (0 when the table does not exist yet), read with the given
+# release's code. Used to refuse --first-install on a database that already holds Kanka.
+db_migration_count() {
+    (cd "$1" && php -r '
+        require "vendor/autoload.php";
+        $app = require "bootstrap/app.php";
+        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+        echo Illuminate\Support\Facades\Schema::hasTable("migrations")
+            ? Illuminate\Support\Facades\DB::table("migrations")->count() : 0;')
+}
+
 restore_hint() {
     log "the database has migrations this code never ran:"
     sed 's/^/[release]   /' <<<"$1"
@@ -149,6 +162,19 @@ first_install=false
 [ "${3:-}" = "--first-install" ] && first_install=true
 
 [ -f "$BASE/shared/.env" ] || { log "missing $BASE/shared/.env (run provision.sh first)"; exit 1; }
+[ -f "$tarball" ] || { log "no such archive: $tarball"; exit 1; }
+if $first_install && [ -e "$BASE/current" ]; then
+    log "a release is already live; --first-install is only for the very first deploy. Not deploying."
+    exit 1
+fi
+
+# build-release.sh writes <archive>.sha256 next to the archive; check it when it came along.
+if [ -f "$tarball.sha256" ]; then
+    expected=$(awk '{print $1; exit}' "$tarball.sha256")
+    actual=$(sha256sum "$tarball" | awk '{print $1}')
+    [ "$expected" = "$actual" ] || { log "checksum mismatch for $tarball; the upload is damaged. Not deploying."; exit 1; }
+    log "checksum ok"
+fi
 
 id="$(date -u +%Y%m%d%H%M%S)-${label//[^A-Za-z0-9._-]/}"
 release="$BASE/releases/$id"
@@ -168,18 +194,29 @@ chmod 755 "$storage/app/public"
 rm -rf "$release/storage"
 ln -s "$storage" "$release/storage"
 ln -sfn "$BASE/shared/.env" "$release/.env"
-ln -sfn ../storage/app/public "$release/public/storage"
+rm -rf "$release/public/storage"
+ln -s ../storage/app/public "$release/public/storage"
 
 cd "$release"
 artisan() { php artisan "$@" --no-interaction; }
 
 if [ ! -f "$storage/oauth-private.key" ]; then
     log "generating Passport keys"
-    artisan passport:keys
+    # umask: the private key is never readable by others, not even for a moment.
+    (umask 077 && artisan passport:keys)
     chmod 600 "$storage"/oauth-*.key
 fi
 
 if $first_install; then
+    # Seeding a database that already holds Kanka would add duplicate reference data, and
+    # there would be no backup first. Only an empty database gets the first-install path.
+    count=$(db_migration_count "$release") || { log "could not read the database; check $BASE/shared/.env"; rm -rf "$release"; exit 1; }
+    if [ "$count" != "0" ]; then
+        log "the database already has $count migrations; --first-install is only for an empty database."
+        log "deploy without --first-install (that path backs the database up first). Not deploying."
+        rm -rf "$release"
+        exit 1
+    fi
     log "first install: migrating and seeding reference data"
     artisan migrate --force
     artisan db:seed --force

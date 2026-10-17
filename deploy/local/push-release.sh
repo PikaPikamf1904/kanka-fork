@@ -23,9 +23,21 @@ flag=""
 [ "${1:-}" = "--first-install" ] && flag="--first-install"
 
 name=$(basename "$archive")
-label=$(sed -E 's/^kanka-[0-9]+-[0-9]+-([0-9a-f]+)\.tar\.gz$/\1/' <<<"$name")
+# Only names build-release.sh makes: they go into a remote command line below.
+[[ "$name" =~ ^kanka-[0-9]+-[0-9]+-([0-9a-f]+)\.tar\.gz$ ]] || { echo "$name is not a build-release.sh archive name"; exit 1; }
+label=${BASH_REMATCH[1]}
 remote="/srv/kanka/uploads/$name"
 
+# build-release.sh writes a checksum next to the archive; kanka-release checks it again
+# after the upload.
+files=("$archive")
+if [ -f "$archive.sha256" ]; then
+    (cd "$(dirname "$archive")" && sha256sum -c --quiet "$name.sha256") || { echo "$name does not match its checksum"; exit 1; }
+    files+=("$archive.sha256")
+else
+    echo "note: no $name.sha256; the upload is not checksummed"
+fi
+
 echo "uploading $name to $target"
-scp -q "$archive" "$target:$remote"
-ssh "$target" "kanka-release '$remote' '$label' $flag && rm -f '$remote'"
+scp -q "${files[@]}" "$target:/srv/kanka/uploads/"
+ssh "$target" "kanka-release '$remote' '$label' $flag && rm -f '$remote' '$remote.sha256'"

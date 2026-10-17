@@ -23,6 +23,11 @@ if [ -f "$pubkey" ]; then
         *.pub) ;;
         *) echo "$pubkey is not a .pub file; refusing to send it"; exit 1 ;;
     esac
+    # A private key wrongly named .pub must never leave this computer.
+    if [ "$(grep -c . "$pubkey")" -ne 1 ] || ! grep -qE '^(ssh-|ecdsa-|sk-)[A-Za-z0-9@.-]+ [A-Za-z0-9+/=]+' "$pubkey"; then
+        echo "$pubkey does not hold a single public key line; refusing to send it"
+        exit 1
+    fi
     cp "$pubkey" "$stage/deploy.pub"
     echo "including your public key $pubkey"
 else
