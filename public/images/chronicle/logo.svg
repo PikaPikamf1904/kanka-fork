@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="chronicle-logo-title">
+  <title id="chronicle-logo-title">Chronicle</title>
+  <rect width="64" height="64" rx="12" fill="#f1e4c3"/>
+  <path d="M32 3 34.2 13.8 45 16 34.2 18.2 32 29 29.8 18.2 19 16 29.8 13.8Z" fill="#b8892e"/>
+  <path d="M31 33C25 29 15 29 8 31V52C15 50 25 50 31 54Z" fill="#1f3a5f"/>
+  <path d="M33 33C39 29 49 29 56 31V52C49 50 39 50 33 54Z" fill="#1f3a5f"/>
+  <path d="M13 36C18 35 23 35.500 27 37.500M13 41C18 40 23 40.500 27 42.500M51 36C46 35 41 35.500 37 37.500M51 41C46 40 41 40.500 37 42.500" fill="none" stroke="#f1e4c3" stroke-width="1.600" stroke-linecap="round"/>
+</svg>
