@@ -7,7 +7,24 @@ Sources: `Kanka-CE/kanka-community-edition` (`nightly`), `Kanka-CE/kanka-ce-depl
 ## Verdict
 
 **Keep our native Debian deployment. Borrow two ideas from Kanka-CE, re-implemented and tested here.
-Adopt none of its code or containers.**
+Adopt none of its code or containers.** The premium unlock stays out until Owlchester grants it in
+writing (see "Premium unlock" below). Rechecked 2026-10-17.
+
+## Licence and permission
+
+- `LICENSE` is the Commons Clause v1.0 condition alone (licensor Owlchester SNC). It restricts selling
+  but names no base licence, so it does not itself grant the right to copy, modify or run Kanka.
+  `composer.json` says `"license": "proprietary"`.
+- Upstream `docs/running.md` documents self-hosting and offers limited help with local installs,
+  which strongly suggests a private, noncommercial install is expected. It is still an inference.
+- On premium, the same page says self-hosted instances have "no support for premium campaigns and
+  subscriber bonuses", and that the team gives no paid help "enabling premium features". That is a
+  statement about support, not a permission. Nothing found grants permission to unlock premium.
+- Kanka-CE claims no agreement with Owlchester. Its READMEs say it is unaffiliated, keep the Commons
+  Clause and ask users to support the official project. CE's choice to unlock premium is CE's own,
+  and it gives us no rights.
+- **Status: unresolved.** Keep `LICENSE`, the Commons Clause notice and attribution as they are.
+  The questions to send Owlchester are at the end of this file.
 
 ## Version compatibility
 
@@ -38,7 +55,7 @@ The container approach costs more memory, exposes more ports and has weaker upda
 
 | Patch | Decision |
 |---|---|
-| `Enable-Premium` (boosts = 100, subscriber = true) | **Rejected.** Bypasses premium entitlements. |
+| `Enable-Premium` (boosts = 100, subscriber = true) | **Not applied.** Bypasses premium entitlements; permission unresolved. It also no longer fits our code (below). |
 | `Add-optional-invite-password` | **Idea adopted**, rewritten: constant-time compare, throttled, off by default. |
 | `user:add` artisan command | **Idea adopted**, rewritten: uses Kanka's own user creation, no hard-coded role ids. |
 | Email try/catch, `APP_EMAIL_ENABLED` | Not needed: we use `MAIL_DRIVER=log`. |
@@ -47,6 +64,65 @@ The container approach costs more memory, exposes more ports and has weaker upda
 | `EntityEventTypes::none = 1` | Not needed: fresh installs seed ids 2–5 only; id 1 exists only in old imported data. |
 | MinIO filesystem | Not needed: local disk. |
 | Font Awesome swap (`fa-duotone` → `fa-solid`) | Later, as a CSS fallback. CE's kit route needs a fontawesome.com account, which we avoid. |
+
+### Do the patches still apply?
+
+Dry run with `patch -p1 --dry-run` (the tool CE's `apply-patches.sh` uses) against `develop` and
+against our branch, 2026-10-17. Results were the same for both.
+
+| Patch | Result |
+|---|---|
+| MinIO filesystem, invite password, `user:add`, entity event enum, default email, timezone | apply |
+| Email: don't fail on send errors | fails (`WelcomeEmailJob` changed upstream) |
+| Email: don't mail upstream admins | fails (`SubscriptionCreatedEmailJob` changed upstream) |
+| **Enable-Premium** | **fails**: it edits `app/Models/Concerns/UserBoosters.php`, which upstream renamed to `UserBenefits.php` (methods `availableBenefits`, `maxBenefits`, limits now in `config/limits.php`) in `9da77fec0` on 2026-09-18 |
+
+CE's script stops at the first failed patch, so CE cannot currently build from our code (or from
+current upstream). CE `nightly`
+works only because it pins upstream at 2026-09-14, before the rename.
+
+The Enable-Premium patch is also blunt beyond the boost count. It makes `isSubscriber()`,
+`isElemental()` and `hasManualSubscription()` return true for every user, so billing and
+subscription screens report a manual Elemental subscription that does not exist. If only the
+`User.php` half applied, every user would count as a subscriber while still having no benefits
+to spend.
+
+## Premium unlock
+
+**Not done, and not to be done until Owlchester grants permission in writing.** This section only
+records how it could be added cleanly once that permission exists, so the choice is ready to make.
+
+Premium is per campaign: `campaigns.boost_count` of 4 or more (`app/Models/Concerns/Boosted.php`).
+Kanka's own `BoostService::premium()` sets it by recording four `campaign_boosts` from a user with
+benefits to spend. The checks are spread over about 240 call sites (see
+`docs/dragonlance/first-pass-audit.md`).
+
+If permission is granted, the least invasive route is **not** CE's patch:
+
+1. Change no enforcement code. Give the DM account benefits through the mechanism Kanka already has
+   for its own staff to give benefits to community members (the per-user grant read by
+   `UserBenefits::maxBenefits()`).
+2. Make the campaign premium through the normal Settings → Premium screen, so `BoostService` writes
+   the usual records.
+3. Record in this file what was granted, by whom, and the date of Owlchester's permission.
+
+Why this way: no upstream file changes, so merges stay clean; it can be undone from the same screen;
+billing state stays truthful; tests and PHPStan see unmodified code. A model patch like CE's breaks
+on the next upstream rename, as it already has.
+
+Until then, the Dragonlance work (graph, theme, character sheets) is built to work on a campaign
+without premium and must not change any `boosted()`, `superboosted()` or `premium()` check.
+
+## Questions for Owlchester
+
+For the owner of this install to send (Claude has not contacted anyone):
+
+1. Which licence does the Commons Clause in `LICENSE` modify? `composer.json` says "proprietary".
+2. Is a private, noncommercial, self-hosted fork for one gaming group allowed, with the licence and
+   attribution kept?
+3. On such an install, may we enable premium for our own campaign without a subscription? If yes,
+   by which method do you prefer (for example, the built-in benefits grant)?
+4. Are we allowed to keep the fork's source in a public GitHub repository?
 
 ## Trail-Code
 
