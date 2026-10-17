@@ -10,6 +10,7 @@ In the server's environment file:
 ENTRANCE_ENABLED=true
 ENTRANCE_MANAGER_IDS=<your user id>      # comma separated; may change the password from the web
 ENTRANCE_REMEMBER_DAYS=30                # optional
+ENTRANCE_HOME=/w/1                       # optional: where visitors land after entering
 ```
 
 Then clear the config cache (`php artisan config:cache`). The entrance is off by default.
@@ -32,5 +33,5 @@ Changing the password makes everyone enter again. The hash is kept in `storage/a
 
 - Uploaded images under `/storage` are static files served directly by the web server. They are **not** gated by the entrance. Their paths are random, but anyone holding a direct link can load them.
 - Use HTTPS. The entrance cookie is only marked Secure when the request is HTTPS (or `SESSION_SECURE_COOKIE=true`).
-- The API (`/api`), webhooks and OAuth endpoints are not behind the entrance; they have their own authentication.
+- The API (`/api/1.0`), webhooks and OAuth endpoints are not behind the entrance; they have their own authentication. The public discovery API (`/api/public/*`, which lists public campaigns) answers 404 while the entrance is on.
 - Failed attempts are limited to 5 per minute and 30 per hour per IP. Failures are logged as "Failed entrance attempt" with the IP only.

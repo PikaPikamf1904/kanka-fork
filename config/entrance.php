@@ -9,6 +9,10 @@ return [
 
     'remember_days' => (int) env('ENTRANCE_REMEMBER_DAYS', 30),
 
+    // Where visitors land after entering, such as the campaign's page ("/w/1"). A path on this
+    // site only. Guests who open "/" would otherwise be sent on to the sign-in page.
+    'home' => env('ENTRANCE_HOME', '/'),
+
     // User ids who may change the entrance password from the web (comma separated in the env).
     'managers' => array_values(array_map(
         'intval',

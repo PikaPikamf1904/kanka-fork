@@ -222,3 +222,15 @@ it('closes the public discovery API while the entrance is on', function () {
     $this->getJson('/api/public/campaigns')->assertNotFound();
     $this->getJson('/api/public/showcase')->assertNotFound();
 });
+
+it('sends visitors to the configured landing page, but only on this site', function () {
+    $service = entranceBoot();
+    Config::set('entrance.home', '/w/1');
+    $this->post(route('entrance.enter'), ['password' => ENTRANCE_TEST_SECRET])->assertRedirect('/w/1');
+
+    foreach (['https://evil.example', '//evil.example', '/\evil.example'] as $outside) {
+        Config::set('entrance.home', $outside);
+        $this->withCookie(config('entrance.cookie'), entranceGrantPayload($service))
+            ->get(route('entrance.show'))->assertRedirect('/');
+    }
+});

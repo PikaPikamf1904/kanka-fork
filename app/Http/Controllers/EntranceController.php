@@ -15,7 +15,7 @@ class EntranceController extends Controller
     public function show(Request $request): View|RedirectResponse
     {
         if (auth()->check() || $this->entrance->hasValidGrant($request)) {
-            return redirect('/');
+            return redirect($this->home());
         }
 
         return view('entrance.show', ['configured' => $this->entrance->isConfigured()]);
@@ -37,7 +37,7 @@ class EntranceController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended('/')->withCookie($this->entrance->grantCookie());
+        return redirect()->intended($this->home())->withCookie($this->entrance->grantCookie());
     }
 
     public function leave(Request $request): RedirectResponse
@@ -45,5 +45,13 @@ class EntranceController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('entrance.show')->withCookie($this->entrance->forgetCookie());
+    }
+
+    /** The configured landing page, kept to a path on this site. */
+    protected function home(): string
+    {
+        $home = (string) config('entrance.home', '/');
+
+        return str_starts_with($home, '/') && ! str_starts_with($home, '//') && ! str_contains($home, '\\') ? $home : '/';
     }
 }
