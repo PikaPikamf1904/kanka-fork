@@ -98,6 +98,8 @@ return [
             'provider' => 'users',
             'table' => 'password_resets',
             'expire' => 60,
+            // Seconds before another reset email can be sent for the same account
+            'throttle' => 60,
         ],
     ],
 

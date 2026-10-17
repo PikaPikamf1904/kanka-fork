@@ -114,6 +114,11 @@ if [ -f "$ENV_FILE" ]; then
         && pass ".env is private to $APP_USER" || fail ".env is $(mode_of "$ENV_FILE") owned by $(owner_of "$ENV_FILE")"
     [ "$(env_value APP_ENV)" = "production" ] && pass "APP_ENV=production" || fail "APP_ENV is not production"
     [ "$(env_value APP_DEBUG)" = "false" ] && pass "APP_DEBUG=false" || fail "APP_DEBUG is not false (shows internals on errors)"
+    # The app ignores it in production too, but a stray "true" means a dev .env was copied.
+    case "$(env_value APP_LOGIN_LIST)" in
+        "" | false | "(false)" | 0 | null | "(null)" | empty | "(empty)") pass "APP_LOGIN_LIST is off" ;;
+        *) fail "APP_LOGIN_LIST is on (a development shortcut that logs anyone in as any user)" ;;
+    esac
     for key in APP_KEY DB_PASSWORD BACKUP_ARCHIVE_PASSWORD; do
         value=$(env_value "$key")
         if [ -z "$value" ] || [[ "$value" == CHANGE_ME* ]]; then fail "$key is not set"; else pass "$key is set"; fi
