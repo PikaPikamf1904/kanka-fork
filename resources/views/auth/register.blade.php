@@ -65,6 +65,14 @@
                 <span class="text-red-500">{{ $errors->first('password') }}</span>
             @endif
         </div>
+        @if (filled(config('auth.register_code')))
+            <div class="has-feedback{{ $errors->has('registration_code') ? ' has-error' : '' }}">
+                <input id="registration_code" autocomplete="off" type="text" class="rounded border p-2 w-full dark:bg-slate-800 dark:border-slate-500" name="registration_code" value="" placeholder="{{ __('auth.register.fields.code') }}" required>
+                @if ($errors->has('registration_code'))
+                    <span class="text-red-500">{{ $errors->first('registration_code') }}</span>
+                @endif
+            </div>
+        @endif
         <div class="">
             <div class="text-gray-500 text-sm">
                 <label for="newsletter" class="dark:text-slate-200">
