@@ -33,6 +33,6 @@ return [
     'status'            => 'Service status',
     'terms'             => 'Terms',
     'thanks'            => 'Only possible thanks to our subscribers.',
-    'translator_call'   => 'Kanka is translated in other languages thanks to our amazing community. If you want to help translate Kanka into your language, contact us over on our :discord!',
+    'translator_call'   => 'Chronicle is translated in other languages thanks to our amazing community. If you want to help translate Chronicle into your language, contact us over on our :discord!',
     'whats-new'         => 'What\'s new',
 ];

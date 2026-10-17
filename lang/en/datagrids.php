@@ -28,7 +28,7 @@ return [
     ],
     'subscription'  => [
         'cta'       => 'Explore subscriptions',
-        'helper'    => 'See up to :max entities at a glance with a Kanka subscription, plus a ton of other perks to supercharge your worldbuilding.',
+        'helper'    => 'See up to :max entities at a glance with a Chronicle subscription, plus a ton of other perks to supercharge your worldbuilding.',
         'title'     => 'Subscription required',
     ],
     'tooltips'      => [
