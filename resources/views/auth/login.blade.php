@@ -15,13 +15,13 @@
     @endif
 
 
-    @if(config('auth.user_list'))
+    @if(\App\Http\Controllers\Auth\LoginController::userListEnabled())
         <ul class="">
             @foreach (\App\Models\User::with('passwordSecurity')->limit(10)->orderBy('last_login_at', 'desc')->get() as $user)
                 <li>
                     @if ($user->passwordSecurity) <i class="fa-solid fa-qrcode" data-tooltip="2FA enabled"></i> @endif
                     <a href="{{ route('login-as-user', ['user' => $user]) }}" class="text-blue-500 hover:text-blue-900">
-                        {!! $user->name !!} @if ($user->pledge) ({!! $user->pledge !!}) @endif
+                        {{ $user->name }} @if ($user->pledge) ({{ $user->pledge }}) @endif
                     </a>
                 </li>
             @endforeach
@@ -31,7 +31,7 @@
             {{ csrf_field() }}
             <select id="user" name="user" class="rounded border p-2 w-full dark:bg-slate-800 dark:border-slate-500">
                 @foreach (\App\Models\User::limit(30)->get() as $user)
-                    <option value="{{ $user->id }}">{!! $user->name !!} @if ($user->pledge) ({!! $user->pledge !!}) @endif</option>
+                    <option value="{{ $user->id }}">{{ $user->name }} @if ($user->pledge) ({{ $user->pledge }}) @endif</option>
                 @endforeach
             </select>
 

@@ -45,7 +45,7 @@ class LoginController extends Controller
      */
     public function loginAsUser(Request $request, User $user)
     {
-        if (! config('auth.user_list')) {
+        if (! self::userListEnabled()) {
             return redirect()->route('login');
         }
 
@@ -59,14 +59,23 @@ class LoginController extends Controller
      */
     public function loginAs(Request $request)
     {
-        if (! config('auth.user_list')) {
+        if (! self::userListEnabled()) {
             return redirect()->route('login');
         }
 
-        $user = User::where('id', $request->get('user'))->first();
+        $user = User::where('id', $request->get('user'))->firstOrFail();
         Auth::login($user, true);
 
         return $this->sendLoginResponse($request);
+    }
+
+    /**
+     * The user list logs anyone in as any account without a password. It is a
+     * development shortcut, so it never works in production, whatever the .env says.
+     */
+    public static function userListEnabled(): bool
+    {
+        return config('auth.user_list') && ! app()->isProduction();
     }
 
     protected function authenticated(Request $request, $user)
