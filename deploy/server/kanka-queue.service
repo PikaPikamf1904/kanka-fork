@@ -1,0 +1,18 @@
+[Unit]
+Description=Kanka queue worker
+After=network.target mariadb.service
+Requires=mariadb.service
+
+[Service]
+User=kanka
+Group=kanka
+WorkingDirectory=/srv/kanka/current
+# --max-time makes the worker restart regularly so it never grows unbounded and
+# always runs the newest release after a deploy.
+ExecStart=/usr/bin/php -d memory_limit=256M artisan queue:work database --sleep=5 --tries=3 --max-time=3600 --memory=192
+Restart=always
+RestartSec=5
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

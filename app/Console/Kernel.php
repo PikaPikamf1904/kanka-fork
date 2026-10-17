@@ -19,6 +19,8 @@ use App\Console\Commands\Subscriptions\EndFreeTrials;
 use App\Console\Commands\Subscriptions\EndSubscriptions;
 use App\Console\Commands\Subscriptions\PaypalExpiringCommand;
 use App\Console\Commands\Users\RegenerateDiscordToken;
+use App\Models\ApiLog;
+use App\Models\UserLog;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -38,17 +40,14 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('model:prune')->onOneServer()->daily();
-        $schedule->command(SendOnboardingEmails::class)
-            ->onOneServer()
-            ->withoutOverlapping(20)
-            ->everyFifteenMinutes();
+        // User and API logs live in the optional logs database.
+        $schedule->command('model:prune', config('logging.enabled') ? [] : [
+            '--except' => [UserLog::class, ApiLog::class],
+        ])->onOneServer()->daily();
         $schedule->command(CalendarAdvancer::class)->onOneServer()->daily();
-        $schedule->command(AnonymiseUserLogs::class)->onOneServer()->daily();
-        $schedule->command(EndSubscriptions::class)->onOneServer()->dailyAt('00:05')->sentryMonitor();
-        $schedule->command(EndFreeTrials::class)->onOneServer()->dailyAt('00:01');
-        $schedule->command(PaypalExpiringCommand::class)->onOneServer()->dailyAt('06:30');
-        $schedule->command(RegenerateDiscordToken::class)->onOneServer()->dailyAt('00:15');
+        if (config('logging.enabled')) {
+            $schedule->command(AnonymiseUserLogs::class)->onOneServer()->daily();
+        }
         $schedule->command(VisibileEntityCountCommand::class)->onOneServer()->dailyAt('01:00');
         $schedule->command(CleanupTrashed::class)->onOneServer()->dailyAt('01:15');
         $schedule->command('backup:clean')->onOneServer()->dailyAt('01:20');
@@ -58,10 +57,22 @@ class Kernel extends ConsoleKernel
         $schedule->command('backup:run')->onOneServer()->twiceDaily(2, 14);
 
         $schedule->command(ImportS3CleanupCommand::class)->onOneServer()->weekly();
-        $schedule->command(Onboarding::class)->onOneServer()->weekly();
-        $schedule->command(Churn::class)->onOneServer()->weekly();
-        // $schedule->command(Accounts::class)->onOneServer()->weekly();
-        $schedule->command(Weekly::class)->onOneServer()->weekly();
+
+        // kanka.io service tasks: subscriptions, marketing emails and team reports
+        if (config('app.saas_schedule')) {
+            $schedule->command(SendOnboardingEmails::class)
+                ->onOneServer()
+                ->withoutOverlapping(20)
+                ->everyFifteenMinutes();
+            $schedule->command(EndSubscriptions::class)->onOneServer()->dailyAt('00:05')->sentryMonitor();
+            $schedule->command(EndFreeTrials::class)->onOneServer()->dailyAt('00:01');
+            $schedule->command(PaypalExpiringCommand::class)->onOneServer()->dailyAt('06:30');
+            $schedule->command(RegenerateDiscordToken::class)->onOneServer()->dailyAt('00:15');
+            $schedule->command(Onboarding::class)->onOneServer()->weekly();
+            $schedule->command(Churn::class)->onOneServer()->weekly();
+            // $schedule->command(Accounts::class)->onOneServer()->weekly();
+            $schedule->command(Weekly::class)->onOneServer()->weekly();
+        }
 
         // $schedule->command('backup:monitor')->daily()->at('03:00');
 
