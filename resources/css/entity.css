@@ -55,3 +55,22 @@ mark.kanka-search-highlight {
     border-radius: 0.15rem;
     padding-inline: 0.1rem;
 }
+
+/**
+ * On tablets (md up to lg) the campaign sidebar stays open, which leaves the entity page about 480px
+ * for its menu, entry and pins columns, and the entry got squeezed to a word per line. There the pins
+ * go below, laid out as on phones, and the entry takes the rest of the row.
+ */
+@media (width >= 48rem) and (width < 64rem) {
+    .entity-body {
+        flex-wrap: wrap;
+    }
+    .entity-body > .entity-main-block {
+        flex: 1 1 0;
+    }
+    .entity-body > .entity-sidebar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+}
