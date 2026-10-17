@@ -6,6 +6,7 @@
 #   deploy/dev/run.sh sync                       copy the checkout into the volume
 #   deploy/dev/run.sh setup                      sync + composer install + Passport test keys
 #   deploy/dev/run.sh pest [args]                sync + full Pest suite (does not stop on failure)
+#   deploy/dev/run.sh pest-mariadb [args]        same, against a throwaway MariaDB instead of SQLite
 #   deploy/dev/run.sh exec <command...>          sync + any command, e.g. "vendor/bin/phpstan analyse"
 #
 # Works from Git Bash on Windows and from Linux/macOS shells.
@@ -54,11 +55,23 @@ case "$cmd" in
         in_container "$SYNC && sed 's/stopOnFailure=\"true\"/stopOnFailure=\"false\"/' phpunit.xml > phpunit.nostop.xml \
             && vendor/bin/pest -c phpunit.nostop.xml --colors=never $*"
         ;;
+    pest-mariadb)
+        # Same as "pest", but against a fresh MariaDB started inside the container (root over
+        # its Unix socket, no password, no network). Gone when the container exits.
+        in_container "$SYNC && sed 's/stopOnFailure=\"true\"/stopOnFailure=\"false\"/' phpunit.xml > phpunit.nostop.xml \
+            && install -d -o mysql -g mysql /run/mysqld \
+            && mariadb-install-db --user=mysql --datadir=/tmp/mariadb --auth-root-authentication-method=socket >/dev/null \
+            && { mariadbd --user=mysql --datadir=/tmp/mariadb --skip-networking >/tmp/mariadb.log 2>&1 & } \
+            && for i in \$(seq 30); do mariadb-admin ping --silent 2>/dev/null && break; sleep 1; done \
+            && mariadb -e 'CREATE DATABASE kanka_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci' \
+            && DB_CONNECTION=mysql DB_DATABASE=kanka_test DB_SOCKET=/run/mysqld/mysqld.sock DB_USERNAME=root DB_PASSWORD= \
+               vendor/bin/pest -c phpunit.nostop.xml --colors=never $*"
+        ;;
     exec)
         in_container "$SYNC && $*"
         ;;
     *)
-        sed -n '2,10p' "$0"
+        sed -n '2,12p' "$0"
         exit 1
         ;;
 esac

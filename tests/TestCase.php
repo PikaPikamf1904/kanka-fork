@@ -65,6 +65,7 @@ use Database\Seeders\EntityTypesTableSeeder;
 use Database\Seeders\VisibilitiesTableSeeder;
 use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Cashier\Subscription;
 use Laravel\Passport\Passport;
@@ -108,6 +109,32 @@ abstract class TestCase extends BaseTestCase
             $sub->ends_at = Carbon::now()->addYear();
             $sub->save();
         }
+
+        return $this;
+    }
+
+    /**
+     * Make the app behave like it does for a new browser request. Some scopes that hide
+     * DM-only content (VisibilityIDScope, PrivateScope) and the campaign scope switch
+     * themselves off in the console, which includes the test runner. Kanka's services also
+     * remember permissions, mentions and entities for the rest of the request; in a test the
+     * app lives on between requests, so what was cached while creating fixtures as the
+     * owner would otherwise answer the player's request. Call this after creating the
+     * fixtures (model events also check the console flag) and again after switching user.
+     * Laravel only skips the CSRF check in the console, so POSTs made afterwards need a
+     * token: ->withSession(['_token' => 't'])->withHeader('X-CSRF-TOKEN', 't').
+     */
+    public function asWebRequest(): self
+    {
+        (fn () => $this->isRunningInConsole = false)->call($this->app);
+
+        $instances = (fn () => array_keys($this->instances))->call($this->app);
+        foreach ($instances as $abstract) {
+            if (str_starts_with($abstract, 'App\\Services\\')) {
+                $this->app->forgetInstance($abstract);
+            }
+        }
+        Facade::clearResolvedInstances();
 
         return $this;
     }
