@@ -7,6 +7,8 @@
 #   kanka-restore <archive.zip> --yes            restore the database and uploaded files
 #   kanka-restore <archive.zip> --yes --db-only  restore the database only
 #   kanka-restore <archive.zip> --ask-password   archive made with a different password
+#   kanka-restore --undo <time>                  put back what a restore replaced; <time> is
+#                                                the one in its "pre-restore-<time>" copies
 #
 # Order of work: unpack and check the archive (site untouched), maintenance mode, stop
 # workers and scheduler, keep a copy of the current database and uploads ("pre-restore"),
@@ -33,6 +35,45 @@ env_value() {
 
 if [ "${1:-}" = "--list" ]; then
     find "$BACKUPS" -name '*.zip' -printf '%TY-%Tm-%Td %TH:%TM  %10s bytes  %p\n' 2>/dev/null | sort
+    exit 0
+fi
+
+artisan() { (cd "$BASE/current" && runuser -u "$APP_USER" -- php artisan "$@" --no-interaction); }
+
+bring_up() {
+    if [ -e "$BASE/current/artisan" ]; then
+        artisan up >/dev/null || true
+    fi
+    systemctl start kanka-queue kanka-queue-heavy kanka-scheduler.timer
+}
+
+if [ "${1:-}" = "--undo" ]; then
+    ts=${2:?usage: kanka-restore --undo <time>, e.g. 20261017-051008}
+    [[ "$ts" =~ ^[0-9]{8}-[0-9]{6}$ ]] || die "<time> looks like 20261017-051008"
+    db_copy="$BACKUPS/pre-restore-$ts.sql.gz"
+    files_copy="$STORAGE/app/public.pre-restore-$ts"
+    [ -f "$db_copy" ] || die "no $db_copy"
+    gzip -t "$db_copy" || die "$db_copy is damaged"
+    db_name=$(env_value DB_DATABASE)
+    now=$(date +%Y%m%d-%H%M%S)
+
+    log "maintenance mode on; stopping workers and scheduler"
+    if [ -e "$BASE/current/artisan" ]; then artisan down --retry=60 >/dev/null; fi
+    systemctl stop kanka-scheduler.timer kanka-queue kanka-queue-heavy
+    log "keeping the database being replaced in $BACKUPS/pre-undo-$now.sql.gz"
+    (umask 077 && mariadb-dump --single-transaction --skip-lock-tables "$db_name" | gzip > "$BACKUPS/pre-undo-$now.sql.gz")
+    log "loading $db_copy"
+    gunzip -c "$db_copy" | mariadb "$db_name"
+    if [ -d "$files_copy" ]; then
+        log "putting back the uploads (the replaced ones go to app/public.pre-undo-$now)"
+        mv "$STORAGE/app/public" "$STORAGE/app/public.pre-undo-$now"
+        chmod 700 "$STORAGE/app/public.pre-undo-$now"
+        mv "$files_copy" "$STORAGE/app/public"
+        chmod 755 "$STORAGE/app/public"
+    fi
+    if [ -e "$BASE/current/artisan" ]; then artisan cache:clear >/dev/null; fi
+    bring_up
+    log "done. Delete the pre-undo copies once you are happy."
     exit 0
 fi
 
@@ -95,15 +136,6 @@ finish() {
 }
 trap finish EXIT
 
-artisan() { (cd "$BASE/current" && runuser -u "$APP_USER" -- php artisan "$@" --no-interaction); }
-
-bring_up() {
-    if [ -e "$BASE/current/artisan" ]; then
-        artisan up >/dev/null || true
-    fi
-    systemctl start kanka-queue kanka-queue-heavy kanka-scheduler.timer
-}
-
 log "unpacking $archive"
 # PHP's zip extension reads the AES-encrypted archives spatie/laravel-backup writes, so no
 # extra tools are needed. Entry names are checked so nothing lands outside $work.
@@ -163,6 +195,10 @@ systemctl stop kanka-scheduler.timer kanka-queue kanka-queue-heavy
 log "saving the current database to $BACKUPS/pre-restore-$ts.sql.gz"
 (umask 077 && mariadb-dump --single-transaction --skip-lock-tables "$db_name" | gzip > "$BACKUPS/pre-restore-$ts.sql.gz")
 chown "$APP_USER:$APP_USER" "$BACKUPS/pre-restore-$ts.sql.gz"
+# Nothing is replaced unless that copy is readable and actually holds the tables.
+gzip -t "$BACKUPS/pre-restore-$ts.sql.gz" || die "the copy of the current database is damaged"
+created=$(gunzip -c "$BACKUPS/pre-restore-$ts.sql.gz" | grep -c '^CREATE TABLE' || true)
+[ "${created:-0}" -gt 0 ] || die "the copy of the current database has no tables"
 
 scratch="${db_name}_restore"
 log "loading the backup into the scratch database $scratch"
@@ -197,7 +233,7 @@ if [ -e "$BASE/current/artisan" ]; then
     artisan cache:clear >/dev/null
 fi
 
-stage=done
+stage="done"
 bring_up
 rm -rf "$work"
 log "restore finished. Check the wiki, then delete the pre-restore copies when happy:"
