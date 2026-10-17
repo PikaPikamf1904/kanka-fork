@@ -1,0 +1,110 @@
+name: Deploy
+
+# Manual only. Builds a release on GitHub's runners (Composer + Vite), then copies it to
+# the server over Tailscale and activates it with deploy/server/release.sh.
+# Setup and required secrets: deploy/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      first_install:
+        description: 'First install (migrate + seed reference data, no pre-migration backup)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, intl, gd, zip, mbstring, xml, curl, pdo_mysql, gmp
+          coverage: none
+
+      - name: Composer install (production)
+        # package:discover boots the app; spatie/laravel-backup refuses a null APP_EMAIL.
+        # The real value comes from the server's .env at runtime.
+        env:
+          APP_EMAIL: build@example.com
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Build frontend assets
+        run: |
+          yarn install --frozen-lockfile --non-interactive
+          yarn build
+
+      - name: Package release
+        run: |
+          tar -czf "$RUNNER_TEMP/release.tar.gz" \
+            --exclude=./.git --exclude=./node_modules --exclude=./tests \
+            --exclude=./storage --exclude=./.env --exclude='./.env.*' \
+            .
+          ls -lh "$RUNNER_TEMP/release.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: ${{ runner.temp }}/release.tar.gz
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Add required reviewers to this environment in the repository settings to
+    # get an approval step before anything reaches the server.
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+
+      - name: Check deploy secrets
+        env:
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          for name in TS_OAUTH_CLIENT_ID DEPLOY_SSH_KEY DEPLOY_HOST DEPLOY_KNOWN_HOSTS; do
+            if [ -z "${!name}" ]; then echo "::error::Missing secret $name (see deploy/README.md)"; exit 1; fi
+          done
+
+      - name: Join the tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Upload and activate the release
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          FIRST_INSTALL: ${{ inputs.first_install }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_deploy ~/.ssh/known_hosts
+          ssh_opts="-i $HOME/.ssh/id_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes"
+          remote="/srv/kanka/uploads/release-${GITHUB_SHA}.tar.gz"
+          scp $ssh_opts release.tar.gz "kanka@${DEPLOY_HOST}:${remote}"
+          flag=""
+          [ "$FIRST_INSTALL" = "true" ] && flag="--first-install"
+          ssh $ssh_opts "kanka@${DEPLOY_HOST}" \
+            "tar -xzf '${remote}' -O ./deploy/server/release.sh > /tmp/kanka-release.sh && bash /tmp/kanka-release.sh '${remote}' '${GITHUB_SHA::7}' ${flag} && rm -f '${remote}'"

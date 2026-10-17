@@ -29,7 +29,10 @@ return [
                 /*
                  * The list of directories and files that will be included in the backup.
                  */
-                'include' => [
+                // Single-server installs keep uploads on local disk, so back them up too.
+                'include' => env('BACKUP_INCLUDE_UPLOADS', false) ? [
+                    storage_path('app/public'),
+                ] : [
                     // base_path('config'),
                 ],
 

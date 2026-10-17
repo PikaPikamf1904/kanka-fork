@@ -259,6 +259,12 @@ return [
 
     'force_https' => env('APP_FORCE_HTTPS', false),
 
+    /*
+    | Schedule kanka.io service tasks (subscriptions, onboarding emails,
+    | team reports). Self-hosted installs can turn these off.
+    */
+    'saas_schedule' => env('APP_SAAS_SCHEDULE', true),
+
     'lazy' => env('APP_LAZY', false),
 
     /**
