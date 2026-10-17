@@ -98,7 +98,7 @@ if [ -z "${DEPLOY_PUBKEY:-}" ] && [ -f "$HERE/../deploy.pub" ]; then
     DEPLOY_PUBKEY=$(head -n 1 "$HERE/../deploy.pub" | tr -d '\r')
 fi
 if [ -n "${DEPLOY_PUBKEY:-}" ]; then
-    if ! [[ "$DEPLOY_PUBKEY" =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh.com)\ [A-Za-z0-9+/=]+(\ [^[:cntrl:]]*)?$ ]]; then
+    if ! [[ "$DEPLOY_PUBKEY" =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com)\ [A-Za-z0-9+/=]+(\ [^[:cntrl:]]*)?$ ]]; then
         echo "DEPLOY_PUBKEY does not look like one public SSH key line; not adding it."
         exit 1
     fi
@@ -109,8 +109,10 @@ if [ -n "${DEPLOY_PUBKEY:-}" ]; then
     key_body=$(awk '{print $1" "$2}' <<<"$DEPLOY_PUBKEY")
     install -d -m 700 -o "$APP_USER" -g "$APP_USER" "/home/$APP_USER/.ssh"
     touch "/home/$APP_USER/.ssh/authorized_keys"
-    grep -qF "$key_body" "/home/$APP_USER/.ssh/authorized_keys" \
-        || echo "from=\"$deploy_from\",restrict,pty $DEPLOY_PUBKEY" >> "/home/$APP_USER/.ssh/authorized_keys"
+    # Replace any earlier line for this key: an older kit added it without restrictions.
+    keys="/home/$APP_USER/.ssh/authorized_keys"
+    { grep -vF "$key_body" "$keys" || true; echo "from=\"$deploy_from\",restrict,pty $DEPLOY_PUBKEY"; } > "$keys.new"
+    mv "$keys.new" "$keys"
     chown "$APP_USER:$APP_USER" "/home/$APP_USER/.ssh/authorized_keys"
     chmod 600 "/home/$APP_USER/.ssh/authorized_keys"
     log "deploy key added for ${APP_USER}"
@@ -155,7 +157,7 @@ ensure_env BACKUP_ROOT "$BASE/backups"
 chown "$APP_USER:$APP_USER" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
-db_password=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
+db_password=$({ grep '^DB_PASSWORD=' "$ENV_FILE" || true; } | cut -d= -f2-)
 # It goes into SQL below, so only letters and digits; and never the template's placeholder.
 if [[ "$db_password" == CHANGE_ME* ]] || ! [[ "$db_password" =~ ^[A-Za-z0-9]{16,}$ ]]; then
     echo "DB_PASSWORD in $ENV_FILE must be at least 16 letters and digits (and not CHANGE_ME)."

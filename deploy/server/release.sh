@@ -106,12 +106,20 @@ newest_db_backup() {
 # Rows in the migrations table (0 when the table does not exist yet), read with the given
 # release's code. Used to refuse --first-install on a database that already holds Kanka.
 db_migration_count() {
-    (cd "$1" && php -r '
+    # Warnings go to stderr so that stdout holds only the number.
+    (cd "$1" && php -d display_errors=stderr -r '
         require "vendor/autoload.php";
         $app = require "bootstrap/app.php";
         $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
         echo Illuminate\Support\Facades\Schema::hasTable("migrations")
             ? Illuminate\Support\Facades\DB::table("migrations")->count() : 0;')
+}
+
+# Shown when --first-install is refused: the usual cause is a first install that stopped
+# partway (migrations ran, or the health check failed with nothing to fall back to).
+first_install_hint() {
+    log "if an earlier first install stopped partway and nobody has used the site yet, see"
+    log "\"First install stopped partway\" in deploy/README.md. Never do that once real data exists."
 }
 
 restore_hint() {
@@ -165,6 +173,7 @@ first_install=false
 [ -f "$tarball" ] || { log "no such archive: $tarball"; exit 1; }
 if $first_install && [ -e "$BASE/current" ]; then
     log "a release is already live; --first-install is only for the very first deploy. Not deploying."
+    first_install_hint
     exit 1
 fi
 
@@ -211,9 +220,11 @@ if $first_install; then
     # Seeding a database that already holds Kanka would add duplicate reference data, and
     # there would be no backup first. Only an empty database gets the first-install path.
     count=$(db_migration_count "$release") || { log "could not read the database; check $BASE/shared/.env"; rm -rf "$release"; exit 1; }
+    [[ "$count" =~ ^[0-9]+$ ]] || { log "could not count migrations (got: $count). Not deploying."; rm -rf "$release"; exit 1; }
     if [ "$count" != "0" ]; then
         log "the database already has $count migrations; --first-install is only for an empty database."
         log "deploy without --first-install (that path backs the database up first). Not deploying."
+        first_install_hint
         rm -rf "$release"
         exit 1
     fi

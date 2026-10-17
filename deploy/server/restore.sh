@@ -31,7 +31,7 @@ die() { printf '[restore] ERROR: %s\n' "$*" >&2; exit 1; }
 [ -f "$ENV_FILE" ] || die "missing $ENV_FILE (run provision.sh first)"
 
 env_value() {
-    grep -m1 "^$1=" "$ENV_FILE" | cut -d= -f2- | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+    { grep -m1 "^$1=" "$ENV_FILE" || true; } | cut -d= -f2- | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
 }
 
 if [ "${1:-}" = "--list" ]; then
@@ -52,8 +52,11 @@ bring_up() {
 # which MariaDB applies all or nothing: the live database is never left half empty. The
 # replaced tables move to "<db>_old" first and are dropped once the swap has succeeded.
 swap_database() {
-    local from=$1 to=$2 old="${2}_old" renames
-    mariadb -e "CREATE DATABASE \`$old\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    local from=$1 to=$2 old="${2}_old" renames views
+    # Views cannot move between databases. Kanka has none, so stop if one appears.
+    views=$(mariadb -N -e "SELECT COUNT(*) FROM information_schema.tables
+        WHERE table_schema IN ('$from', '$to') AND table_type <> 'BASE TABLE'")
+    [ "$views" = "0" ] || die "$from or $to holds views, which this script cannot swap. Nothing was changed."
     renames=$(mariadb -N -e "SET SESSION group_concat_max_len = 4194304;
         SELECT GROUP_CONCAT(r ORDER BY k SEPARATOR ', ') FROM (
             SELECT 1 AS k, CONCAT('\`$to\`.\`', table_name, '\` TO \`$old\`.\`', table_name, '\`') AS r
@@ -62,7 +65,13 @@ swap_database() {
             SELECT 2, CONCAT('\`$from\`.\`', table_name, '\` TO \`$to\`.\`', table_name, '\`')
                 FROM information_schema.tables WHERE table_schema='$from'
         ) AS x")
-    mariadb -e "RENAME TABLE $renames;"
+    [ -n "$renames" ] && [ "$renames" != "NULL" ] || die "no tables to swap. Nothing was changed."
+    mariadb -e "CREATE DATABASE \`$old\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    if ! mariadb -e "RENAME TABLE $renames;"; then
+        # All or nothing: the live database is untouched, so the empty _old can go.
+        mariadb -e "DROP DATABASE \`$old\`;" || true
+        die "the swap failed; $to is unchanged. The loaded copy is still in $from."
+    fi
     mariadb -e "DROP DATABASE \`$old\`; DROP DATABASE \`$from\`;"
 }
 
