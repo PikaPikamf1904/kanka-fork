@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Http\Controllers\Controller;
 use App\Models\Campaign;
+use App\Models\CampaignExport;
 use App\Services\Campaign\Exports\QueueService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ExportController extends Controller
 {
@@ -59,5 +61,31 @@ class ExportController extends Controller
             ->withSuccess(__('campaigns/export.success', [
                 'admin' => $adminRoleName,
             ]));
+    }
+
+    /**
+     * Stream a finished export to a campaign admin. Export archives are stored privately
+     * and never served from a public URL.
+     */
+    public function download(Campaign $campaign, CampaignExport $campaignExport)
+    {
+        $this->authorize('setting', $campaign);
+        if ((int) $campaignExport->campaign_id !== $campaign->id) {
+            abort(404);
+        }
+
+        $path = $campaignExport->storedPath();
+        $disk = Storage::disk('s3');
+        if ($path === null || ! $disk->exists($path)) {
+            abort(404);
+        }
+        if ($campaignExport->expired()) {
+            $disk->delete($path);
+            abort(404);
+        }
+
+        return $disk->download($path, basename($path), [
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 }
