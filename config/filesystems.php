@@ -40,6 +40,15 @@ return [
             'visibility' => 'public',
         ],
 
+        // Self-hosted backups (BACKUP_DISK=backups): a directory outside storage/ and the web
+        // root that only the application user can read.
+        'backups' => [
+            'driver' => 'local',
+            'root' => env('BACKUP_ROOT', storage_path('app/backups')),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         // Single-server installs without object storage keep these files (campaign exports
         // and imports) on local disk outside the web root, so they are never served by URL.
         's3' => env('S3_DISK_DRIVER', 's3') === 'local' ? [
