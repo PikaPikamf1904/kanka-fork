@@ -1,7 +1,10 @@
 <x-dialog.header>
-    {{ $title ?? __('concept.premium-feature') }}
+    {{ config('chronicle.hide_promotions') ? __('callouts.premium.unavailable') : ($title ?? __('concept.premium-feature')) }}
 </x-dialog.header>
 <x-dialog.article class="max-w-xl">
+    @if (config('chronicle.hide_promotions'))
+        <p>{{ __('callouts.premium.unavailable') }}</p>
+    @else
     <x-grid type="1/1">
         <p>
             {!! __('settings/premium.create.pitch', ['name' => '<strong>' . $campaign->name . '</strong>']) !!}
@@ -27,5 +30,6 @@
         </div>
         
     </x-grid>
+    @endif
 </x-dialog.article>
 <x-premium-cta-footer :campaign="$campaign" />

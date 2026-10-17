@@ -77,7 +77,7 @@ $weather = $state->weather;
             <div class="flex flex-col gap-2 @if ($upcomingEvents->isEmpty()) col-span-2 @endif">
                 <div class="text-lg">
                     {{ __('dashboard.widgets.calendar.previous_events') }}
-                    <a href="//docs.kanka.io/en/latest/guides/dashboard.html#known-limitations"  class="text-link" data-toggle="tooltip" data-title="{{ __('helpers.calendar-widget.info') }}">
+                    <a  class="text-link" data-toggle="tooltip" data-title="{{ __('helpers.calendar-widget.info') }}">
                         <x-icon class="question" />
                         <span class="sr-only">{{ __('helpers.calendar-widget.info') }}</span>
                     </a>
@@ -94,7 +94,7 @@ $weather = $state->weather;
             <div class="flex flex-col gap-2 @if ($previousEvents->isEmpty()) col-span-2 @endif">
                 <div class="text-lg">
                     {{ __('dashboard.widgets.calendar.upcoming_events') }}
-                    <a href="//docs.kanka.io/en/latest/guides/dashboard.html#known-limitations"  class="text-link" data-toggle="tooltip" data-title="{{ __('helpers.calendar-widget.info') }}">
+                    <a  class="text-link" data-toggle="tooltip" data-title="{{ __('helpers.calendar-widget.info') }}">
                         <x-icon class="question" />
                         <span class="sr-only">{{ __('helpers.calendar-widget.info') }}</span>
                     </a>

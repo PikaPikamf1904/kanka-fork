@@ -1,5 +1,5 @@
 @extends('layouts.login', [
-    'title' => 'Kanka oAuth Authorization',
+    'title' => config('chronicle.name') . ' oAuth Authorization',
 ])
 
 @section('content')
@@ -7,7 +7,7 @@
         {{ __('Authorization Request') }}
     </h1>
 
-    <p>The application <strong>{{ $client->name }}</strong> is requesting permission to access your Kanka account.</p>
+    <p>The application <strong>{{ $client->name }}</strong> is requesting permission to access your {{ config('chronicle.name') }} account.</p>
 
     <!-- Scope List -->
     @if (count($scopes) > 0)
@@ -57,6 +57,6 @@
     </div>
 
     <hr class="border-gray-800 dark:border-gray-700" />
-    <p class="text-sm">If you are unsure why you are seeing this, contact us at <a class="text-blue-500 hover:text-blue-800 transition-all duration-150" href="mailto:{{ config('app.email') }}">{{ config('app.email') }}</a> or reach out directly on <a href="https://kanka.io/go/discord" class="text-blue-500 hover:text-blue-800 transition-all duration-150">Discord</a>.</p>
+    <p class="text-sm">If you are unsure why you are seeing this, contact us at <a class="text-blue-500 hover:text-blue-800 transition-all duration-150" href="mailto:{{ config('app.email') }}">{{ config('app.email') }}</a>.</p>
 
 @endsection

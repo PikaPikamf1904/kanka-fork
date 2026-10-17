@@ -22,7 +22,7 @@
 <x-dialog.footer>
     <x-slot name="cancel">
         <p class="text-neutral-content text-xs">{!! __('entities.creator.missing_v2', [
-        'learn-more' => '<a href="//docs.kanka.io/en/latest/features/quick-creator.html" class="text-link">' .
+        'learn-more' => '<a class="text-link">' .
             '<i class="fa-regular fa-external-link" aria-hidden="true"></i> ' . __('front/newsletter.actions.learn_more') . '</a>']) !!}</p>
     </x-slot>
 </x-dialog.footer>

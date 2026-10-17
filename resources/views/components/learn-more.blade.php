@@ -1,8 +1,1 @@
-<a
-    href="https://docs.kanka.io/en/latest/{{ $url }}"
-    {{ $attributes->merge(['class' => 'btn2 btn-ghost btn-sm']) }}
-    data-toggle="tooltip"
-    data-title="{{ __('general.documentation') }}">
-    <x-icon class="fa-regular fa-book" />
-    {{ __('general.learn-more') }}
-</a>
+{{-- Documentation links point at the upstream project and are not shown on this site. --}}

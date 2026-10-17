@@ -15,10 +15,6 @@
                 </x-helper>
 
                 <div class="flex flex-col gap-3">
-                    <a href="https://kanka.io/go/discord" target="_blank" rel="noopener" class="btn2 btn-primary">
-                        <x-icon class="fa-brands fa-discord" />
-                        {{ __('bug-report.discord') }}
-                    </a>
                     <a href="mailto:{{ config('app.email') }}" class="btn2">
                         <x-icon class="fa-regular fa-envelope" />
                         {{ config('app.email') }}

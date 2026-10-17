@@ -1,1 +1,1 @@
-<img src="https://th.kanka.io/cIWvFrRM7i3FXtFfa3vq_0d-pjI=/40x40/smart/src/app/logos/icon.png" />
+<img src="{{ asset('images/chronicle/logo.svg') }}" width="40" height="40" alt="{{ config('chronicle.name') }}" />

@@ -32,6 +32,7 @@
 {{--@endif--}}
 
 @can('freeTrial', auth()->user())
+    @unless (config('chronicle.hide_promotions'))
     <x-tutorial code="banner_free_trial" type="info">
             <p>
                 {!! __('subscriptions/free-trial.pitch.title') !!}<br />
@@ -42,4 +43,5 @@
             </p>
 
         </x-tutorial>
+    @endunless
 @endif

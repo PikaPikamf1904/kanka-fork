@@ -22,30 +22,6 @@ Chemin Ella Maillart 16, Geneve<br>Switzerland
 <tr>
 <td>
 
-<table class="social-links" role="presentation" cellpadding="" cellspacing="5" border="0">
-<tbody><tr>
-    <td align="center" valign="middle" width="18" >
-        <a href="https://kanka.io/go/discord" target="blank" style="text-decoration: none;">
-            <img src="https://assets.mlcdn.com/ml/images/icons/default/rounded_corners/black/discord.png" width="18" alt="discord">
-        </a>
-    </td>
-    <td align="center" valign="middle" width="18" >
-        <a href="https://kanka.io/go/youtube" target="blank" style="text-decoration: none;">
-            <img src="https://assets.mlcdn.com/ml/images/icons/default/rounded_corners/black/youtube.png" width="18" alt="youtube">
-        </a>
-    </td>
-    <td align="center" valign="middle" width="18" >
-        <a href="https://kanka.io/go/github" target="blank" style="text-decoration: none;">
-            <img src="https://assets.mlcdn.com/ml/images/icons/default/rounded_corners/black/github.png" width="18" alt="github">
-        </a>
-    </td>
-    <td align="center" valign="middle" width="18" >
-        <a href="https://kanka.io/go/instagram" target="blank" style="text-decoration: none;">
-            <img src="https://assets.mlcdn.com/ml/images/icons/default/rounded_corners/black/instagram.png" width="18" alt="instagram">
-        </a>
-    </td>
-</tr>
-</tbody></table>
 </td>
 </tr>
 </tbody></table>
@@ -55,7 +31,7 @@ Chemin Ella Maillart 16, Geneve<br>Switzerland
 
 <p style="font-family: 'Inter', sans-serif; color: #515856; font-size: 14px; line-height: 150%; margin-bottom: 6px; display: inline-block;">
 @if ($layout != 'welcome')
-<i>This email was automatically sent to you by <a href="https://kanka.io">Kanka.io</a>.</i>
+<i>This email was automatically sent to you by {{ config('chronicle.name') }}.</i>
 @else
 {{ __('emails/welcome/2024.why') }}
 @endif

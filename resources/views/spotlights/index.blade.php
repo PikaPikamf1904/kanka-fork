@@ -14,7 +14,7 @@
 
                     <p class="text-light">
                         {!! __('spotlights.rules', [
-    'showcase' => '<a href="' . Domain::toFront('showcase') . '" class="font-semibold text-light">' . __('footer.showcase') . '</a>'
+    'showcase' => '' . __('footer.showcase') . ''
 ]) !!}
                     </p>
                 </div>
@@ -50,7 +50,7 @@
                             class="flex flex-col gap-5 text-left w-72"
                             title="{!! $world->name !!}"
                         >
-                            <img src="{{ $world->image ? $world->thumbnail(320, 240) : 'https://th.kanka.io/zzKcBpijSBvm4rPWdzRpI82pTNQ=/320x240/smart/src/app/backgrounds/mountain-background-medium.jpg' }}" alt="{{ $world->name }}" class="w-80 h-60">
+                            <img src="{{ $world->image ? $world->thumbnail(320, 240) : asset('images/chronicle/logo.svg') }}" alt="{{ $world->name }}" class="w-80 h-60">
 
                             <div class="flex flex-col gap-2">
                                 <div class="flex gap-2">
@@ -116,8 +116,8 @@
                 <ul class="mx-5 list-disc">
                     <li>{{ __('spotlights.faq.selected.a.req1') }}</li>
                     <li>{!! __('spotlights.faq.selected.a.req2', [
-    'blog' => '<a class="text-blue font-medium" href="https://blog.kanka.io">Blog</a>',
-    'showcase' => '<a class="text-blue font-medium" href="' . \App\Facades\Domain::toFront('showcase') . '">' . __('footer.showcase') . '</a>'
+    'blog' => '<a class="text-blue font-medium">Blog</a>',
+    'showcase' => '' . __('footer.showcase') . ''
 ]) !!}</li>
                     <li>{{ __('spotlights.faq.selected.a.req3') }}</li>
                 </ul>

@@ -40,7 +40,6 @@
             :label="__('campaigns/webhooks.fields.message')"
             tooltip
             :helper="__('campaigns/webhooks.helper.message')"
-            link="https://docs.kanka.io/en/latest/features/campaigns/webhooks.html#mappings"
             >
 
             <textarea name="message" class="w-full" rows="4" placeholder="{{ __('campaigns/webhooks.placeholders.message') }}" maxlength="400">{!! old('message', $webhook->message ?? null) !!}</textarea>

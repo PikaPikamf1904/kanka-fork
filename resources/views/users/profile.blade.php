@@ -70,31 +70,31 @@
                 </div>
                 <div class="w-60 profile-pledge flex flex-col items-center justify-center gap-3">
                     @if ($user->isElemental())
-                        <a href="https://kanka.io/hall-of-fame">
+                        <a>
                             <img src="{{ asset('/images/tiers/elemental-128.png') }}"
                                  class="profile-subscriber" title="Elemental" />
                         </a>
                         <div class="text-uppercase text-md">Elemental</div>
                     @elseif ($user->isWyvern())
-                        <a href="https://kanka.io/hall-of-fame">
+                        <a>
                             <img src="{{ asset('/images/tiers/wyvern-128.png') }}"
                                 class="profile-subscriber" title="Wyvern" />
                         </a>
                         <div class="text-uppercase text-md">Wyvern</div>
 
                     @elseif ($user->isOwlbear())
-                        <a href="https://kanka.io/hall-of-fame">
+                        <a>
                         <img src="{{ asset('/images/tiers/owlbear-128.png') }}"
                                  class="profile-subscriber" title="Owlbear" />
                         </a>
                         <div class="text-uppercase text-md">Owlbear</div>
                     @elseif ($user->hasRole('admin'))
-                        <a href="https://kanka.io/about">
-                            <img src="https://th.kanka.io/NrAzWia7iVRbKgID8_pVR1ol4kM=/80x80/smart/src/app/logos/icon.png"
-                                 class="profile-subscriber w-20 h-20" title="Kanka Team" />
+                        <a>
+                            <img src="{{ asset('images/chronicle/logo.svg') }}"
+                                 class="profile-subscriber w-20 h-20" title="{{ config('chronicle.name') }}" alt="{{ config('chronicle.name') }}" />
                         </a>
                         <div class="text-uppercase text-md text-center">
-                            Kanka Team
+                            {{ config('chronicle.name') }}
                         </div>
                     @endif
                 </div>

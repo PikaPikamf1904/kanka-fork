@@ -12,7 +12,7 @@
     </p>
 
     <p>This is an automatic notification.</p>
-    <p>To validate the email for your Kanka account click <a href="{{ $url }}">here</a>. This link will expire in 24 hours.</p>
+    <p>To validate the email for your {{ config('chronicle.name') }} account click <a href="{{ $url }}">here</a>. This link will expire in 24 hours.</p>
     <p>If the above link doesnt work, open the following URL in your web browser {{ $url }}</p>
     <p>
         {{ __('emails/subscriptions/upcoming.closing') }}<br />

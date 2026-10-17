@@ -8,7 +8,6 @@ $old = old('entry');
         </label>
 
         <a
-            href="//docs.kanka.io/en/latest/features/mentions.html"
             target="_blank"
             class="btn2 btn-xs btn-link"
             data-title="{{ __('helpers.link.description') }}"

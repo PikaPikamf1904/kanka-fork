@@ -4,7 +4,7 @@
 <x-helper>
     <p>
         {!! __('campaigns.sharing.filters', [
-'public-campaigns' => '<a href="https://kanka.io/campaigns" target="_blank" class="text-link">' . __('footer.public-campaigns') . '</a>'
+'public-campaigns' => '<a target="_blank" class="text-link">' . __('footer.public-campaigns') . '</a>'
 ]) !!}
     </p>
 </x-helper>

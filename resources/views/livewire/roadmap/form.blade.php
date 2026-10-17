@@ -1,7 +1,7 @@
 <form wire:submit="save">
     <div class="bg-purple text-white rounded-2xl p-5 flex flex-col gap-5">
         <h3>Share your ideas</h3>
-        <p class="text-light">Have an idea to improve Kanka? Share it with our development team.</p>
+        <p class="text-light">Have an idea to improve {{ config('chronicle.name') }}? Share it with our development team.</p>
 
         @if ($success)
             <div class="rounded bg-green-300 p-2 text-dark">
@@ -52,7 +52,7 @@
                     </div>
                 </div>
 
-                <p class="text-light">Once reviewed, your idea will show up in the ideas section. If we have questions, we'll contact you on the <a href="https://kanka.io/go/discord" class="link link-light">Discord</a>.</p>
+                <p class="text-light">Once reviewed, your idea will show up in the ideas section. If we have questions, we'll contact you.</p>
 
                 <input type="submit" value="Submit idea" class="btn-round rounded-full" />
             @endif

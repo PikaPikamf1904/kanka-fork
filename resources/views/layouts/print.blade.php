@@ -25,7 +25,7 @@ if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme:
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta content='width=device-width, initial-scale=1, maximum-scale=5' name='viewport'>
     <meta property="og:title" content="{{ $title ?? '' }}" />
-    <meta property="og:site_name" content="{{ config('app.site_name') }}" />
+    <meta property="og:site_name" content="{{ config('chronicle.name') }}" />
 
     @include('layouts.links.icons')
     @vite([

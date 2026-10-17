@@ -26,8 +26,8 @@ if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme:
     <title>{!! $seoTitle !!}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' name='viewport'>
-    <meta property="og:title" content="{!! $seoTitle !!} - {{ config('app.name') }}" />
-    <meta property="og:site_name" content="{{ config('app.site_name') }}" />
+    <meta property="og:title" content="{!! $seoTitle !!} - {{ config('chronicle.name') }}" />
+    <meta property="og:site_name" content="{{ config('chronicle.name') }}" />
     @vite([
         'resources/css/vendor.css',
         'resources/css/app.css',
