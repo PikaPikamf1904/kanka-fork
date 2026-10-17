@@ -119,6 +119,13 @@ class WebService
             'campaign' => $this->campaign->name,
             'zoom-fit' => __('connections/web.actions.zoom-fit'),
             'reset-layout' => __('connections/web.actions.reset-layout'),
+            'clear' => __('connections/web.actions.clear'),
+            'filter' => __('connections/web.actions.filter'),
+            'focus' => __('connections/web.actions.focus'),
+            'open' => __('connections/web.actions.open'),
+            'show-all' => __('connections/web.actions.show-all'),
+            'search' => __('connections/web.search.placeholder'),
+            'search-empty' => __('connections/web.search.empty'),
         ];
     }
 

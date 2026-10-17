@@ -154,6 +154,11 @@ it('keeps DM-only relations and hidden entities out of the connections web', fun
         // A read-only player gets no edit links.
         ->and($shift)->not->toHaveKey('url');
     expect(collect($json['nodes'])->pluck('id')->all())->not->toContain($f['mirror']->id);
+    // The page builds its search and type filter from these entities alone, so they carry
+    // their type, and the hidden entity cannot show up there either.
+    expect($json['entities'][$f['public']->id])
+        ->toMatchArray(['type_id' => $f['public']->type_id, 'type' => $f['public']->entityType->name()]);
+    expect(collect($json['entities'])->every(fn ($e) => isset($e['type_id'], $e['type'])))->toBeTrue();
 
     dmOnlyAdmin();
     $this->asWebRequest();
