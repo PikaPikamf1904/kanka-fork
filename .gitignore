@@ -34,3 +34,7 @@ package-lock.json
 .phpstorm.meta.php
 _ide_helper.php
 test.json
+
+# Release archives and backups copied by deploy/local/*.sh
+/deploy/local/out/
+/deploy/local/backups/

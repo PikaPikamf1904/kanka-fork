@@ -1,6 +1,9 @@
 [Unit]
-Description=Kanka scheduler tick
+Description=Kanka scheduler tick (backups, cleanup, calendar advancing)
 After=mariadb.service
+Requires=mariadb.service
+# Before the first deploy there is nothing to run: skip quietly instead of crash-looping.
+ConditionPathExists=/srv/kanka/current/artisan
 
 [Service]
 Type=oneshot
@@ -8,3 +11,6 @@ User=kanka
 Group=kanka
 WorkingDirectory=/srv/kanka/current
 ExecStart=/usr/bin/php artisan schedule:run --no-interaction
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

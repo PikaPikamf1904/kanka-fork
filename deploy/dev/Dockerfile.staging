@@ -1,0 +1,21 @@
+# Disposable Debian 13 machine with systemd, used to rehearse provision.sh, kanka-release,
+# kanka-backup, kanka-restore and kanka-verify before touching Big Bertha. Not a production
+# image. See deploy/dev/README.md ("Staging rehearsal") and deploy/dev/staging.sh.
+FROM debian:trixie
+
+ENV container=docker DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends systemd systemd-sysv dbus sudo curl ca-certificates procps iproute2 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# The container runs privileged so systemd works. Keep it from changing the Docker host:
+# no kernel settings, device management or module loading from inside.
+RUN systemctl mask systemd-sysctl.service systemd-udevd.service systemd-udevd-control.socket \
+        systemd-udevd-kernel.socket systemd-modules-load.service getty.target systemd-firstboot.service \
+    # provision.sh writes this file only when missing; pre-creating it skips its sysctl call.
+    && echo 'vm.swappiness=10' > /etc/sysctl.d/90-kanka.conf \
+    # Stand-in for the "pika" admin account.
+    && useradd --create-home --shell /bin/bash pika
+
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
