@@ -28,6 +28,7 @@ Route::group([
 });
 
 Route::group([
+    'middleware' => [\App\Http\Middleware\ClosedBehindEntrance::class],
     'namespace' => 'Api\Public',
     'prefix' => 'public',
 ], function () {

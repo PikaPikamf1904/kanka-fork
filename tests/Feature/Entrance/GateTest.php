@@ -213,3 +213,12 @@ it('forgets the grant on leave', function () {
     $cookie = collect($response->headers->getCookies())->first(fn ($c) => $c->getName() === config('entrance.cookie'));
     expect($cookie)->not->toBeNull()->and($cookie->getExpiresTime())->toBeLessThan(time());
 });
+
+it('closes the public discovery API while the entrance is on', function () {
+    Config::set('entrance.enabled', false);
+    expect($this->getJson('/api/public/campaigns')->status())->not->toBe(404);
+
+    entranceBoot();
+    $this->getJson('/api/public/campaigns')->assertNotFound();
+    $this->getJson('/api/public/showcase')->assertNotFound();
+});
