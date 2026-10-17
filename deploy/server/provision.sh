@@ -13,7 +13,8 @@
 #
 # Optional settings (environment variables):
 #   KANKA_APP_URL   URL people type to open the wiki; default http://<this machine's LAN IP>
-#   DEPLOY_PUBKEY   public key allowed to log in as "kanka" to deploy releases
+#   DEPLOY_PUBKEY   public key allowed to log in as "kanka" to deploy releases (default:
+#                   the deploy.pub that deploy/local/push-kit.sh puts next to this folder)
 #   SWAP_SIZE       swap file to add when the machine has no swap at all (default 2G, 0 = none)
 #   INSTALL_VIPS    1 (default) installs libvips-tools for tiling large map images
 #   UNATTENDED_UPGRADES  1 (default) installs automatic Debian security updates
@@ -87,7 +88,14 @@ chmod 750 "$BASE" "$BASE/shared" "$BASE/shared/storage"
 # Backups and uploaded release archives are for the kanka user only.
 chmod 700 "$BASE/backups" "$BASE/uploads"
 
+if [ -z "${DEPLOY_PUBKEY:-}" ] && [ -f "$HERE/../deploy.pub" ]; then
+    DEPLOY_PUBKEY=$(head -n 1 "$HERE/../deploy.pub" | tr -d '\r')
+fi
 if [ -n "${DEPLOY_PUBKEY:-}" ]; then
+    if ! [[ "$DEPLOY_PUBKEY" =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh.com)\ [A-Za-z0-9+/=]+(\ [^[:cntrl:]]*)?$ ]]; then
+        echo "DEPLOY_PUBKEY does not look like one public SSH key line; not adding it."
+        exit 1
+    fi
     install -d -m 700 -o "$APP_USER" -g "$APP_USER" "/home/$APP_USER/.ssh"
     touch "/home/$APP_USER/.ssh/authorized_keys"
     grep -qxF "$DEPLOY_PUBKEY" "/home/$APP_USER/.ssh/authorized_keys" || echo "$DEPLOY_PUBKEY" >> "/home/$APP_USER/.ssh/authorized_keys"

@@ -32,7 +32,12 @@ case "$cmd" in
         echo "staging machine is up"
         ;;
     provision)
-        tar -C "$ROOT/deploy" -cf - server env.production.example \
+        # Same kit as deploy/local/push-kit.sh; KANKA_DEPLOY_PUBKEY_FILE adds a deploy.pub.
+        stage=$(mktemp -d)
+        trap 'rm -rf "$stage"' EXIT
+        cp -R "$ROOT/deploy/server" "$ROOT/deploy/env.production.example" "$stage/"
+        [ -z "${KANKA_DEPLOY_PUBKEY_FILE:-}" ] || cp "$KANKA_DEPLOY_PUBKEY_FILE" "$stage/deploy.pub"
+        tar -C "$stage" -cf - . \
             | docker exec -i "$NAME" bash -c 'rm -rf /home/pika/kanka-kit && mkdir -p /home/pika/kanka-kit && tar -xf - -C /home/pika/kanka-kit'
         in_box "SWAP_SIZE=0 KANKA_APP_URL=http://127.0.0.1:$PORT bash /home/pika/kanka-kit/server/provision.sh"
         ;;
