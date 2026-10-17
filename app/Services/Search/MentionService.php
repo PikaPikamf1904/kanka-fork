@@ -6,6 +6,7 @@ use App\Enums\EntityAssetType;
 use App\Facades\Avatar;
 use App\Models\Attribute;
 use App\Models\Entity;
+use App\Models\EntityAsset;
 use App\Models\EntityType;
 use App\Models\Post;
 use App\Services\Entity\NewService;
@@ -110,7 +111,10 @@ class MentionService
                 } else {
                     $join->where('ea.name', 'like', '%' . $this->term . '%');
                 }
-                $join->where('ea.type_id', EntityAssetType::alias);
+                $join->where('ea.type_id', EntityAssetType::alias)
+                    // A plain join skips EntityAsset's visibility scope, so only match
+                    // aliases this user may see.
+                    ->whereIn('ea.id', EntityAsset::select('entity_assets.id')->where('entity_assets.type_id', EntityAssetType::alias));
             })
             ->where(function ($sub) {
                 if (Str::startsWith($this->term, '=')) {

@@ -22,6 +22,10 @@ deploy/dev/run.sh pest tests/Feature/Auth
 ```
 
 ```bash
+deploy/dev/run.sh pest-mariadb tests/Feature/Privacy
+```
+
+```bash
 deploy/dev/run.sh exec "vendor/bin/phpstan analyse --memory-limit=2G"
 ```
 
@@ -36,10 +40,19 @@ deploy/dev/run.sh exec "yarn install --frozen-lockfile && yarn build"
 `pest` runs the whole suite without stopping at the first failure. Tests use SQLite and
 synthetic data only; never point them at a real campaign database.
 
+`pest-mariadb` runs the same tests against a throwaway MariaDB started inside the
+container (no password, no network, gone when the run ends). Use it for anything that
+touches search: Kanka's search uses MariaDB-only SQL, so those tests skip on SQLite.
+
 Privacy tests: two of Kanka's visibility scopes (`VisibilityIDScope`, `PrivateScope`) turn
 themselves off when the app runs in the console, which includes tests. A test that checks
 what a player can see must make the app behave as a web request, or it passes for the
-wrong reason. See the existing privacy tests under `tests/Feature` for the pattern.
+wrong reason. Call `$this->asWebRequest()` after creating the fixtures and again after
+switching user; it also forgets what Kanka's services cached for the previous user. Web
+mode switches CSRF protection back on, so a POST then needs a token (see the docblock).
+`tests/Feature/Privacy/DmOnlyContentTest.php` shows the pattern: each test builds DM-only
+content whose names start with `dmonly`, then checks that no page or JSON response a
+player can reach contains that text, and that the DM still sees it.
 
 ## Staging rehearsal (a Big Bertha look-alike)
 
