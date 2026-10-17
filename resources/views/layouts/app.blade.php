@@ -8,7 +8,7 @@ $showSidebar = (!empty($sidebar) && $sidebar === 'settings') || !empty($campaign
 $sidebarCollapsed = Cookie::get('toggleState') === 'collapsed';
 $cleanCanonical = \Illuminate\Support\Str::before(request()->fullUrl(), '%3');
 $themeOverride = request()->get('_theme');
-if (!empty($themeOverride) && in_array($themeOverride, ['dark', 'midnight', 'base'])) {
+if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme::values(), 'base'])) {
     $specificTheme = ($themeOverride === 'base') ? 'light' : $themeOverride;
 } elseif (!empty($campaign) && $campaign->boosted() && !empty($campaign->theme_id)) {
     // In prod, midnight is theme id 4, but on local machines it's 3
@@ -17,7 +17,7 @@ if (!empty($themeOverride) && in_array($themeOverride, ['dark', 'midnight', 'bas
         1 => 'light',
         default => 'midnight',
     };
-} elseif (auth()->check() && !empty(auth()->user()->theme)) {
+} elseif (auth()->check() && \App\Enums\UserTheme::tryFrom((string) auth()->user()->theme) !== null) {
     $specificTheme = auth()->user()->theme;
 } else {
     $specificTheme = 'light';

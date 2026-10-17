@@ -197,7 +197,7 @@ button.loading {
 .loading:before {
     margin-right: .5rem;
     display: inline-block;
-    font-family: "Font Awesome 6 Pro";
+    font-family: "Font Awesome 6 Pro", "Font Awesome 6 Free";
     font-weight: 900;
     animation: fa-spin 2s linear infinite;
     content: "\f110";

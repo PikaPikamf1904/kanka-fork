@@ -80,6 +80,7 @@ return [
     'theme'         => [
         'success'   => 'Theme changed.',
         'themes'    => [
+            'chronicle' => 'Chronicle',
             'dark'      => 'Dark',
             'default'   => 'Light',
             'future'    => 'Future',
