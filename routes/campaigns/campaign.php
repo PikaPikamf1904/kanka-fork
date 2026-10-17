@@ -206,6 +206,7 @@ Route::get('/w/{campaign}/campaign-theme', 'Campaign\StyleController@theme')->na
 Route::post('/w/{campaign}/campaign-theme', 'Campaign\StyleController@themeSave')->name('campaign-theme.save');
 Route::get('/w/{campaign}/campaign-export', 'Campaign\ExportController@index')->name('campaign.export');
 Route::post('/w/{campaign}/campaign-export', 'Campaign\ExportController@export')->name('campaign.export-process');
+Route::get('/w/{campaign}/campaign-export/{campaign_export}/download', 'Campaign\ExportController@download')->name('campaign.export-download');
 Route::get('/w/{campaign}/campaign-import', 'Campaign\ImportController@index')->name('campaign.import');
 Route::post('/w/{campaign}/campaign-import/{campaign_import}/presign', 'Campaign\ImportController@presign')->name('campaign.import.presign');
 Route::post('/w/{campaign}/campaign-import/{campaign_import}/confirm', 'Campaign\ImportController@confirm')->name('campaign.import.confirm');

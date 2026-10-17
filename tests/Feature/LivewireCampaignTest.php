@@ -13,10 +13,12 @@ it('livewire update route resolves campaign binding for member', function () {
     $this->asUser()->withCampaign();
     $campaign = Campaign::first();
 
-    $response = $this->post('/livewire/update/' . $campaign->slug, []);
+    // Livewire itself answers an empty update with 404, so check the binding, not the status.
+    $this->post('/livewire/update/' . $campaign->slug, []);
 
-    // 404 means campaign binding failed; any other status means routing worked
-    expect($response->status())->not->toBe(404);
+    expect(app('router')->current()->parameter('campaign'))
+        ->toBeInstanceOf(Campaign::class)
+        ->id->toBe($campaign->id);
 });
 
 it('livewire update route blocks access to unauthorized campaign', function () {
@@ -24,9 +26,11 @@ it('livewire update route blocks access to unauthorized campaign', function () {
     $this->seed(VisibilitiesTableSeeder::class);
     $otherCampaign = Campaign::factory()->create(['slug' => 'other-campaign']);
 
-    $response = $this->post('/livewire/update/' . $otherCampaign->slug, []);
+    // A campaign the user cannot see gets Kanka's "private campaign" page, never the component.
+    $this->post('/livewire/update/' . $otherCampaign->slug, [])
+        ->assertViewIs('errors.private-campaign');
 
-    $response->assertStatus(404);
+    expect(app('router')->current()->parameter('campaign'))->not->toBeInstanceOf(Campaign::class);
 });
 
 it('livewire update uri is bare when no campaign url default is set', function () {

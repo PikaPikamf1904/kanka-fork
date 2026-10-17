@@ -496,7 +496,8 @@ class ExportService
             $this->exportPath = $path . '/' . $this->file;
             Log::info('Campaign export', ['action' => 'finished generating zip', 'exportPath' => $this->exportPath, 'path' => $this->path, 'file' => $this->file]);
 
-            Storage::disk('s3')->putFileAs($path, $this->path, $this->file, 'public');
+            // Private: admins download it through campaign.export-download.
+            Storage::disk('s3')->putFileAs($path, $this->path, $this->file, 'private');
             $this->filesize = (int) floor(filesize($this->path) / pow(1024, 2));
             Log::info('Campaign export', ['action' => 'saved to disk']);
 

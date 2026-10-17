@@ -85,4 +85,28 @@ class CampaignExport extends Model
     {
         return $this->status === CampaignExportStatus::failed;
     }
+
+    /**
+     * Export archives are deleted a few hours after creation (limits.campaigns.export).
+     */
+    public function expired(): bool
+    {
+        return $this->created_at->lt(now()->subHours((int) config('limits.campaigns.export')));
+    }
+
+    /**
+     * The archive's path on the s3 disk, only for a finished export stored in this
+     * campaign's own export folder.
+     */
+    public function storedPath(): ?string
+    {
+        if (! $this->finished() || empty($this->path) || str_contains($this->path, '..')) {
+            return null;
+        }
+        if (! preg_match('#^exports/' . (int) $this->campaign_id . '/[A-Za-z0-9._-]+\.zip$#', $this->path)) {
+            return null;
+        }
+
+        return $this->path;
+    }
 }

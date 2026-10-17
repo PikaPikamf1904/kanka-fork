@@ -4,7 +4,6 @@ namespace App\Livewire\Campaigns;
 
 use App\Models\Campaign;
 use App\Models\CampaignExport;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Number;
 use Livewire\Attributes\Locked;
@@ -118,15 +117,12 @@ class ExportsTable extends Component
         if ($model->path && Storage::disk('s3')->exists($model->path)) {
             // Sometimes there are bugs and a job doesn't get queued to delete the file.
             // This is a dirty hack in the meantime
-            if ($model->created_at->diffInHours(Carbon::now()) > config('limits.campaigns.export')) {
+            if ($model->expired()) {
                 Storage::disk('s3')->delete($model->path);
 
                 return '';
             }
-            if (Storage::disk('s3')->visibility($model->path) == 'private') {
-                Storage::disk('s3')->setVisibility($model->path, 'public');
-            }
-            $html = '<a class="flex items-center gap-1 text-link" href="' . Storage::disk('s3')->url($model->path) . '">' .
+            $html = '<a class="flex items-center gap-1 text-link" href="' . route('campaign.export-download', [$this->campaign, $model]) . '">' .
                 '<i class="fa-regular fa-download" aria-hidden="true"></i>' .
                 __('campaigns/export.actions.download') .
                 '</a>';

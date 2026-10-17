@@ -92,7 +92,7 @@ class Export implements ShouldQueue
         // Don't delete in "sync" mode as there is no delay.
         $queue = config('queue.default');
         if ($queue !== 'sync') {
-            FileCleanup::dispatch($service->exportPath())
+            FileCleanup::dispatch($service->exportPath(), 's3')
                 ->delay(now()->addHours(config('limits.campaigns.export')));
         }
 
