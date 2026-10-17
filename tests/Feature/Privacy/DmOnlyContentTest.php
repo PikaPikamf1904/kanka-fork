@@ -17,13 +17,19 @@ use App\Models\Campaign;
 use App\Models\CampaignRoleUser;
 use App\Models\CampaignUser;
 use App\Models\Character;
+use App\Models\CharacterFamily;
+use App\Models\CharacterRace;
 use App\Models\Entity;
 use App\Models\EntityAsset;
+use App\Models\Family;
 use App\Models\Map;
 use App\Models\MapGroup;
 use App\Models\MapLayer;
 use App\Models\MapMarker;
+use App\Models\Organisation;
+use App\Models\OrganisationMember;
 use App\Models\Post;
+use App\Models\Race;
 use App\Models\Relation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -383,3 +389,144 @@ it('needs web mode for the visibility scopes (why these tests call asWebRequest)
     CampaignLocalization::forceCampaign(Campaign::find(1));
     expect(Relation::where('owner_id', $public->id)->count())->toBe(1);
 });
+
+/**
+ * A character ("Quiet Lodger") whose organisation, family and race memberships, post,
+ * attribute, file and relations are all DM-only. A list filter that matched any of them
+ * would tell a player the secret exists.
+ *
+ * @return array<string, int>
+ */
+function dmOnlyFilterFixture(): array
+{
+    $guild = Organisation::factory()->create(['campaign_id' => 1, 'name' => 'Harbor Guild']);
+    $house = Family::factory()->create(['campaign_id' => 1, 'name' => 'House Harbor']);
+    $race = Race::factory()->create(['campaign_id' => 1, 'name' => 'Sea Folk']);
+    $lodger = Character::factory()->create(['campaign_id' => 1, 'name' => 'Quiet Lodger']);
+    $friend = Character::factory()->create(['campaign_id' => 1, 'name' => 'Dock Friend'])->entity;
+    $patron = Character::factory()->create(['campaign_id' => 1, 'name' => 'Masked Patron'])->entity;
+    $patron->update(['is_private' => true]);
+
+    OrganisationMember::create(['organisation_id' => $guild->id, 'character_id' => $lodger->id, 'is_private' => true]);
+    CharacterFamily::create(['family_id' => $house->id, 'character_id' => $lodger->id, 'is_private' => true]);
+    CharacterRace::create(['race_id' => $race->id, 'character_id' => $lodger->id, 'is_private' => true]);
+
+    $entity = $lodger->entity;
+    Post::factory()->create(['entity_id' => $entity->id, 'name' => 'Sealed orders', 'visibility_id' => Visibility::Admin]);
+    Attribute::factory()->create(['entity_id' => $entity->id, 'name' => 'Allegiance', 'value' => 'Night Market', 'is_private' => true]);
+    EntityAsset::factory()->create([
+        'entity_id' => $entity->id,
+        'type_id' => EntityAssetType::file,
+        'name' => 'Cipher',
+        'metadata' => ['path' => 'entities/files/cipher.pdf', 'type' => 'application/pdf', 'size' => 10],
+        'visibility_id' => Visibility::Admin,
+    ]);
+    Relation::factory()->create([
+        'campaign_id' => 1,
+        'owner_id' => $entity->id,
+        'target_id' => $friend->id,
+        'relation' => 'Handler',
+        'visibility_id' => Visibility::Admin,
+    ]);
+    Relation::factory()->create([
+        'campaign_id' => 1,
+        'owner_id' => $entity->id,
+        'target_id' => $patron->id,
+        'relation' => 'Paymaster',
+        'visibility_id' => Visibility::All,
+    ]);
+
+    return ['guild' => $guild->id, 'house' => $house->id, 'race' => $race->id, 'lodger' => $lodger->id];
+}
+
+/**
+ * The URL of a filtered list. ":guild" and the other placeholders become fixture ids.
+ *
+ * @param  array<string, mixed>  $query
+ * @param  array<string, int>  $ids
+ */
+function dmOnlyListUrl(string $list, array $query, array $ids): string
+{
+    array_walk_recursive($query, function (&$value) use ($ids) {
+        if (is_string($value) && str_starts_with($value, ':')) {
+            $value = $ids[mb_substr($value, 1)];
+        }
+    });
+
+    // "api" is the JSON API, which filters the child models (HasFilters). The others are the
+    // list pages' own API, which filters entities (EntityScopes).
+    if ($list === 'api') {
+        return '/api/1.0/campaigns/1/characters?' . http_build_query($query);
+    }
+
+    return route('entities.index-api', [1, config('entities.ids.' . $list)] + $query);
+}
+
+it('keeps DM-only memberships, attributes and relations out of list filters', function (string $list, array $query, bool $playerSees, string $needle) {
+    $this->asUser()->withCampaign();
+    $url = dmOnlyListUrl($list, $query, dmOnlyFilterFixture());
+
+    dmOnlyPlayer();
+    $this->asWebRequest();
+    $response = $this->getJson($url)->assertOk();
+    // The list API answers a failed query with an empty list, which would hide a broken filter.
+    expect($response->json('error'))->not->toBeTrue();
+    expect(str_contains((string) $response->getContent(), $needle))->toBe($playerSees, "the player's list");
+
+    dmOnlyAdmin();
+    $this->asWebRequest();
+    $response = $this->getJson($url)->assertOk();
+    expect($response->json('error'))->not->toBeTrue();
+    expect(str_contains((string) $response->getContent(), $needle))->toBe(! $playerSees, "the admin's list");
+})->with([
+    // A player must not learn about a private membership by filtering on it...
+    'in organisation' => ['character', ['organisations' => [':guild']], false, 'Quiet Lodger'],
+    'in organisation or its children' => ['character', ['organisations' => [':guild'], 'organisations_option' => 'children'], false, 'Quiet Lodger'],
+    // ...nor from who an "exclude" or "none" filter leaves out.
+    'not in organisation' => ['character', ['organisations' => [':guild'], 'organisations_option' => 'exclude'], true, 'Quiet Lodger'],
+    'in no organisation' => ['character', ['organisations_option' => 'none'], true, 'Quiet Lodger'],
+    'in family' => ['character', ['families' => [':house']], false, 'Quiet Lodger'],
+    'in family or its children' => ['character', ['families' => [':house'], 'families_option' => 'children'], false, 'Quiet Lodger'],
+    'not in family' => ['character', ['families' => [':house'], 'families_option' => 'exclude'], true, 'Quiet Lodger'],
+    'in no family' => ['character', ['families_option' => 'none'], true, 'Quiet Lodger'],
+    'of race' => ['character', ['races' => [':race']], false, 'Quiet Lodger'],
+    'of race or its children' => ['character', ['races' => [':race'], 'races_option' => 'children'], false, 'Quiet Lodger'],
+    'not of race' => ['character', ['races' => [':race'], 'races_option' => 'exclude'], true, 'Quiet Lodger'],
+    'of no race' => ['character', ['races_option' => 'none'], true, 'Quiet Lodger'],
+    'organisation with member' => ['organisation', ['member_id' => ':lodger'], false, 'Harbor Guild'],
+    'organisation without member' => ['organisation', ['member_id' => ':lodger', 'member_id_option' => 'exclude'], true, 'Harbor Guild'],
+    'organisation without members' => ['organisation', ['member_id_option' => 'none'], true, 'Harbor Guild'],
+    'family with member' => ['family', ['member_id' => ':lodger'], false, 'House Harbor'],
+    'family without member' => ['family', ['member_id' => ':lodger', 'member_id_option' => 'exclude'], true, 'House Harbor'],
+    'family without members' => ['family', ['member_id_option' => 'none'], true, 'House Harbor'],
+    // A private attribute's name or value, or a DM-only relation's text, must not be guessable.
+    'private attribute name' => ['character', ['attribute_name' => 'Allegiance'], false, 'Quiet Lodger'],
+    'private attribute value' => ['character', ['attribute_name' => 'Allegiance', 'attribute_value' => 'Night Market'], false, 'Quiet Lodger'],
+    'without private attribute' => ['character', ['attribute_name' => '!Allegiance'], true, 'Quiet Lodger'],
+    'DM-only relation' => ['character', ['connection_name' => 'Handler'], false, 'Quiet Lodger'],
+    'relation to hidden entity' => ['character', ['connection_name' => 'Paymaster'], false, 'Quiet Lodger'],
+    'has posts' => ['character', ['has_posts' => '1'], false, 'Quiet Lodger'],
+    'has no posts' => ['character', ['has_posts' => '0'], true, 'Quiet Lodger'],
+    'has attributes' => ['character', ['has_attributes' => '1'], false, 'Quiet Lodger'],
+    'has no attributes' => ['character', ['has_attributes' => '0'], true, 'Quiet Lodger'],
+    'has files' => ['character', ['has_entity_files' => '1'], false, 'Quiet Lodger'],
+    'has no files' => ['character', ['has_entity_files' => '0'], true, 'Quiet Lodger'],
+    // The JSON API filters through a second implementation.
+    'API: in organisation' => ['api', ['organisations' => [':guild']], false, 'Quiet Lodger'],
+    'API: in organisation or its children' => ['api', ['organisations' => [':guild'], 'organisations_option' => 'children'], false, 'Quiet Lodger'],
+    'API: not in organisation' => ['api', ['organisations' => [':guild'], 'organisations_option' => 'exclude'], true, 'Quiet Lodger'],
+    'API: member of organisation' => ['api', ['member_id' => ':guild'], false, 'Quiet Lodger'],
+    'API: in family' => ['api', ['families' => [':house']], false, 'Quiet Lodger'],
+    'API: not in family' => ['api', ['families' => [':house'], 'families_option' => 'exclude'], true, 'Quiet Lodger'],
+    'API: in one family' => ['api', ['family_id' => ':house'], false, 'Quiet Lodger'],
+    'API: not in one family' => ['api', ['family_id' => ':house', 'family_id_option' => 'exclude'], true, 'Quiet Lodger'],
+    'API: in no family' => ['api', ['family_id' => '', 'family_id_option' => 'none'], true, 'Quiet Lodger'],
+    'API: of race' => ['api', ['races' => [':race']], false, 'Quiet Lodger'],
+    'API: not of race' => ['api', ['races' => [':race'], 'races_option' => 'exclude'], true, 'Quiet Lodger'],
+    'API: of one race' => ['api', ['race_id' => ':race'], false, 'Quiet Lodger'],
+    'API: not of one race' => ['api', ['race_id' => ':race', 'race_id_option' => 'exclude'], true, 'Quiet Lodger'],
+    'API: of no race' => ['api', ['race_id' => '', 'race_id_option' => 'none'], true, 'Quiet Lodger'],
+    'API: private attribute value' => ['api', ['attribute_name' => 'Allegiance', 'attribute_value' => 'Night Market'], false, 'Quiet Lodger'],
+    'API: DM-only relation' => ['api', ['connection_name' => 'Handler'], false, 'Quiet Lodger'],
+    'API: has posts' => ['api', ['has_posts' => '1'], false, 'Quiet Lodger'],
+]);

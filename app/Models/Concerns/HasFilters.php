@@ -4,7 +4,10 @@ namespace App\Models\Concerns;
 
 use App\Enums\FilterOption;
 use App\Facades\CampaignLocalization;
+use App\Models\CharacterFamily;
+use App\Models\CharacterRace;
 use App\Models\Entity;
+use App\Models\OrganisationMember;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -444,8 +447,15 @@ trait HasFilters
         }
 
         if ($this->filterOption('exclude')) {
-            $query->whereRaw('(select count(*) from character_race as cr where cr.character_id = ' .
-                $this->getTable() . '.id and cr.race_id in (' . implode(', ', $raceIds) . ')) = 0');
+            // Only memberships the current user can see count, so a private one can't leave
+            // a character out of a player's results.
+            $query->whereNotExists(function ($sub) use ($raceIds) {
+                $sub->selectRaw(1)
+                    ->from('character_race as cr')
+                    ->whereColumn('cr.character_id', $this->getTable() . '.id')
+                    ->whereIn('cr.race_id', $raceIds);
+                $this->whereVisible($sub, 'cr.id', CharacterRace::class);
+            });
 
             return;
         }
@@ -464,6 +474,7 @@ trait HasFilters
         $query
             ->leftJoin('character_race as cr', 'cr.character_id', '=', $this->getTable() . '.id')
             ->whereIn('cr.race_id', $values);
+        $this->whereVisible($query, 'cr.id', CharacterRace::class);
     }
 
     /**
@@ -558,8 +569,15 @@ trait HasFilters
         }
 
         if ($this->filterOption('exclude')) {
-            $query->whereRaw('(select count(*) from organisation_member as cr where cr.character_id = ' .
-                $this->getTable() . '.id and cr.organisation_id in (' . implode(', ', $orgIds) . ')) = 0');
+            // Only memberships the current user can see count, so a private one can't leave
+            // a character out of a player's results.
+            $query->whereNotExists(function ($sub) use ($orgIds) {
+                $sub->selectRaw(1)
+                    ->from('organisation_member as cr')
+                    ->whereColumn('cr.character_id', $this->getTable() . '.id')
+                    ->whereIn('cr.organisation_id', $orgIds);
+                $this->whereVisible($sub, 'cr.id', OrganisationMember::class);
+            });
 
             return;
         }
@@ -578,6 +596,7 @@ trait HasFilters
         $query
             ->leftJoin('organisation_member as om', 'om.character_id', '=', $this->getTable() . '.id')
             ->whereIn('om.organisation_id', $values);
+        $this->whereVisible($query, 'om.id', OrganisationMember::class);
     }
 
     /**
@@ -603,8 +622,15 @@ trait HasFilters
         }
 
         if ($this->filterOption('exclude')) {
-            $query->whereRaw('(select count(*) from character_family as cr where cr.character_id = ' .
-                $this->getTable() . '.id and cr.family_id in (' . implode(', ', $familyIds) . ')) = 0');
+            // Only memberships the current user can see count, so a private one can't leave
+            // a character out of a player's results.
+            $query->whereNotExists(function ($sub) use ($familyIds) {
+                $sub->selectRaw(1)
+                    ->from('character_family as cr')
+                    ->whereColumn('cr.character_id', $this->getTable() . '.id')
+                    ->whereIn('cr.family_id', $familyIds);
+                $this->whereVisible($sub, 'cr.id', CharacterFamily::class);
+            });
 
             return;
         }
@@ -623,6 +649,7 @@ trait HasFilters
         $query
             ->leftJoin('character_family as cf', 'cf.character_id', '=', $this->getTable() . '.id')
             ->whereIn('cf.family_id', $values);
+        $this->whereVisible($query, 'cf.id', CharacterFamily::class);
     }
 
     /**
@@ -668,11 +695,12 @@ trait HasFilters
      */
     protected function filterFamily(Builder $query, ?string $value = null): void
     {
+        $campaign = CampaignLocalization::getCampaign();
         $ids = [$value];
         if ($this->filterOption('exclude')) {
             $query->whereRaw('(select count(*) from character_family as cf where cf.character_id = ' .
                 $this->getTable() . '.id and cf.family_id = ' . ((int) $value)
-                . ' ' . /* $this->subPrivacy('and cf.is_private') . */ ') = 0');
+                . $this->subPrivacy('and cf.is_private') . ') = 0');
 
             return;
         } elseif ($this->filterOption('children')) {
@@ -690,9 +718,9 @@ trait HasFilters
                 $join->on('cf.character_id', '=', $this->getTable() . '.id');
             })->whereIn('cf.family_id', $ids);
 
-        /*if (auth()->guest() || !auth()->user()->isAdmin()) {
+        if (auth()->guest() || ! auth()->user()->can('admin', $campaign)) {
             $query->where('cf.is_private', false);
-        }*/
+        }
 
         $query->distinct();
     }
@@ -788,6 +816,8 @@ trait HasFilters
                 ->select($this->getTable() . '.*')
                 ->leftJoin('character_race as cr2', function ($join) {
                     $join->on('cr2.character_id', '=', $this->getTable() . '.id');
+                    // A private race doesn't count, or "none" would leave out its character.
+                    $this->whereVisible($join, 'cr2.id', CharacterRace::class);
                 })
                 ->where('cr2.race_id', null);
         } elseif ($key === 'family_id') {
@@ -795,6 +825,7 @@ trait HasFilters
                 ->select($this->getTable() . '.*')
                 ->leftJoin('character_family as cf2', function ($join) {
                     $join->on('cf2.character_id', '=', $this->getTable() . '.id');
+                    $this->whereVisible($join, 'cf2.id', CharacterFamily::class);
                 })
                 ->where('cf2.family_id', null);
         } elseif ($key === 'quest_element_id') {

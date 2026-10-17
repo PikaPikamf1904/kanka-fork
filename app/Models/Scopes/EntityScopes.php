@@ -4,10 +4,14 @@ namespace App\Models\Scopes;
 
 use App\Enums\EntityEventTypes;
 use App\Models\Campaign;
+use App\Models\CharacterFamily;
+use App\Models\CharacterRace;
 use App\Models\Concerns\FiltersEntityFields;
 use App\Models\Entity;
 use App\Models\EntityType;
+use App\Models\OrganisationMember;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -255,6 +259,30 @@ trait EntityScopes
         return $query;
     }
 
+    /**
+     * Characters with (or, with $exclude, without) a membership in one of these families, races
+     * or organisations. Only memberships the current user can see count: a private one must not
+     * add a character to a player's list, or leave one out of it.
+     *
+     * @param  class-string<Model>  $model
+     */
+    protected function applyCharacterMembershipFilter(Builder $query, string $model, string $foreignKey, array $ids, bool $exclude): void
+    {
+        $table = (new $model)->getTable();
+        $membership = function ($q) use ($table, $foreignKey, $ids, $model) {
+            $q->selectRaw(1)
+                ->from($table)
+                ->whereColumn($table . '.character_id', 'child_filter.id')
+                ->whereIn($table . '.' . $foreignKey, $ids);
+            $this->whereVisible($q, $table . '.id', $model);
+        };
+        if ($exclude) {
+            $query->whereNotExists($membership);
+        } else {
+            $query->whereExists($membership);
+        }
+    }
+
     public function scopeFilter(Builder $query, array $filters = [], ?EntityType $entityType = null): Builder
     {
         $childFilterKeys = [];
@@ -337,11 +365,7 @@ trait EntityScopes
                             ->unique()
                             ->toArray();
                     }
-                    if ($option === 'exclude') {
-                        $query->whereRaw('(select count(*) from `character_family` where `character_family`.`character_id` = `child_filter`.`id` and `character_family`.`family_id` in (' . implode(', ', $ids) . ')) = 0');
-                    } else {
-                        $query->whereExists(fn ($q) => $q->select(DB::raw(1))->from('character_family')->whereColumn('character_family.character_id', 'child_filter.id')->whereIn('character_family.family_id', $ids));
-                    }
+                    $this->applyCharacterMembershipFilter($query, CharacterFamily::class, 'family_id', $ids, $option === 'exclude');
                 } elseif ($name === 'races') {
                     if ($option === 'children') {
                         $ids = Entity::whereIn('entity_id', $ids)
@@ -352,11 +376,7 @@ trait EntityScopes
                             ->unique()
                             ->toArray();
                     }
-                    if ($option === 'exclude') {
-                        $query->whereRaw('(select count(*) from `character_race` where `character_race`.`character_id` = `child_filter`.`id` and `character_race`.`race_id` in (' . implode(', ', $ids) . ')) = 0');
-                    } else {
-                        $query->whereExists(fn ($q) => $q->select(DB::raw(1))->from('character_race')->whereColumn('character_race.character_id', 'child_filter.id')->whereIn('character_race.race_id', $ids));
-                    }
+                    $this->applyCharacterMembershipFilter($query, CharacterRace::class, 'race_id', $ids, $option === 'exclude');
                 } elseif ($name === 'organisations') {
                     if ($option === 'children') {
                         $ids = Entity::whereIn('entity_id', $ids)
@@ -367,11 +387,7 @@ trait EntityScopes
                             ->unique()
                             ->toArray();
                     }
-                    if ($option === 'exclude') {
-                        $query->whereRaw('(select count(*) from `organisation_member` where `organisation_member`.`character_id` = `child_filter`.`id` and `organisation_member`.`organisation_id` in (' . implode(', ', $ids) . ')) = 0');
-                    } else {
-                        $query->whereExists(fn ($q) => $q->select(DB::raw(1))->from('organisation_member')->whereColumn('organisation_member.character_id', 'child_filter.id')->whereIn('organisation_member.organisation_id', $ids));
-                    }
+                    $this->applyCharacterMembershipFilter($query, OrganisationMember::class, 'organisation_id', $ids, $option === 'exclude');
                 } elseif ($name === 'locations') {
                     if ($option === 'children') {
                         $ids = Entity::whereIn('entity_id', $ids)
@@ -399,12 +415,19 @@ trait EntityScopes
                 } elseif ($name === 'member_id') {
                     // @phpstan-ignore-next-line
                     $memberTable = $entityType?->id == config('entities.ids.family')
-                        ? ['table' => 'character_family', 'fk' => 'family_id']
-                        : ['table' => 'organisation_member', 'fk' => 'organisation_id'];
+                        ? ['table' => 'character_family', 'fk' => 'family_id', 'model' => CharacterFamily::class]
+                        : ['table' => 'organisation_member', 'fk' => 'organisation_id', 'model' => OrganisationMember::class];
+                    $member = function ($q) use ($memberTable, $values) {
+                        $q->selectRaw(1)
+                            ->from($memberTable['table'])
+                            ->whereColumn($memberTable['table'] . '.' . $memberTable['fk'], 'child_filter.id')
+                            ->where($memberTable['table'] . '.character_id', (int) $values);
+                        $this->whereVisible($q, $memberTable['table'] . '.id', $memberTable['model']);
+                    };
                     if ($option === 'exclude') {
-                        $query->whereRaw('(select count(*) from `' . $memberTable['table'] . '` where `' . $memberTable['table'] . '`.`' . $memberTable['fk'] . '` = `child_filter`.`id` and `' . $memberTable['table'] . '`.`character_id` = ' . (int) $values . ') = 0');
+                        $query->whereNotExists($member);
                     } else {
-                        $query->whereExists(fn ($q) => $q->selectRaw(1)->from($memberTable['table'])->whereColumn($memberTable['table'] . '.' . $memberTable['fk'], 'child_filter.id')->where($memberTable['table'] . '.character_id', (int) $values));
+                        $query->whereExists($member);
                     }
                 } else {
                     $query->where('child_filter.' . $name, $values);
@@ -419,26 +442,31 @@ trait EntityScopes
         }
 
         $noneJoinTables = [
-            'races' => ['table' => 'character_race', 'fk' => 'character_id', 'ref' => 'entities.entity_id'],
-            'families' => ['table' => 'character_family', 'fk' => 'character_id', 'ref' => 'entities.entity_id'],
-            'organisations' => ['table' => 'organisation_member', 'fk' => 'character_id', 'ref' => 'entities.entity_id'],
-            'locations' => ['table' => 'entity_locations', 'fk' => 'entity_id', 'ref' => 'entities.id'],
+            'races' => ['table' => 'character_race', 'fk' => 'character_id', 'ref' => 'entities.entity_id', 'model' => CharacterRace::class],
+            'families' => ['table' => 'character_family', 'fk' => 'character_id', 'ref' => 'entities.entity_id', 'model' => CharacterFamily::class],
+            'organisations' => ['table' => 'organisation_member', 'fk' => 'character_id', 'ref' => 'entities.entity_id', 'model' => OrganisationMember::class],
+            'locations' => ['table' => 'entity_locations', 'fk' => 'entity_id', 'ref' => 'entities.id', 'model' => null],
         ];
         foreach ($noneJoinTables as $field => $join) {
             if (Arr::get($filters, $field . '_option') === 'none') {
-                $query->whereNotExists(
-                    fn ($q) => $q->selectRaw(1)->from($join['table'])->whereColumn($join['table'] . '.' . $join['fk'], $join['ref'])
-                );
+                $query->whereNotExists(function ($q) use ($join) {
+                    $q->selectRaw(1)->from($join['table'])->whereColumn($join['table'] . '.' . $join['fk'], $join['ref']);
+                    // A private membership doesn't count, or "none" would leave out its character.
+                    if ($join['model']) {
+                        $this->whereVisible($q, $join['table'] . '.id', $join['model']);
+                    }
+                });
             }
         }
 
         if (Arr::get($filters, 'member_id_option') === 'none') {
             $memberTable = $entityType?->id == config('entities.ids.family')
-                ? ['table' => 'character_family', 'fk' => 'family_id']
-                : ['table' => 'organisation_member', 'fk' => 'organisation_id'];
-            $query->whereNotExists(
-                fn ($q) => $q->selectRaw(1)->from($memberTable['table'])->whereColumn($memberTable['table'] . '.' . $memberTable['fk'], 'entities.entity_id')
-            );
+                ? ['table' => 'character_family', 'fk' => 'family_id', 'model' => CharacterFamily::class]
+                : ['table' => 'organisation_member', 'fk' => 'organisation_id', 'model' => OrganisationMember::class];
+            $query->whereNotExists(function ($q) use ($memberTable) {
+                $q->selectRaw(1)->from($memberTable['table'])->whereColumn($memberTable['table'] . '.' . $memberTable['fk'], 'entities.entity_id');
+                $this->whereVisible($q, $memberTable['table'] . '.id', $memberTable['model']);
+            });
         }
 
         if (Arr::get($filters, 'location_id_option') === 'none' && $entityType?->isStandard()) {
