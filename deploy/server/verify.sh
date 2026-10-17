@@ -29,7 +29,7 @@ fi
 env_value() {
     grep -m1 "^$1=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
 }
-http_code() { curl -s --path-as-is -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo 000; }
+http_code() { curl -s --path-as-is -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || true; }
 mode_of() { stat -c '%a' "$1" 2>/dev/null; }
 owner_of() { stat -c '%U' "$1" 2>/dev/null; }
 
@@ -54,6 +54,12 @@ fi
 section "Services (running and starting at boot)"
 for unit in nginx php8.4-fpm mariadb kanka-queue kanka-queue-heavy kanka-scheduler.timer; do
     active=$(systemctl is-active "$unit" 2>/dev/null)
+    # Workers restart themselves after each deploy; give them a few seconds.
+    for _ in 1 2 3 4 5 6 7 8; do
+        [ "$active" = "activating" ] || break
+        sleep 2
+        active=$(systemctl is-active "$unit" 2>/dev/null)
+    done
     enabled=$(systemctl is-enabled "$unit" 2>/dev/null)
     if [ "$active" = "active" ] && [ "$enabled" = "enabled" ]; then
         pass "$unit"

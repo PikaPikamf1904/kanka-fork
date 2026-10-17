@@ -153,9 +153,9 @@ if [ -f /etc/php/8.4/fpm/pool.d/www.conf ]; then
     mv /etc/php/8.4/fpm/pool.d/www.conf /etc/php/8.4/fpm/pool.d/www.conf.disabled
     fpm_changed+=changed
 fi
-php-fpm8.4 -t -q
+php-fpm8.4 -t >/dev/null 2>&1 || { php-fpm8.4 -t; exit 1; }
+systemctl enable --now php8.4-fpm >/dev/null
 [ -n "$fpm_changed" ] && systemctl restart php8.4-fpm
-systemctl enable php8.4-fpm >/dev/null
 
 log "configuring nginx"
 nginx_changed=$(install_if_changed "$HERE/nginx-kanka.conf" /etc/nginx/sites-available/kanka 644)

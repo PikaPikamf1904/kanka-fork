@@ -26,12 +26,13 @@ restart_services() {
     if [ -n "${KANKA_SKIP_SERVICES:-}" ]; then
         return
     fi
-    $SUDO /usr/bin/systemctl reload php8.4-fpm
+    # Frees PHP memory held for the old release; requests already use the new path.
+    $SUDO /usr/bin/systemctl reload php8.4-fpm || log "warning: could not reload PHP-FPM"
     # Running workers finish their current job, exit, and systemd starts them again from
     # the new release. This never interrupts a long map-tiling job halfway.
     (cd "$BASE/current" && php artisan queue:restart --no-interaction >/dev/null)
     # Starts the workers after the first deploy; a no-op when they already run.
-    $SUDO /usr/bin/systemctl start kanka-queue kanka-queue-heavy
+    $SUDO /usr/bin/systemctl start kanka-queue kanka-queue-heavy || log "warning: could not start the queue workers"
 }
 
 switch_to() {

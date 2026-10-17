@@ -14,6 +14,8 @@ RUN systemctl mask systemd-sysctl.service systemd-udevd.service systemd-udevd-co
         systemd-udevd-kernel.socket systemd-modules-load.service getty.target systemd-firstboot.service \
     # provision.sh writes this file only when missing; pre-creating it skips its sysctl call.
     && echo 'vm.swappiness=10' > /etc/sysctl.d/90-kanka.conf \
+    # Like a real install, let packages start their services.
+    && rm -f /usr/sbin/policy-rc.d \
     # Stand-in for the "pika" admin account.
     && useradd --create-home --shell /bin/bash pika
 

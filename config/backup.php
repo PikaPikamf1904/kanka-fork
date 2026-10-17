@@ -62,11 +62,10 @@ return [
                  * Example: base_path()
                  */
                 // With uploads included, store them as "public/..." in the archive so a
-                // restore does not depend on where they were taken from. Included paths are
-                // resolved through symlinks, so this one must be too.
-                'relative_path' => env('BACKUP_INCLUDE_UPLOADS', false)
-                    ? (realpath(storage_path('app')) ?: storage_path('app'))
-                    : null,
+                // restore does not depend on where they were taken from. spatie strips this
+                // prefix from the include path as written (it does not resolve symlinks), so
+                // it must match the include entry exactly.
+                'relative_path' => env('BACKUP_INCLUDE_UPLOADS', false) ? storage_path('app') : null,
             ],
 
             /*

@@ -11,14 +11,15 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+cd "$ROOT"
 IMAGE=${KANKA_TEST_IMAGE:-kanka-test-php84}
 export MSYS_NO_PATHCONV=1
 # Docker on Windows needs Windows-style paths (MSYS path conversion is off below).
 host_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
 
 ref=${1:-HEAD}
-sha=$(git -C "$ROOT" rev-parse --short "$ref^{commit}")
-if [ "$ref" = "HEAD" ] && [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]; then
+sha=$(git rev-parse --short "$ref^{commit}")
+if [ "$ref" = "HEAD" ] && [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     echo "note: uncommitted changes are not part of the build"
 fi
 
@@ -33,7 +34,7 @@ fi
 
 echo "building $sha into deploy/local/out/$name"
 # spatie/laravel-backup refuses to boot without APP_EMAIL; the server's .env sets the real one.
-git -C "$ROOT" archive --format=tar "$ref" | docker run --rm -i \
+git archive --format=tar "$ref" | docker run --rm -i \
     -e APP_EMAIL=build@kanka.test \
     -e NAME="$name" \
     -v "$out_mount:/out" \
