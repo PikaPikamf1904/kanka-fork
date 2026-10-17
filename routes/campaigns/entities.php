@@ -14,6 +14,7 @@ use App\Http\Controllers\Entities\ListingPreferenceController;
 use App\Http\Controllers\Entity\AttributeController;
 use App\Http\Controllers\Entity\Attributes\LiveApiController;
 use App\Http\Controllers\Entity\Attributes\LiveController;
+use App\Http\Controllers\Entity\CharacterSheetController;
 use App\Http\Controllers\Entity\EntryController;
 use App\Http\Controllers\Entity\ImageController;
 use App\Http\Controllers\Entity\Maps\ApiController as EntityMapApiController;
@@ -202,6 +203,12 @@ Route::get('/w/{campaign}/entities/{entity}/attributes/live-edit/{attribute}', [
     ->name('entities.attributes.live.edit2');
 Route::post('/w/{campaign}/entities/{entity}/attributes/live-edit/{attribute}/save', [LiveController::class, 'save'])
     ->name('entities.attributes.live.save');
+
+// Character sheets, stored as properties
+Route::get('/w/{campaign}/entities/{entity}/sheet', [CharacterSheetController::class, 'index'])->name('entities.sheet');
+Route::get('/w/{campaign}/entities/{entity}/sheet/edit', [CharacterSheetController::class, 'edit'])->name('entities.sheet.edit');
+Route::put('/w/{campaign}/entities/{entity}/sheet', [CharacterSheetController::class, 'update'])->name('entities.sheet.update');
+Route::get('/w/{campaign}/entities/{entity}/sheet/print', [CharacterSheetController::class, 'print'])->name('entities.sheet.print');
 
 Route::get('/w/{campaign}/entities/{entity}/attributes/live-api', [LiveApiController::class, 'index'])
     ->name('entities.attributes.live-api.index');
