@@ -18,6 +18,7 @@ use App\Http\Controllers\Settings\Apps\DiscordController;
 use App\Http\Controllers\Settings\AppsController;
 use App\Http\Controllers\Settings\BoostController;
 use App\Http\Controllers\Settings\ClientController;
+use App\Http\Controllers\Settings\EntranceController;
 use App\Http\Controllers\Settings\NewsletterApiController;
 use App\Http\Controllers\Settings\NewsletterController;
 use App\Http\Controllers\Settings\PatreonController;
@@ -195,3 +196,11 @@ Route::post('/notifications/clear-all', [NotificationController::class, 'clearAl
 Route::get('/layout/navigation', [NavigationController::class, 'index'])->name('layout.navigation');
 
 Route::get('/referrals', [ReferralController::class, 'index'])->name('settings.referrals');
+
+// Shared entrance password; only the accounts listed in ENTRANCE_MANAGER_IDS (404 for everyone else)
+Route::get('/entrance', [EntranceController::class, 'index'])
+    ->middleware(['auth', 'password.confirm'])
+    ->name('settings.entrance');
+Route::post('/entrance', [EntranceController::class, 'update'])
+    ->middleware(['auth', 'password.confirm'])
+    ->name('settings.entrance.update');

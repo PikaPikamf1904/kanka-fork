@@ -52,6 +52,7 @@ class Kernel extends HttpKernel
             AuthenticateSession::class,
             ShareErrorsFromSession::class,
             Middleware\VerifyCsrfToken::class,
+            Middleware\SharedEntrance::class,
             SubstituteBindings::class,
             // Middleware\HttpsProtocol::class, // Force https in prod
             Middleware\LocaleChange::class, // Save language changing

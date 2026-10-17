@@ -58,6 +58,7 @@ class RouteServiceProvider extends ServiceProvider
             ->campaign()
             ->settings()
             ->auth()
+            ->entrance()
             ->webhooks()
             ->vendor();
     }
@@ -153,6 +154,17 @@ class RouteServiceProvider extends ServiceProvider
         Route::middleware(['web', 'adless'])
             ->namespace('App\Http\Controllers')
             ->group(base_path('routes/auth.php'));
+
+        return $this;
+    }
+
+    /**
+     * Define the shared-password entrance routes
+     */
+    protected function entrance(): self
+    {
+        Route::middleware(['web'])
+            ->group(base_path('routes/entrance.php'));
 
         return $this;
     }
