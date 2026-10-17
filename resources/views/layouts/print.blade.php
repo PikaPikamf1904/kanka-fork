@@ -4,7 +4,7 @@
  * @var \App\Models\Entity $entity
  */
 $themeOverride = request()->get('_theme', 'base');
-if (!empty($themeOverride) && in_array($themeOverride, ['dark', 'midnight', 'base'])) {
+if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme::values(), 'base'])) {
     $specificTheme = ($themeOverride === 'base') ? 'light' : $themeOverride;
 } elseif (!empty($campaign) && $campaign->boosted() && !empty($campaign->theme_id)) {
     $specificTheme = match ($campaign->theme_id) {
@@ -12,7 +12,7 @@ if (!empty($themeOverride) && in_array($themeOverride, ['dark', 'midnight', 'bas
         3 => 'midnight',
         default => 'light',
     };
-} elseif (auth()->check() && !empty(auth()->user()->theme)) {
+} elseif (auth()->check() && \App\Enums\UserTheme::tryFrom((string) auth()->user()->theme) !== null) {
     $specificTheme = auth()->user()->theme;
 } else {
     $specificTheme = 'light';
