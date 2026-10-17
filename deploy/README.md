@@ -107,6 +107,11 @@ swap file if there is none; and sets up the background workers, the scheduler, a
 security updates and crash recovery. It never touches disks, the bootloader, passwords,
 the firewall, SSH settings or the router. It is safe to run again at any time.
 
+Your deploy key is added for `kanka` with a `from=` limit: it works only from the home
+network, Tailscale and Big Bertha itself, and cannot forward ports. If nginx or PHP-FPM
+already serve another site on this machine, the script stops and lists them before
+changing anything there.
+
 ### 6. Fill in your settings (Bertha, root)
 
 ```bash
@@ -144,7 +149,32 @@ deploy/local/push-release.sh --first-install
 
 `--first-install` creates the database tables and reference data, **once**. Never use it
 again: later updates have no flag. The script stops with an error if anything fails,
-before the site goes live.
+before the site goes live. It also refuses to run when a release is already live or the
+database already has tables.
+
+**First install stopped partway.** Read the error and fix its cause first. If the refusal
+says the database has migrations or a release is live, and **nobody has used the site yet**
+(no campaign, no accounts beyond a test), start the database again from empty, as root on
+Bertha. This deletes everything in the `kanka` database, so never do it once real data
+exists; then deploy normally without the flag instead.
+
+```bash
+rm -f /srv/kanka/current
+```
+
+```bash
+mariadb -e 'DROP DATABASE kanka'
+```
+
+```bash
+bash /home/pika/kanka-kit/server/provision.sh
+```
+
+provision.sh recreates the empty database and its grants and keeps `.env` as it is. Then
+run step 8 again with `--first-install`.
+
+The archive's checksum (`.sha256`, written by `build-release.sh`) is checked on the PC
+before the upload and again on Big Bertha before anything is unpacked.
 
 ### 9. Check everything (Bertha, root)
 
@@ -270,6 +300,18 @@ opened, and it is lost if the disk dies. Copy it into your password manager now:
 grep '^BACKUP_ARCHIVE_PASSWORD=' /srv/kanka/shared/.env
 ```
 
+Copy `APP_KEY` from the same file into the password manager too. Backups never include
+`.env`, so after a reinstall you need it to keep everyone logged in and anything Kanka
+encrypted readable. Do this at Big Bertha's screen; never paste either value into a chat,
+an issue or the repository.
+
+```bash
+grep '^APP_KEY=' /srv/kanka/shared/.env
+```
+
+The API keys in `shared/storage/oauth-*.key` are not backed up either. A reinstall makes new
+ones; only API tokens issued before it stop working.
+
 **Take one now** (before anything risky):
 
 ```bash
@@ -327,6 +369,12 @@ Use the `<time>` from the `pre-restore-<time>` copies the restore printed:
 
 ```bash
 kanka-restore --undo <time>
+```
+
+That only checks the copies and says what would happen. To do it:
+
+```bash
+kanka-restore --undo <time> --yes
 ```
 
 This puts back the database and images exactly as they were before the restore (keeping

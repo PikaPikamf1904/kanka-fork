@@ -15,7 +15,11 @@
 #   KANKA_APP_URL   URL people type to open the wiki; default http://<this machine's LAN IP>
 #   DEPLOY_PUBKEY   public key allowed to log in as "kanka" to deploy releases (default:
 #                   the deploy.pub that deploy/local/push-kit.sh puts next to this folder)
+#   DEPLOY_FROM     networks that key may log in from (default: home LAN, Tailscale and
+#                   this machine, the same ranges nginx allows)
 #   SWAP_SIZE       swap file to add when the machine has no swap at all (default 2G, 0 = none)
+#   KANKA_ALLOW_OTHER_SITES  1 lets provisioning continue when nginx or PHP-FPM already
+#                   serve something else (by default it stops and says what it found)
 #   INSTALL_VIPS    1 (default) installs libvips-tools for tiling large map images
 #   UNATTENDED_UPGRADES  1 (default) installs automatic Debian security updates
 set -euo pipefail
@@ -62,7 +66,9 @@ packages=(
 [ "${UNATTENDED_UPGRADES:-1}" = "1" ] && packages+=(unattended-upgrades)
 apt-get install -y -qq --no-install-recommends "${packages[@]}"
 
-if [ "$SWAP_SIZE" != "0" ] && [ -z "$(swapon --noheadings --show)" ]; then
+if [ "$SWAP_SIZE" != "0" ] && [ -z "$(swapon --noheadings --show)" ] && [ -e /swapfile ]; then
+    log "no active swap, but /swapfile already exists: leaving it alone (no swap added)"
+elif [ "$SWAP_SIZE" != "0" ] && [ -z "$(swapon --noheadings --show)" ]; then
     log "no swap found: adding a ${SWAP_SIZE} swap file"
     fallocate -l "$SWAP_SIZE" /swapfile
     chmod 600 /swapfile
@@ -92,13 +98,21 @@ if [ -z "${DEPLOY_PUBKEY:-}" ] && [ -f "$HERE/../deploy.pub" ]; then
     DEPLOY_PUBKEY=$(head -n 1 "$HERE/../deploy.pub" | tr -d '\r')
 fi
 if [ -n "${DEPLOY_PUBKEY:-}" ]; then
-    if ! [[ "$DEPLOY_PUBKEY" =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh.com)\ [A-Za-z0-9+/=]+(\ [^[:cntrl:]]*)?$ ]]; then
+    if ! [[ "$DEPLOY_PUBKEY" =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com)\ [A-Za-z0-9+/=]+(\ [^[:cntrl:]]*)?$ ]]; then
         echo "DEPLOY_PUBKEY does not look like one public SSH key line; not adding it."
         exit 1
     fi
+    # The key only works from the home network or Tailscale, and cannot forward ports or
+    # agents. This is the kanka user's own key file; the SSH server settings are not changed.
+    deploy_from=${DEPLOY_FROM:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fe80::/10,fc00::/7}
+    [[ "$deploy_from" =~ ^[0-9A-Fa-f.:/,*]+$ ]] || { echo "DEPLOY_FROM must be a comma-separated list of addresses or networks."; exit 1; }
+    key_body=$(awk '{print $1" "$2}' <<<"$DEPLOY_PUBKEY")
     install -d -m 700 -o "$APP_USER" -g "$APP_USER" "/home/$APP_USER/.ssh"
     touch "/home/$APP_USER/.ssh/authorized_keys"
-    grep -qxF "$DEPLOY_PUBKEY" "/home/$APP_USER/.ssh/authorized_keys" || echo "$DEPLOY_PUBKEY" >> "/home/$APP_USER/.ssh/authorized_keys"
+    # Replace any earlier line for this key: an older kit added it without restrictions.
+    keys="/home/$APP_USER/.ssh/authorized_keys"
+    { grep -vF "$key_body" "$keys" || true; echo "from=\"$deploy_from\",restrict,pty $DEPLOY_PUBKEY"; } > "$keys.new"
+    mv "$keys.new" "$keys"
     chown "$APP_USER:$APP_USER" "/home/$APP_USER/.ssh/authorized_keys"
     chmod 600 "/home/$APP_USER/.ssh/authorized_keys"
     log "deploy key added for ${APP_USER}"
@@ -143,7 +157,12 @@ ensure_env BACKUP_ROOT "$BASE/backups"
 chown "$APP_USER:$APP_USER" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
-db_password=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
+db_password=$({ grep '^DB_PASSWORD=' "$ENV_FILE" || true; } | cut -d= -f2-)
+# It goes into SQL below, so only letters and digits; and never the template's placeholder.
+if [[ "$db_password" == CHANGE_ME* ]] || ! [[ "$db_password" =~ ^[A-Za-z0-9]{16,}$ ]]; then
+    echo "DB_PASSWORD in $ENV_FILE must be at least 16 letters and digits (and not CHANGE_ME)."
+    exit 1
+fi
 mariadb <<SQL
 CREATE DATABASE IF NOT EXISTS kanka CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'kanka'@'localhost' IDENTIFIED BY '${db_password}';
@@ -153,10 +172,24 @@ FLUSH PRIVILEGES;
 SQL
 unset db_password
 
+# This kit makes Kanka the machine's only website. Stop before switching off anything
+# else that nginx or PHP-FPM already serves.
+other_sites=$(find /etc/nginx/sites-enabled /etc/nginx/conf.d -mindepth 1 -maxdepth 1 \
+    ! -name default ! -name kanka 2>/dev/null || true)
+other_pools=$(find /etc/php/8.4/fpm/pool.d -mindepth 1 -maxdepth 1 -name '*.conf' \
+    ! -name www.conf ! -name kanka.conf 2>/dev/null || true)
+if [ -n "$other_sites$other_pools" ] && [ "${KANKA_ALLOW_OTHER_SITES:-}" != "1" ]; then
+    echo "nginx or PHP-FPM already serve something else on this machine:"
+    printf '  %s\n' $other_sites $other_pools
+    echo "Kanka's site answers every address on port 80. Check these, then run again with"
+    echo "KANKA_ALLOW_OTHER_SITES=1 to continue. Nothing has been changed in nginx or PHP-FPM."
+    exit 1
+fi
+
 log "configuring PHP-FPM"
 fpm_changed=$(install_if_changed "$HERE/php-fpm-kanka.conf" /etc/php/8.4/fpm/pool.d/kanka.conf 644)
 fpm_changed+=$(install_if_changed "$HERE/php-kanka.ini" /etc/php/8.4/fpm/conf.d/90-kanka.ini 644)
-# Drop the default pool so only Kanka's on-demand pool uses memory.
+# Drop the default pool so only Kanka's on-demand pool uses memory. Renamed, not deleted.
 if [ -f /etc/php/8.4/fpm/pool.d/www.conf ]; then
     mv /etc/php/8.4/fpm/pool.d/www.conf /etc/php/8.4/fpm/pool.d/www.conf.disabled
     fpm_changed+=changed
@@ -168,6 +201,7 @@ systemctl enable --now php8.4-fpm >/dev/null
 log "configuring nginx"
 nginx_changed=$(install_if_changed "$HERE/nginx-kanka.conf" /etc/nginx/sites-available/kanka 644)
 ln -sfn /etc/nginx/sites-available/kanka /etc/nginx/sites-enabled/kanka
+# Only the link is removed; /etc/nginx/sites-available/default stays.
 if [ -e /etc/nginx/sites-enabled/default ]; then
     rm -f /etc/nginx/sites-enabled/default
     nginx_changed+=changed
