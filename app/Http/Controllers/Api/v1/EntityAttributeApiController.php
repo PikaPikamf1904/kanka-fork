@@ -22,6 +22,7 @@ class EntityAttributeApiController extends ApiController
     {
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
+        $this->authorize('view-attributes', [$entity, $campaign]);
 
         return Resource::collection($entity->attributes()->with('entity')->get());
     }
@@ -33,6 +34,7 @@ class EntityAttributeApiController extends ApiController
     {
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
+        $this->authorize('view-attributes', [$entity, $campaign]);
 
         return new Resource($attribute);
     }

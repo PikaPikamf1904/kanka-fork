@@ -12,6 +12,7 @@ use App\Traits\CampaignAware;
 use App\Traits\EntityAware;
 use App\Traits\UserAware;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use League\HTMLToMarkdown\Converter\LinkConverter;
 use League\HTMLToMarkdown\Converter\TableConverter;
@@ -161,7 +162,12 @@ class MarkdownExportService
             }
         }
 
-        foreach ($this->entity->attributes as $attribute) {
+        // A single export goes to whoever asked for it, so it follows their access to the
+        // properties. The whole-campaign export is admin only and keeps everything.
+        $attributes = ! $this->isSingle || Gate::forUser($this->user ?? null)->allows('view-attributes', [$this->entity, $this->campaign])
+            ? $this->entity->attributes
+            : [];
+        foreach ($attributes as $attribute) {
             $entityData['attributes'][] = [
                 'name' => $attribute->name(),
                 'value' => $attribute->mappedValue(),

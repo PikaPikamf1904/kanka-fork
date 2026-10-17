@@ -13,6 +13,7 @@ use App\Traits\EntityAware;
 use App\Traits\UserAware;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class AbilityService extends BaseAbilityService
@@ -181,6 +182,9 @@ class AbilityService extends BaseAbilityService
     protected function attributes(Entity $entity): array
     {
         $attributes = [];
+        if (! $this->canViewAttributes($entity)) {
+            return $attributes;
+        }
         /** @var Attribute $attr */
         foreach ($entity->attributes->sortBy('default_order') as $attr) {
             $attributes[] = [
@@ -192,6 +196,24 @@ class AbilityService extends BaseAbilityService
         }
 
         return $attributes;
+    }
+
+    /**
+     * The owner's properties that {Name} in notes, entries and charges resolve to, unless the DM
+     * hid them from the reader.
+     */
+    protected function entityAttributes()
+    {
+        if (! isset($this->attributes) && ! $this->canViewAttributes($this->entity)) {
+            return $this->attributes = new Collection;
+        }
+
+        return parent::entityAttributes();
+    }
+
+    protected function canViewAttributes(Entity $entity): bool
+    {
+        return Gate::forUser($this->user)->allows('view-attributes', [$entity, $this->campaign]);
     }
 
     protected function formatTags(Collection $tags): array
