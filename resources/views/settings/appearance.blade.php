@@ -36,7 +36,8 @@ $highlightClass = 'shadow-xs border-primary border-solid border-2';
                         :options="[
                             '' => __('profiles.theme.themes.default'),
                             'dark' => __('profiles.theme.themes.dark'),
-                            'midnight' => __('profiles.theme.themes.midnight'),]"
+                            'midnight' => __('profiles.theme.themes.midnight'),
+                            'chronicle' => __('profiles.theme.themes.chronicle'),]"
                         radio
                         :selected="auth()->user()->theme" class="self-end w-full border rounded p-2" />
                 </div>

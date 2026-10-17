@@ -85,6 +85,16 @@
 .table-responsive {
     overflow-x: unset;
 }
+/* On phones and tablets (where the campaign sidebar stays open) a table can be wider than the page
+   column. It scrolls on its own instead of the whole page scrolling sideways. It is also the containing
+   block of its screen-reader-only labels, which otherwise still stuck out past the page. Dropdowns are
+   attached to the body, so they are not cut off. */
+@media (width < 64rem) {
+    .table-responsive {
+        overflow-x: auto;
+        position: relative;
+    }
+}
 .table-compact {
     width: auto;
 }

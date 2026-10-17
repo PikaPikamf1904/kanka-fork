@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserTheme;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreSettingsLayout extends FormRequest
 {
@@ -25,7 +27,7 @@ class StoreSettingsLayout extends FormRequest
     {
         return [
             'date_format' => 'nullable|string|max:5',
-            'theme' => 'nullable',
+            'theme' => ['nullable', Rule::in(UserTheme::values())],
             //            'editor' => 'in:,summernote,markdown',
         ];
     }

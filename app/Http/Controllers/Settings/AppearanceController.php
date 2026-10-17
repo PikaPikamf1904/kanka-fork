@@ -6,6 +6,7 @@ use App\Facades\UserCache;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSettingsLayout;
 use App\Models\User;
+use Illuminate\Support\Str;
 
 class AppearanceController extends Controller
 {
@@ -53,9 +54,9 @@ class AppearanceController extends Controller
             UserCache::clear();
         }
 
-        if ($request->filled('from')) {
-            $from = base64_decode($request->get('from'));
-
+        $from = base64_decode((string) $request->get('from'));
+        // Only go back to a page of this site, never to an address slipped into the link.
+        if (! empty($from) && Str::startsWith($from, url('/') . '/')) {
             return redirect()
                 ->to($from)
                 ->with('success', __('settings/appearance.success'));

@@ -91,6 +91,10 @@
                                     link="{!! $themeUrl . '_theme=midnight' !!}">
                                     Midnight
                                 </x-dropdowns.item>
+                                <x-dropdowns.item
+                                    link="{!! $themeUrl . '_theme=chronicle' !!}">
+                                    Chronicle
+                                </x-dropdowns.item>
                             </div>
                         </div>
                     @endif

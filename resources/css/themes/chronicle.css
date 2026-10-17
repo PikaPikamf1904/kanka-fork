@@ -1,0 +1,89 @@
+/*
+ * Chronicle: a light theme for campaigns kept as an encyclopedia. Pages are parchment and
+ * ivory, the sidebar navy and charcoal, with muted gold accents and serif headings.
+ */
+@layer theme {
+    html {
+        color-scheme: light;
+        accent-color: hsl(var(--a)/1);
+    }
+    :root {
+        /* Parchment behind the boxes */
+        --content-wrapper-background: hsl(41 45% 88%);
+        --boosted: 338 78% 48%;
+
+        /* Navy, for buttons and links */
+        --p: 215 51% 27%;
+        --pf: 215 52% 20%;
+        --pc: 42 64% 97%;
+
+        --s: 42 45% 92%;
+        --sf: 42 38% 86%;
+        --sc: 215 51% 25%;
+
+        /* Muted gold */
+        --a: 42 52% 47%;
+        --af: 42 52% 40%;
+        --ac: 222 30% 11%;
+
+        /* Neutral: tags, code, muted text */
+        --n: 40 30% 84%;
+        --nf: 40 22% 70%;
+        --nc: 220 14% 36%;
+
+        /* Ivory boxes, panels and modals */
+        --b1: 42 64% 97%;
+        --b2: 41 48% 91%;
+        --b3: 41 38% 82%;
+        /* Charcoal text */
+        --bc: 222 26% 15%;
+
+        --in: 212 45% 90%;
+        --inc: 215 51% 25%;
+
+        --wa: 42 85% 85%;
+        --wac: 30 75% 25%;
+
+        --er: 2 65% 91%;
+        --erc: 2 62% 38%;
+
+        --su: 140 32% 88%;
+        --suc: 150 52% 20%;
+
+        /* Navy and charcoal sidebar */
+        --si: 222 32% 14%;
+        --sif: 215 42% 24%;
+        --sic: 42 50% 90%;
+
+        /* Without a campaign image, the sidebar header is a plain navy wash instead of a
+           picture fetched from kanka.io. */
+        --sidebar-placeholder: linear-gradient(160deg, hsl(215 46% 26%) 0%, hsl(222 32% 14%) 100%);
+
+        --link-text: hsl(var(--p)/1);
+        --link-hover: hsl(var(--af)/1);
+    }
+}
+
+.entity-name,
+.entity-content h1,
+.entity-content h2,
+.entity-content h3,
+.entity-content h4 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+}
+
+.entity-content {
+    hr {
+        --tw-border-opacity: 0.35;
+        border-color: hsl(var(--a)/var(--tw-border-opacity));
+    }
+
+    blockquote {
+        border-color: hsl(var(--a)/1);
+        background-color: hsl(var(--b2)/1);
+    }
+}
+
+.main-sidebar .sidebar-menu li.active > a {
+    box-shadow: inset 3px 0 0 hsl(var(--a)/1);
+}
