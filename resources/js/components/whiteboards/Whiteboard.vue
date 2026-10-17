@@ -6,7 +6,7 @@
             <span>Joining the whiteboard</span>
         </div>
         <div class="flex flex-col gap-2 text-error-content" v-else-if="error">
-            <i class="fa-reguar fa-circle-exclamation" aria-hidden="true" />
+            <i class="fa-regular fa-circle-exclamation" aria-hidden="true" />
             <span v-html="error"></span>
             <button class="btn2 btn-default btn-sm" @click="reload()">
                 <i class="fa-regular fa-rotate-right" aria-hidden="true"></i>

@@ -63,6 +63,7 @@ $cleanCanonical = \Illuminate\Support\Str::before(request()->fullUrl(), '%3');
     <link rel="dns-prefetch" href="//www.googletagmanager.com">
 
     @vite('resources/css/front.css')
+    @includeWhen(!config('fontawesome.kit'), 'layouts.styles.fontawesome')
     @livewireStyles
     @yield('styles')
     @include('layouts.tracking.tracking', ['frontLayout' => true])

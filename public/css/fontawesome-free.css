@@ -1,0 +1,97 @@
+/*
+ * Kanka's icons without a Font Awesome kit.
+ *
+ * Kanka asks for Font Awesome Pro styles (regular, duotone, light, thin). Without a kit
+ * (FONTAWESOME_KIT unset), only the bundled Font Awesome Free 6.0.0 is loaded, whose regular
+ * font has 161 icons and which has no duotone, light or thin font. Those icons showed as empty
+ * boxes. Here they fall back, icon by icon, to the free regular font and then the free solid
+ * one, and the few Pro-only icon names Kanka uses get the closest free icon.
+ *
+ * Only loaded without a kit (layouts/styles/fontawesome.blade.php), after all.min.css.
+ *
+ * Font Awesome Free 6.0.0 by @fontawesome - https://fontawesome.com
+ * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+ * Copyright 2022 Fonticons, Inc.
+ */
+
+@font-face {
+    font-family: "Kanka FA Free Regular";
+    font-style: normal;
+    font-weight: 400;
+    font-display: block;
+    src: url(/vendor/fontawesome/6.0.0/webfonts/fa-regular-400.woff2) format("woff2"),
+        url(/vendor/fontawesome/6.0.0/webfonts/fa-regular-400.ttf) format("truetype");
+}
+
+/* The solid font, declared at the regular weight so the browser never thickens it further. */
+@font-face {
+    font-family: "Kanka FA Free Solid";
+    font-style: normal;
+    font-weight: 400;
+    font-display: block;
+    src: url(/vendor/fontawesome/6.0.0/webfonts/fa-solid-900.woff2) format("woff2"),
+        url(/vendor/fontawesome/6.0.0/webfonts/fa-solid-900.ttf) format("truetype");
+}
+
+.fa-regular, .far,
+.fa-light, .fal,
+.fa-thin, .fat {
+    font-family: "Kanka FA Free Regular", "Kanka FA Free Solid";
+    font-weight: 400;
+}
+
+.fa-duotone, .fad {
+    font-family: "Kanka FA Free Solid";
+    font-weight: 400;
+}
+
+/* Pro-only (or newer than 6.0.0) icon names used by Kanka, shown as the closest free icon. */
+.fa-arrow-up-arrow-down::before { content: "\f07d"; }       /* arrows-up-down */
+.fa-arrow-up-left-from-circle::before { content: "\f057"; } /* circle-xmark */
+.fa-arrow-up-right::before { content: "\f08e"; }            /* arrow-up-right-from-square */
+.fa-arrows-maximize::before { content: "\f31e"; }           /* maximize */
+.fa-backpack::before { content: "\f0f2"; }                  /* suitcase */
+.fa-bars-filter::before { content: "\f0b0"; }               /* filter */
+.fa-block::before { content: "\f1b2"; }                     /* cube */
+.fa-books::before { content: "\f02d"; }                     /* book */
+.fa-brackets-curly::before { content: "\f121"; }            /* code */
+.fa-circle-location-arrow::before { content: "\f124"; }     /* location-arrow */
+.fa-circle-nodes::before { content: "\f1e0"; }              /* share-nodes */
+.fa-coin::before { content: "\f51e"; }                      /* coins */
+.fa-deer::before { content: "\f1b0"; }                      /* paw */
+.fa-down-to-line::before { content: "\f063"; }              /* arrow-down */
+.fa-family::before { content: "\e1b0"; }                    /* house-user */
+.fa-file-music::before { content: "\f1c7"; }                /* file-audio */
+.fa-file-xls::before { content: "\f1c3"; }                  /* file-excel */
+.fa-files::before { content: "\f0c5"; }                     /* copy */
+.fa-filter-list::before { content: "\f0b0"; }               /* filter */
+.fa-filter-slash::before { content: "\e17b"; }              /* filter-circle-xmark */
+.fa-flask-round-potion::before { content: "\f0c3"; }        /* flask */
+.fa-floppy-disks::before { content: "\f0c7"; }              /* floppy-disk */
+.fa-folder-image::before { content: "\f302"; }              /* images */
+.fa-grid-2::before { content: "\f009"; }                    /* table-cells-large */
+.fa-grid-4::before { content: "\f00a"; }                    /* table-cells */
+.fa-grid-round::before { content: "\f542"; }                /* diagram-project */
+.fa-left-to-bracket::before { content: "\f060"; }           /* arrow-left */
+.fa-list-timeline::before { content: "\e29c"; }             /* timeline */
+.fa-lock-keyhole::before { content: "\f023"; }              /* lock */
+.fa-moon-over-sun::before { content: "\f042"; }             /* circle-half-stroke */
+.fa-mountains::before { content: "\f6fc"; }                 /* mountain */
+.fa-paintbrush-fine::before { content: "\f1fc"; }           /* paintbrush */
+.fa-party-horn::before { content: "\f79f"; }                /* champagne-glasses */
+.fa-person-fairy::before { content: "\f471"; }              /* dna */
+.fa-screen-users::before { content: "\f51c"; }              /* chalkboard-user */
+.fa-scribble::before { content: "\f5b7"; }                  /* signature */
+.fa-shield-halved::before { content: "\f3ed"; }             /* shield-halved (shield-alt in 6.0.0) */
+.fa-sparkles::before { content: "\e2ca"; }                  /* wand-magic-sparkles */
+.fa-stars::before { content: "\f005"; }                     /* star */
+.fa-table-rows::before { content: "\f00b"; }                /* table-list */
+.fa-text::before { content: "\f031"; }                      /* font */
+.fa-text-size::before { content: "\f034"; }                 /* text-height */
+.fa-treasure-chest::before { content: "\f49e"; }            /* box-open */
+.fa-typewriter::before { content: "\f11c"; }                /* keyboard */
+.fa-up::before { content: "\f062"; }                        /* arrow-up */
+.fa-up-to-line::before { content: "\f062"; }                /* arrow-up */
+.fa-user-beard-bolt::before { content: "\f504"; }           /* user-ninja */
+.fa-webhook::before { content: "\f1e6"; }                   /* plug */
+.fa-x-twitter::before { content: "\f099"; }                 /* twitter (brands) */
