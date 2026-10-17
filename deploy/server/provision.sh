@@ -53,7 +53,7 @@ log "installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 packages=(
-    nginx mariadb-server mariadb-client curl ca-certificates unzip
+    nginx mariadb-server mariadb-client curl ca-certificates unzip sudo
     php8.4-fpm php8.4-cli php8.4-bcmath php8.4-intl php8.4-gd php8.4-zip
     php8.4-mbstring php8.4-xml php8.4-curl php8.4-mysql php8.4-gmp php8.4-igbinary
 )
@@ -173,6 +173,10 @@ units_changed=""
 for unit in kanka-queue.service kanka-queue-heavy.service kanka-scheduler.service kanka-scheduler.timer; do
     units_changed+=$(install_if_changed "$HERE/$unit" "/etc/systemd/system/$unit" 644)
 done
+# Bring the web stack back after a crash, like the workers.
+for unit in nginx php8.4-fpm mariadb; do
+    units_changed+=$(install_if_changed "$HERE/restart-on-failure.conf" "/etc/systemd/system/$unit.service.d/90-kanka-restart.conf" 644)
+done
 [ -n "$units_changed" ] && systemctl daemon-reload
 systemctl enable kanka-queue kanka-queue-heavy kanka-scheduler.timer >/dev/null
 systemctl start kanka-scheduler.timer
@@ -188,8 +192,13 @@ else
 fi
 
 log "installing the kanka-release, kanka-backup, kanka-restore, kanka-verify and kanka-diagnose commands"
-for pair in release.sh:kanka-release backup-now.sh:kanka-backup restore.sh:kanka-restore             verify.sh:kanka-verify diagnose.sh:kanka-diagnose; do
+for pair in release.sh:kanka-release backup-now.sh:kanka-backup restore.sh:kanka-restore \
+    verify.sh:kanka-verify diagnose.sh:kanka-diagnose; do
     install_if_changed "$HERE/${pair%%:*}" "/usr/local/bin/${pair##*:}" 755 >/dev/null
 done
 
-log "done. Next step: deploy a release (deploy/README.md, 'First deploy')."
+if [ -e "$BASE/current" ]; then
+    log "done. Check the machine with: sudo kanka-verify"
+else
+    log "done. Next step: deploy a release (deploy/README.md, 'First deploy')."
+fi

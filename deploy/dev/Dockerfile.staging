@@ -5,7 +5,7 @@ FROM debian:trixie
 
 ENV container=docker DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -qq \
-    && apt-get install -y -qq --no-install-recommends systemd systemd-sysv dbus sudo curl ca-certificates procps iproute2 \
+    && apt-get install -y -qq --no-install-recommends systemd systemd-sysv dbus curl ca-certificates procps iproute2 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # The container runs privileged so systemd works. Keep it from changing the Docker host:

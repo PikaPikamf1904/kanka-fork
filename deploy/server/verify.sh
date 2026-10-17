@@ -67,6 +67,11 @@ for unit in nginx php8.4-fpm mariadb kanka-queue kanka-queue-heavy kanka-schedul
         fail "$unit is $active / $enabled (journalctl -u $unit -n 50)"
     fi
 done
+for unit in nginx php8.4-fpm mariadb kanka-queue kanka-queue-heavy; do
+    restart=$(systemctl show "$unit" -p Restart --value 2>/dev/null)
+    [ -n "$restart" ] && [ "$restart" != "no" ] && pass "$unit restarts after a crash ($restart)" \
+        || fail "$unit does not restart after a crash (re-run provision.sh)"
+done
 last_run=$(systemctl show kanka-scheduler.service -p ExecMainExitTimestampMonotonic --value 2>/dev/null)
 now_mono=$(awk '{print int($1 * 1000000)}' /proc/uptime)
 if [ -n "$last_run" ] && [ "$last_run" -gt 0 ] && [ $(((now_mono - last_run) / 1000000)) -lt 300 ]; then
