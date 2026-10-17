@@ -170,6 +170,19 @@ class AppServiceProvider extends ServiceProvider
      * Kanka uses a lot of observers because they offer some magic, but
      * they also make a lot of stuff break.
      */
+    /**
+     * HTTPS sites want HTTPS URLs for pagination and redirects. Follow the configured site
+     * address rather than the environment name: a self-hosted production install served over
+     * plain HTTP on a home network would otherwise get https:// form actions and redirects
+     * that go nowhere.
+     */
+    public function forceHttpsUrlsWhenConfigured(): void
+    {
+        if (config('app.force_https') === true || str_starts_with((string) config('app.url'), 'https://')) {
+            \URL::forceScheme('https');
+        }
+    }
+
     protected function registerWebObservers()
     {
         // When in console (queue, commands), we don't want observers to trigger.
@@ -179,10 +192,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        // In production, we want URLs to be HTTPS for pagination and redirects
-        if ($this->app->isProduction() || $this->app->environment('qa')) {
-            \URL::forceScheme('https');
-        }
+        $this->forceHttpsUrlsWhenConfigured();
 
         // Model observers. Lots of magic.
         AdminInvite::observe(AdminInviteObserver::class);

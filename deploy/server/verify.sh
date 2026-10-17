@@ -107,6 +107,15 @@ if [ -n "$app_url" ]; then
     code=$(http_code "$app_url/up")
     [ "$code" = "200" ] && pass "APP_URL ($app_url) works from this machine" || warn "APP_URL ($app_url) answers $code"
 fi
+# A plain-HTTP site whose forms post to https:// cannot be signed in to.
+action=$(curl -s --max-time 20 "$HEALTH_BASE/login" 2>/dev/null | grep -oE '<form[^>]*action="[^"]*"' | head -n1 | sed -E 's/.*action="([^"]*)"/\1/')
+if [ -z "$action" ]; then
+    warn "could not read the sign-in form"
+elif [[ "$app_url" == http://* && "$(env_value APP_FORCE_HTTPS)" != "true" && "$action" == https://* ]]; then
+    fail "sign-in form posts to $action on a plain-HTTP site"
+else
+    pass "sign-in form posts to $action"
+fi
 
 section "Files and secrets"
 if [ -f "$ENV_FILE" ]; then
