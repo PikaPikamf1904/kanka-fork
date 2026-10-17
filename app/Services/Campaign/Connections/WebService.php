@@ -24,6 +24,11 @@ class WebService
 
     public function build(): array
     {
+        // The controller keeps this service between requests in a long-running process, so
+        // start empty, or one user's graph would end up in the next user's response.
+        $this->entities = [];
+        $this->parsedEntities = [];
+        $this->nodes = [];
         $this->mirrored = new Collection;
         $this->loadConnections();
 
@@ -71,6 +76,9 @@ class WebService
             return;
         }
 
+        // The mirror can be hidden from this user even when this side isn't. Then it's a
+        // one-way relation for them, or they'd learn that a reverse relation exists.
+        $mirrored = $connection->isMirrored() && $connection->mirror !== null;
         $node = [
             'id' => $connection->id,
             'source' => $connection->owner_id,
@@ -79,8 +87,8 @@ class WebService
             'colour' => $connection->colour,
             'attitude' => $connection->attitude,
             'type' => 'entity-relation',
-            'is_mirrored' => $connection->isMirrored(),
-            'shape' => $connection->isMirrored() && $connection->mirror && $connection->relation == $connection->mirror->relation ? 'none' : 'triangle',
+            'is_mirrored' => $mirrored,
+            'shape' => $mirrored && $connection->relation == $connection->mirror->relation ? 'none' : 'triangle',
         ];
         if (isset($this->user) && $this->user->can('update', $connection->owner)) {
             $node['url'] = route('entities.relations.edit', [
