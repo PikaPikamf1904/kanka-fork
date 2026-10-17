@@ -18,12 +18,15 @@ class FileCleanup implements ShouldQueue
 
     protected string $path;
 
+    protected ?string $disk;
+
     /**
-     * Create a new job instance.
+     * Create a new job instance. Without a disk, the default disk is used.
      */
-    public function __construct(string $path)
+    public function __construct(string $path, ?string $disk = null)
     {
         $this->path = $path;
+        $this->disk = $disk;
     }
 
     /**
@@ -31,8 +34,9 @@ class FileCleanup implements ShouldQueue
      */
     public function handle(): void
     {
-        if (Storage::exists($this->path)) {
-            Storage::delete($this->path);
+        $disk = Storage::disk($this->disk);
+        if ($disk->exists($this->path)) {
+            $disk->delete($this->path);
         }
     }
 }

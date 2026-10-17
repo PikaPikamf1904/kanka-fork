@@ -21,6 +21,8 @@ class QueueService
             'campaign_id' => $this->campaign->id,
             'created_by' => $this->user->id,
             'type' => $this->type,
+            // The column has no default; set it so strict SQL modes accept the row too.
+            'size' => 0,
             'status' => CampaignExportStatus::scheduled,
         ]);
 
