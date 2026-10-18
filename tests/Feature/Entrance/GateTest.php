@@ -227,6 +227,18 @@ it('stores a hash, never the password', function () {
     expect($service->isConfigured())->toBeFalse()->and($service->check(ENTRANCE_TEST_SECRET))->toBeFalse();
 });
 
+it('marks the visitor grant secure for HTTPS requests', function () {
+    entranceBoot();
+    Config::set('session.secure', null);
+    $httpsRequest = Request::create('https://chronicle.test/entrance');
+    app()->instance('request', $httpsRequest);
+    $cookie = app(\App\Services\Entrance\EntranceService::class)->grantCookie();
+
+    expect($cookie->isSecure())->toBeTrue()
+        ->and($cookie->isHttpOnly())->toBeTrue()
+        ->and($cookie->getSameSite())->toBe('lax');
+});
+
 it('forgets the grant on leave', function () {
     entranceBoot();
     $response = $this->post(route('entrance.leave'))->assertRedirect(route('entrance.show'));

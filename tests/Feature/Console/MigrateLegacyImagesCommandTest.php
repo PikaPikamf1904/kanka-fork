@@ -25,6 +25,7 @@ function legacyDestination(int $campaignId, string $source): string
 
 beforeEach(function () {
     $this->asUser()->withCampaign();
+    config(['filesystems.default' => 's3']);
     config(['cdn.ugc' => 'https://cdn-ugc.kanka.io']);
 });
 
@@ -62,6 +63,28 @@ it('migrates an owned legacy image and rewrites embedded references', function (
         ->and($post->fresh()->entry)->toContain('https://cdn-ugc.kanka.io/' . $destination)
         ->and($description->fresh()->description)->toContain($destination)
         ->and(DB::table('legacy_image_migrations')->where('source_hash', hash('sha256', $source))->value('status'))->toBe('complete');
+});
+
+it('stores migrated legacy images on the protected public disk for self-hosted installs', function () {
+    config(['filesystems.default' => 'public']);
+    Storage::fake('public');
+
+    $source = 'characters/local-preview.jpg';
+    $entity = Character::factory()->create(['campaign_id' => 1])->entity;
+    $entity->forceFill(['image_path' => $source])->saveQuietly();
+    Storage::disk('s3')->put($source, 'image-content');
+
+    $this->artisan('images:migrate-legacy', ['prefix' => 'characters', '--index' => true])
+        ->assertSuccessful();
+    $this->artisan('images:migrate-legacy', ['prefix' => 'characters', '--execute' => true])
+        ->assertSuccessful();
+
+    $destination = legacyDestination(1, $source);
+    Storage::disk('s3')->assertMissing($source);
+    Storage::disk('public')->assertExists($destination);
+    expect($entity->fresh()->image_path)->toBe($destination)
+        ->and(app(\App\Services\Images\LegacyImageMigrationService::class)->destinationUrl($destination))
+        ->toBe('/storage/' . $destination);
 });
 
 it('migrates dice roll images with an underscored prefix', function () {

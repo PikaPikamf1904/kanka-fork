@@ -25,6 +25,7 @@ class StoredUploadController extends Controller
         abort_if(str_contains($path, '..') || str_contains($path, '\\'), 404);
         if (preg_match('#^campaigns/(\d+)/#', $path, $matches) || preg_match('#^w/(\d+)/#', $path, $matches)) {
             $campaign = Campaign::acl($matches[1])->firstOrFail();
+            request()->route()->setParameter('campaign', $campaign);
             CampaignLocalization::forceCampaign($campaign);
             $this->authorizeUpload($path, $campaign);
         } elseif (preg_match('#^users/\d+/[^/]+$#', $path)) {
@@ -57,7 +58,22 @@ class StoredUploadController extends Controller
     {
         $campaignId = (int) $campaign->id;
         if (str_starts_with($path, 'w/')) {
-            abort_unless($campaign->image === $path || $campaign->header_image === $path, 404);
+            if ($campaign->image === $path || $campaign->header_image === $path) {
+                return;
+            }
+
+            abort_unless(preg_match('#^w/' . $campaignId . '/legacy/[a-f0-9-]{36}\.[a-z0-9]+$#i', $path), 404);
+
+            $visibleEntity = Entity::query()
+                ->where('campaign_id', $campaignId)
+                ->where(fn ($query) => $query->where('image_path', $path)->orWhere('header_image', $path))
+                ->exists();
+            $visibleMapLayer = MapLayer::query()
+                ->where('image_path', $path)
+                ->whereHas('map', fn ($query) => $query->where('campaign_id', $campaignId)->whereHas('entity'))
+                ->exists();
+
+            abort_unless($visibleEntity || $visibleMapLayer, 404);
 
             return;
         }
@@ -148,7 +164,7 @@ class StoredUploadController extends Controller
         }
 
         $visibleEntity = $image->inEntities() !== []
-            || $image->mapLayers()->whereHas('map')->exists()
+            || $image->mapLayers()->whereHas('map', fn ($query) => $query->whereHas('entity'))->exists()
             || $image->inventories()->whereHas('entity')->exists()
             || $image->mentions()
                 ->whereHas('entity')

@@ -152,6 +152,10 @@ class MigrateLegacyImages extends Command
                 ->where('image_path', $migration->source_path)
                 ->update(['image_path' => $migration->destination_path]);
 
+            DB::table('map_layers')
+                ->where('image_path', $migration->source_path)
+                ->update(['image_path' => $migration->destination_path]);
+
             if ($migration->status !== 'complete') {
                 DB::table('legacy_image_migrations')->where('id', $migration->id)->update([
                     'status' => 'cutover',
@@ -171,22 +175,30 @@ class MigrateLegacyImages extends Command
 
     protected function copy(object $migration): void
     {
-        $disk = Storage::disk('s3');
-        if (! $disk->exists($migration->source_path)) {
+        $sourceDisk = Storage::disk('s3');
+        $destinationDisk = Storage::disk($this->migration->destinationDiskName());
+        if (! $sourceDisk->exists($migration->source_path)) {
             throw new RuntimeException("Source object is missing: {$migration->source_path}");
         }
 
-        $sourceSize = $disk->size($migration->source_path);
-        if (! $disk->exists($migration->destination_path)) {
+        $sourceSize = $sourceDisk->size($migration->source_path);
+        if (! $destinationDisk->exists($migration->destination_path)) {
             $copied = false;
             if ($migration->detected_mime !== null && $migration->detected_mime !== $migration->source_content_type) {
-                $copied = $disk->put(
+                $copied = $destinationDisk->put(
                     $migration->destination_path,
-                    $disk->get($migration->source_path),
+                    $sourceDisk->get($migration->source_path),
                     ['ContentType' => $migration->detected_mime]
                 );
+            } elseif ($this->migration->destinationDiskName() !== 's3') {
+                $stream = $sourceDisk->readStream($migration->source_path);
+                if (! is_resource($stream)) {
+                    throw new RuntimeException("Could not read source object: {$migration->source_path}");
+                }
+                $copied = $destinationDisk->writeStream($migration->destination_path, $stream);
+                fclose($stream);
             } else {
-                $copied = $disk->copy($migration->source_path, $migration->destination_path);
+                $copied = $sourceDisk->copy($migration->source_path, $migration->destination_path);
             }
 
             if (! $copied) {
@@ -194,7 +206,7 @@ class MigrateLegacyImages extends Command
             }
         }
 
-        if ($disk->size($migration->destination_path) !== $sourceSize) {
+        if ($destinationDisk->size($migration->destination_path) !== $sourceSize) {
             throw new RuntimeException("Destination size does not match source: {$migration->source_path}");
         }
 
@@ -219,12 +231,13 @@ class MigrateLegacyImages extends Command
 
     protected function deleteSource(mixed $id, string $source, string $destination): void
     {
-        $disk = Storage::disk('s3');
-        if (! $disk->exists($destination)) {
+        $sourceDisk = Storage::disk('s3');
+        $destinationDisk = Storage::disk($this->migration->destinationDiskName());
+        if (! $destinationDisk->exists($destination)) {
             throw new RuntimeException('Verified destination is missing before source deletion.');
         }
 
-        if ($disk->exists($source) && ! $disk->delete($source)) {
+        if ($sourceDisk->exists($source) && ! $sourceDisk->delete($source)) {
             throw new RuntimeException('Could not delete the source object.');
         }
 
@@ -291,8 +304,8 @@ class MigrateLegacyImages extends Command
     protected function prefix(): ?string
     {
         $prefix = trim((string) $this->argument('prefix'), '/');
-        if (! preg_match('/^[a-z0-9-]+$/', $prefix)) {
-            $this->error('The prefix may only contain lowercase letters, numbers, and dashes.');
+        if (! preg_match('/^[a-z0-9_-]+$/', $prefix)) {
+            $this->error('The prefix may only contain lowercase letters, numbers, dashes, and underscores.');
 
             return null;
         }

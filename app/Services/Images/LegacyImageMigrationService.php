@@ -296,7 +296,12 @@ class LegacyImageMigrationService
             return rtrim((string) config('cdn.ugc'), '/') . '/' . $destination;
         }
 
-        return Storage::disk('s3')->url($destination);
+        return Storage::disk($this->destinationDiskName())->url($destination);
+    }
+
+    public function destinationDiskName(): string
+    {
+        return config('filesystems.default') === 'public' ? 'public' : 's3';
     }
 
     /** @return array{structured: int, content: int, blockers: int} */

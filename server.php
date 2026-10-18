@@ -12,7 +12,10 @@ $uri = urldecode(
 // This file allows us to emulate Apache's "mod_rewrite" functionality from the
 // built-in PHP web server. This provides a convenient way to test a Laravel
 // application without having installed a "real" web server software here.
-if ($uri !== '/' && file_exists(__DIR__ . '/public' . $uri)) {
+// Storage URLs must reach Laravel so StoredUploadController can apply ACLs,
+// even when public/storage is a symlink to uploaded files.
+$isStorageRequest = preg_match('#^/storage(?:/|$)#i', $uri) === 1;
+if ($uri !== '/' && ! $isStorageRequest && file_exists(__DIR__ . '/public' . $uri)) {
     return false;
 }
 
