@@ -27,8 +27,11 @@ class SharedEntrance
         'auth.verify-2fa',
     ];
 
-    /** The health route has no name. */
-    public const ALLOWED_PATHS = ['up'];
+    /**
+     * Routes without a name: health, and the sign-in form's POST (only its GET is named
+     * "login"), so the administrator can sign in without the shared password.
+     */
+    public const ALLOWED_PATHS = ['up', 'login'];
 
     public function __construct(protected EntranceService $entrance) {}
 

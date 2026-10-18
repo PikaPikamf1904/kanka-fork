@@ -2,6 +2,7 @@
 
 use App\Enums\CampaignVisibility;
 use App\Http\Middleware\EncryptCookies;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
@@ -178,6 +179,25 @@ it('keeps login, password reset and health reachable without a grant', function 
     $this->get(route('login'))->assertOk();
     $this->get(route('password.request'))->assertOk();
     $this->get('/up')->assertStatus(200);
+});
+
+it('lets the administrator sign in without the shared password', function () {
+    entranceBoot();
+    $user = User::factory()->create(['password' => bcrypt('disposable-password')]);
+
+    $response = $this->post('/login', ['email' => $user->email, 'password' => 'disposable-password']);
+
+    expect($response->headers->get('Location'))->not->toContain('/entrance');
+    $this->assertAuthenticatedAs($user);
+});
+
+it('still rejects a wrong account password at sign-in', function () {
+    entranceBoot();
+    $user = User::factory()->create(['password' => bcrypt('disposable-password')]);
+
+    $this->from('/login')->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
+
+    $this->assertGuest();
 });
 
 it('lets logged-in users through', function () {
