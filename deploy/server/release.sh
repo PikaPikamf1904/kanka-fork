@@ -194,17 +194,15 @@ tar -xzf "$tarball" -C "$release"
 # Shared, persistent state lives outside the release directory.
 storage="$BASE/shared/storage"
 mkdir -p "$storage"/{app/public,app/s3,app/exports,app/imports,framework/cache/data,framework/sessions,framework/views,logs}
-# Exports, imports, sessions and logs are never readable by the web server.
-chmod 700 "$storage/app/s3" "$storage/app/exports" "$storage/app/imports" "$storage/framework" "$storage/logs"
-# nginx (group www-data) may only walk through to app/public, the uploaded images.
+# Uploads, exports, imports, sessions and logs are not served from the web root.
+chmod 700 "$storage/app/public" "$storage/app/s3" "$storage/app/exports" "$storage/app/imports" "$storage/framework" "$storage/logs"
+# PHP-FPM runs as the owner; nginx does not receive access to the upload directory.
 chgrp www-data "$storage" "$storage/app"
 chmod 750 "$storage" "$storage/app"
-chmod 755 "$storage/app/public"
 rm -rf "$release/storage"
 ln -s "$storage" "$release/storage"
 ln -sfn "$BASE/shared/.env" "$release/.env"
 rm -rf "$release/public/storage"
-ln -s ../storage/app/public "$release/public/storage"
 
 cd "$release"
 artisan() { php artisan "$@" --no-interaction; }

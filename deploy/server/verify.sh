@@ -153,8 +153,8 @@ section "Release"
 if [ -e "$BASE/current/artisan" ]; then
     pass "live release: $(basename "$(readlink -f "$BASE/current")")"
     [ -f "$BASE/current/bootstrap/cache/config.php" ] && pass "configuration is cached" || warn "configuration is not cached"
-    [ "$(readlink "$BASE/current/public/storage")" = "../storage/app/public" ] \
-        && pass "public/storage points at uploads only" || fail "public/storage points somewhere unexpected"
+    [ ! -e "$BASE/current/public/storage" ] && [ ! -L "$BASE/current/public/storage" ] \
+        && pass "uploads are routed through the application" || fail "public/storage exposes uploads directly"
 else
     fail "no release is live yet ($BASE/current)"
 fi

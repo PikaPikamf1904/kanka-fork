@@ -66,6 +66,14 @@ it('uses local favicons and manifest', function () {
     }
 });
 
+it('does not expose a dead help link in the navigation menu data', function () {
+    $response = $this->asUser()
+        ->get(route('layout.navigation'))
+        ->assertOk();
+
+    expect($response->json('profile.urls'))->not->toHaveKey('help');
+});
+
 it('has no kanka.io links on the main pages when promotions are hidden', function () {
     $this->asUser()->withCampaign();
 

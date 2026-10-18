@@ -102,7 +102,7 @@ class AvatarService
         }
         $path = $this->childThumbnailPath();
         $cdn = config('cdn.ugc');
-        if ($cdn) {
+        if ($cdn && config('filesystems.default') !== 'public') {
             return $cdn . '/' . $path;
         }
 

@@ -31,7 +31,7 @@ Changing the password makes everyone enter again. The hash is kept in `storage/a
 
 ## Things to know
 
-- Uploaded images under `/storage` are static files served directly by the web server. They are **not** gated by the entrance. Their paths are random, but anyone holding a direct link can load them.
+- Uploaded files under `/storage` pass through the application. Campaign, image visibility and owning entity permissions are checked on every request, including requests from visitors who entered the shared password. Static branding, stylesheets and icons under `/images`, `/build` and `/fonts` remain public.
 - Use HTTPS. The entrance cookie is only marked Secure when the request is HTTPS (or `SESSION_SECURE_COOKIE=true`).
 - The API (`/api/1.0`), webhooks and OAuth endpoints are not behind the entrance; they have their own authentication. The public discovery API (`/api/public/*`, which lists public campaigns) answers 404 while the entrance is on.
 - Failed attempts are limited to 5 per minute and 30 per hour per IP. Failures are logged as "Failed entrance attempt" with the IP only.

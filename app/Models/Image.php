@@ -550,7 +550,7 @@ class Image extends Model
     {
         $path = $this->path;
         $cdn = config('cdn.ugc');
-        if ($cdn) {
+        if ($cdn && config('filesystems.default') !== 'public') {
             return $cdn . '/' . $path;
         }
 
@@ -567,7 +567,7 @@ class Image extends Model
     {
         $path = $this->tilesPath() . '/{z}/{y}/{x}.webp';
         $cdn = config('cdn.ugc');
-        if ($cdn) {
+        if ($cdn && config('filesystems.default') !== 'public') {
             return $cdn . '/' . $path;
         }
 

@@ -16,6 +16,10 @@ use App\Http\Controllers\User\ProfileController;
 use App\Models\Feature;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/storage/{path}', [App\Http\Controllers\StoredUploadController::class, 'show'])
+    ->where('path', '.*')
+    ->name('uploads.show');
+
 Route::get('/auth/{provider}/callback', 'Auth\AuthController@handleProviderCallback')->name('auth.provider.callback');
 
 Route::group(['prefix' => 'subscription-api'], function () {

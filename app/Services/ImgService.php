@@ -103,6 +103,12 @@ class ImgService
 
     public function url(string $img): string
     {
+        // Self-hosted uploads are served through the application's campaign/entity ACL route.
+        // A separate Thumbor service cannot carry the visitor's authenticated session.
+        if (config('filesystems.default') === 'public') {
+            return Storage::url($img);
+        }
+
         // Self-hosted with no s3/minio instance or SVG files load directly from the storage
         if (! $this->enabled || Str::contains($img, '?') || Str::endsWith($img, '.svg')) {
             return Storage::url($img);

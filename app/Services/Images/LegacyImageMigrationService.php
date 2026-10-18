@@ -292,7 +292,7 @@ class LegacyImageMigrationService
 
     public function destinationUrl(string $destination): string
     {
-        if (! empty(config('cdn.ugc'))) {
+        if (! empty(config('cdn.ugc')) && config('filesystems.default') !== 'public') {
             return rtrim((string) config('cdn.ugc'), '/') . '/' . $destination;
         }
 
