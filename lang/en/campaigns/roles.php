@@ -24,7 +24,7 @@ return [
         'helpers'   => [
             'click'     => 'Click any category to toggle public access to all entries within it.',
             'intro'     => 'Control what non-members can see in the campaign.',
-            'main'      => 'Select which categories are visible to anyone viewing the campaign, whether they\'re logged in or not. This includes both public visitors and Kanka users who aren\'t campaign members.',
+            'main'      => 'Select which categories are visible to anyone viewing the campaign, whether they\'re logged in or not. This includes both public visitors and Chronicle users who aren\'t campaign members.',
             'preview'   => 'Preview as non-member',
         ],
     ],

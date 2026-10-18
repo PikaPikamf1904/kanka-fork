@@ -23,7 +23,7 @@
                 <x-grid type="1/1">
                     <h3 class="m-0 text-xl">Legacy boosters</h3>
                     <p>
-                        You're currently using Kanka's legacy booster system. You can switch to premium campaigns at any time. When you switch, your existing campaigns will be unboosted, and you’ll receive premium campaign slots based on your subscription: {{ config('limits.') }} for Owlbear, 3 for Wyvern, or 7 for Elemental.
+                        You're currently using the legacy booster system. You can switch to premium campaigns at any time. When you switch, your existing campaigns will be unboosted, and you’ll receive premium campaign slots based on your subscription: {{ config('limits.') }} for Owlbear, 3 for Wyvern, or 7 for Elemental.
                     </p>
                     <p>
                         Premium campaigns include everything previously available to superboosted campaigns, plus features such as family trees and custom modules.

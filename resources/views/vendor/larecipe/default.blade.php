@@ -3,7 +3,7 @@
 <head>
     <!-- META Tags -->
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>{{ isset($title) ? $title . ' | ' : null }}{{ config('app.name') }}</title>
+    <title>{{ isset($title) ? $title . ' | ' : null }}{{ config('chronicle.name') }}</title>
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 

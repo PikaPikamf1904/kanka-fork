@@ -492,9 +492,12 @@ class SearchService
             $this->addCampaignPage('campaigns.show.tabs.plugins', 'campaign_plugins.index');
         }
 
+        if (! config('chronicle.hide_promotions')) {
+            $this->pages
+                ->add(['name' => __('footer.plugins'), 'url' => config('marketplace.url')])
+                ->add(['name' => __('footer.documentation'), 'url' => 'https://docs.kanka.io/en/latest/index.html']);
+        }
         $this->pages
-            ->add(['name' => __('footer.plugins'), 'url' => config('marketplace.url')])
-            ->add(['name' => __('footer.documentation'), 'url' => 'https://docs.kanka.io/en/latest/index.html'])
             ->add(['name' => __('front.features.api.link'), 'url' => route('larecipe.index')]);
 
         if (isset($this->user)) {

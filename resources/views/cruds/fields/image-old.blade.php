@@ -102,7 +102,7 @@ if (!empty($model->entity) && !empty($model->entity->image) && !$canBrowse) {
         @elseif (isset($campaignImage) && $campaignImage && !isset($isModule))
             <div class="preview w-32">
                 @include('cruds.fields._image_preview', [
-                    'image' => 'https://th.kanka.io/UngNKwPxKUPKSZ4z_Qjc9QiyeQs=/280x210/smart/src/app/backgrounds/mountain-background-medium.jpg',
+                    'image' => asset('images/chronicle/logo.svg'),
                     'title' => 'Default',
                 ])
             </div>

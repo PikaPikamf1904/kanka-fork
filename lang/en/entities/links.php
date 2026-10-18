@@ -25,7 +25,7 @@ return [
             'trust'     => 'Don\'t ask me again',
         ],
         'description'   => 'This link will take you to :link. Are you sure you want to go there?',
-        'title'         => 'Leaving Kanka',
+        'title'         => 'Leaving Chronicle',
     ],
     'helpers'           => [
         'icon'      => 'Customise the link icon with a special :fontawesome icon, for example :example. Find our more about available icons in our :docs.',

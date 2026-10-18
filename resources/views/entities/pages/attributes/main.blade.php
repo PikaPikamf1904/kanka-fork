@@ -1,5 +1,5 @@
 <?php /** @var \App\Models\Entity $entity */?>
-<x-tutorial code="attributes" doc="https://docs.kanka.io/en/latest/features/properties.html">
+<x-tutorial code="attributes">
     <x-slot name="title">
         {{ __('onboarding/attributes.title') }}
     </x-slot>

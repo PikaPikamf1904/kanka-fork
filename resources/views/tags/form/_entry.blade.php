@@ -16,7 +16,7 @@
             </x-helper>
         @else
             <x-helper>
-                <p><x-icon class="premium" /> {!! __('crud.errors.boosted_campaigns', ['boosted' => '<a href="https://kanka.io/premium">' . __('concepts.premium-campaign') . '</a>']) !!}</p>
+                <p><x-icon class="premium" /> {!! __('crud.errors.boosted_campaigns', ['boosted' => '<a>' . __('concepts.premium-campaign') . '</a>']) !!}</p>
             </x-helper>
         @endif
     @endif

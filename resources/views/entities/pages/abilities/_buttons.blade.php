@@ -34,11 +34,6 @@
                 <span class="grow">{{ __('entities/abilities.show.reorder') }}</span>
             </x-dropdowns.item>
 
-            <x-dropdowns.divider />
-
-            <x-dropdowns.item :link="'https://docs.kanka.io/en/latest/entries/abilities.html#entity-abilities'" icon="fa-regular fa-book">
-                <span class="grow">{{ __('general.learn-more') }}</span>
-            </x-dropdowns.item>
         </div>
     </div>
 </div>

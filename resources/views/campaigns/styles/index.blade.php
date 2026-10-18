@@ -83,7 +83,7 @@ use App\Facades\Datagrid ?>
             </x-box>
 
             <x-helper>
-                <p>{!! __('campaigns/styles.helpers.main', ['here' => '<a href="https://blog.kanka.io/category/tutorials" target="_blank" class="text text-link">' . __('campaigns/styles.helpers.here') . '</a>']) !!}</p>
+                <p>{!! __('campaigns/styles.helpers.main', ['here' => '<a target="_blank" class="text text-link">' . __('campaigns/styles.helpers.here') . '</a>']) !!}</p>
             </x-helper>
         @else
             @if(Datagrid::hasBulks())
@@ -112,7 +112,7 @@ use App\Facades\Datagrid ?>
         'id' => 'theming-help',
         'title' => __('campaigns.show.tabs.styles'),
         'textes' => [
-            __('campaigns/styles.helpers.main', ['here' => '<a href="https://blog.kanka.io/category/tutorials" target="_blank">' . __('campaigns/styles.helpers.here') . '</a>']),
+            __('campaigns/styles.helpers.main', ['here' => '<a target="_blank">' . __('campaigns/styles.helpers.here') . '</a>']),
     ]])
 
 @endsection

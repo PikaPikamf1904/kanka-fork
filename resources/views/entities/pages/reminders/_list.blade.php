@@ -1,4 +1,4 @@
-<x-tutorial code="events" doc="https://docs.kanka.io/en/latest/features/reminders.html">
+<x-tutorial code="events">
 
     <x-slot name="title">
         {!! __('onboarding/reminders.title') !!}

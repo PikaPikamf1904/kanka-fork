@@ -21,14 +21,14 @@ return [
     ],
     '503'               => [
         'body'  => [
-            '1' => 'Kanka is currently under maintenance, which usually means an update is underway!',
+            '1' => 'Chronicle is currently under maintenance, which usually means an update is underway!',
             '2' => 'Sorry for the inconvenience. Everything will return to normal in just a few minutes.',
         ],
-        'json'  => 'Kanka is currently under maintenance, please try again in a few minutes.',
+        'json'  => 'Chronicle is currently under maintenance, please try again in a few minutes.',
         'title' => 'Maintenance',
     ],
     'back-to-campaigns' => 'Go back to one of your campaigns',
-    'footer'            => 'If you need further assistance, please contact us at :email or on the :discord',
+    'footer'            => 'If you need further assistance, please contact us at :email.',
     'log-in'            => 'Logging in to your account might reveal what you are looking for.',
     'post_layout'       => 'Invalid article layout.',
     'private-campaign'  => [

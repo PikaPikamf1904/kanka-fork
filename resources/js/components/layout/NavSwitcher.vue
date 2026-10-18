@@ -180,14 +180,6 @@
                         <i class="fa-regular fa-user text-neutral-content" aria-hidden="true"></i>
                         {{ profile.urls.profile.name }}
                     </a>
-                    <a href="https://plugins.kanka.io"  class="p-2 text-link flex items-center gap-3">
-                        <i class="fa-regular fa-puzzle-piece text-neutral-content" aria-hidden="true"></i>
-                        {{ marketplace.title }}
-                    </a>
-                    <a href="https://docs.kanka.io/en/latest/" class="p-2 text-link flex items-center gap-3" target="_blank">
-                        <i class="fa-regular fa-question-circle text-neutral-content" aria-hidden="true"></i>
-                        {{ profile.urls.help.name }}
-                    </a>
 
                     <hr class="my-2" />
 

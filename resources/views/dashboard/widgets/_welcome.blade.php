@@ -1,6 +1,6 @@
 <x-box class="widget-welcome" id="dashboard-widget-{{ $widget->id }}">
     <span class="widget-title block text-lg mb-4">
-        {{ __('dashboards/widgets/welcome.title', ['kanka' => config('app.name')]) }}
+        {{ __('dashboards/widgets/welcome.title', ['kanka' => config('chronicle.name')]) }}
     </span>
     <div class=" entity-content">
     <p>
@@ -18,7 +18,7 @@
             </a>',
             'letter' => '<kbd>N</kbd>',
             'characters' => '<span class="badge border select-none flex items-center gap-2"><i class="fa-regular fa-user" aria-hidden="true"></i> ' . __('entities.character') . '</span>',
-            'entities' => '<a target="_blank" href="https://docs.kanka.io/en/latest/entries/overview.html" class="text-link">' . __('entities.entries') . ' <i class="fa-regular fa-external-link" aria-hidden="true"></i></a>',
+            'entities' => '<a target="_blank" class="text-link">' . __('entities.entries') . ' <i class="fa-regular fa-external-link" aria-hidden="true"></i></a>',
         ]) !!}
     </p>
     <p class="font-bold">
@@ -30,7 +30,7 @@
         <li class="">
             {!! __('dashboards/widgets/welcome.tricks.1', [
     'code' => '<code>@</code>',
-    'mention' => '<a target="_blank" href="https://docs.kanka.io/en/latest/features/mentions.html" class="text-link">' . __('dashboards/widgets/welcome.tricks.mention') . ' <i class="fa-regular fa-external-link" aria-hidden="true"></i></a>',
+    'mention' => '<a target="_blank" class="text-link">' . __('dashboards/widgets/welcome.tricks.mention') . ' <i class="fa-regular fa-external-link" aria-hidden="true"></i></a>',
 ]) !!}
         </li>
         <li class="">
@@ -41,7 +41,7 @@
         </li>
         <li class="">
             {!! __('dashboards/widgets/welcome.tricks.3', [
-    'posts' => '<a target="_blank" href="https://docs.kanka.io/en/latest/features/articles.html" class="text-link">' . __('entities.articles') . ' <i class="fa-regular fa-external-link" aria-hidden="true"></i></a>']) !!}
+    'posts' => '<a target="_blank" class="text-link">' . __('entities.articles') . ' <i class="fa-regular fa-external-link" aria-hidden="true"></i></a>']) !!}
         </li>
         <li class="">
             {!! __('dashboards/widgets/welcome.tricks.4', [

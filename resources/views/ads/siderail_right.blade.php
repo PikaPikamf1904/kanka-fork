@@ -1,3 +1,4 @@
+@unless (config('chronicle.hide_promotions'))
 <x-ad section="siderail_right" :campaign="isset($campaign) ? $campaign : null">
     <div id="ad-nitro-siderail-right"></div>
 
@@ -58,3 +59,4 @@
         });
     </script>
 </x-ad>
+@endunless

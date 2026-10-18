@@ -8,7 +8,7 @@ $boost = isset($boost) ? $boost : $campaign->boosts->first();?>
         @if ($campaign->image)
             <img src="{{ $campaign->thumbnail(320, 240) }}" alt="{{ $campaign->name }}" loading="lazy" class="rounded-lg w-16 h-16" />
         @else
-            <img src="https://th.kanka.io/zzKcBpijSBvm4rPWdzRpI82pTNQ=/320x240/smart/src/app/backgrounds/mountain-background-medium.jpg" alt="{{ $campaign->name }}" loading="lazy" class="rounded-lg w-16 h-16" />
+            <img src="{{ asset('images/chronicle/logo.svg') }}" alt="{{ $campaign->name }}" loading="lazy" class="rounded-lg w-16 h-16" />
         @endif
         <div class="flex flex-col">
             <a class="name text-lg font-semibold" href="{{ route('dashboard', $campaign) }}">

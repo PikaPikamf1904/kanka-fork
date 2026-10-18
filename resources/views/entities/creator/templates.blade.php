@@ -11,7 +11,7 @@
     <div class="quick-creator-body">
         @if ($templates->isEmpty())
             <p class="">
-                <a href="//docs.kanka.io/en/latest/guides/archetypes.html" class="text-link">
+                <a class="text-link">
                     <x-icon class="link" />
                     {{ __('entries/archetypes.helpers.how') }}
                 </a>

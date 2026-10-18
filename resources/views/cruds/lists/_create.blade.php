@@ -19,11 +19,7 @@
                             {{ $entityTemplate->name  }}
                         </x-dropdowns.item>
                     @endforeach
-                    <x-dropdowns.divider />
                 @endif
-                <x-dropdowns.item link="https://docs.kanka.io/en/latest/guides/archetypes.html" target="_blank" icon="link">
-                        {{ __('entries/archetypes.helpers.how') }}
-                </x-dropdowns.item>
             </div>
         </div>
     @endif

@@ -29,7 +29,7 @@ return [
         ],
         'public'    => [
             'cta'       => 'Learn how spotlight works',
-            'helper'    => 'Selected campaigns are featured on the Kanka Showcase and blog.',
+            'helper'    => 'Selected campaigns are featured on the Chronicle Showcase and blog.',
         ],
     ],
     'spotlighted'       => '{0} Not spotlighted yet|[1,*] Spotlighted',

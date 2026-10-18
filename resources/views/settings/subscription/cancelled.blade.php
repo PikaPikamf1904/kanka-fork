@@ -35,7 +35,7 @@
                 </p>
             <ul>
                 <li>{!! __('subscriptions/cancelled.active.premium' ) !!}</li>
-                <li>{!! __('subscriptions/cancelled.active.discord', ['discord' => '<a href="' . \App\Facades\Domain::toFront('go/discord') . '" class="text-link">Discord</a>'] ) !!}</li>
+                <li>{!! __('subscriptions/cancelled.active.discord', ['discord' => 'Discord'] ) !!}</li>
                 <li>{!! __('subscriptions/cancelled.active.adfree' ) !!}</li>
                 <li>{!! __('subscriptions/cancelled.active.limit' ) !!}</li>
                 <li>{!! __('subscriptions/cancelled.active.more' ) !!}</li>
@@ -51,7 +51,7 @@
 ]) !!}</p>
             <ul>
                 <li>{!! __('subscriptions/cancelled.next.premium' ) !!}</li>
-                <li>{!! __('subscriptions/cancelled.next.discord', ['discord' => '<a href="' . \App\Facades\Domain::toFront('go/discord') . '" class="text-link">Discord</a>'] ) !!}</li>
+                <li>{!! __('subscriptions/cancelled.next.discord', ['discord' => 'Discord'] ) !!}</li>
                 <li>{!! __('subscriptions/cancelled.next.data' ) !!}</li>
             </ul>
         </x-box>

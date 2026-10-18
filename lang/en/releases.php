@@ -9,7 +9,7 @@ return [
         'vote'          => 'Community vote',
     ],
     'index'         => [
-        'description'   => 'The latest updates to kanka.io',
+        'description'   => 'The latest updates',
         'title'         => 'Releases',
     ],
     'post'          => [

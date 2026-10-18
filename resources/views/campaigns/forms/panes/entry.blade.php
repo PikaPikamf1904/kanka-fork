@@ -27,15 +27,15 @@
             @elseif(isset($model) && $model->premium())
                 <x-helper>
                     <p>{!! __('campaigns/vanity.helper-v2', [
-    'default' => '<code>kanka.io/w/' . (isset($model) ? $model->id : 123456) . '</code>',
-    'example' => '<code>kanka.io/w/exandria-unlimited</code>',
+    'default' => '<code>' . rtrim(config('app.url'), '/') . '/w/' . (isset($model) ? $model->id : 123456) . '</code>',
+    'example' => '<code>' . rtrim(config('app.url'), '/') . '/w/exandria-unlimited</code>',
     ]) !!}</p>
                 </x-helper>
 
                 <input type="text" maxlength="45" name="vanity" class="w-full" data-url="{{ route('campaign.vanity-validate', $model) }}" value="{{ old('vanity') }}" placeholder="exandria-unlimited" />
                 <p class="text-neutral-content text-xs">
                     <x-icon class="fa-regular fa-circle-info" />
-                    {!! __('campaigns/vanity.forever', ['docs' => '<a href="https://docs.kanka.io/en/latest/features/campaigns/vanity-url.html" class="text-link">' . __('general.learn-more') . '</a>']) !!}
+                    {!! __('campaigns/vanity.forever', ['docs' => '<a class="text-link">' . __('general.learn-more') . '</a>']) !!}
                 </p>
                 <p class="hidden" id="vanity-loading">
                     <x-icon class="loading" />
@@ -47,8 +47,8 @@
             @else
                 <x-helper>
                     <p>{!! __('campaigns/vanity.helper-v2', [
-    'default' => '<code>kanka.io/w/' . (isset($model) ? $model->id : 123456) . '</code>',
-    'example' => '<code>kanka.io/w/exandria-unlimited</code>',
+    'default' => '<code>' . rtrim(config('app.url'), '/') . '/w/' . (isset($model) ? $model->id : 123456) . '</code>',
+    'example' => '<code>' . rtrim(config('app.url'), '/') . '/w/exandria-unlimited</code>',
     ]) !!}</p>
                 </x-helper>
                 @if (isset($model))

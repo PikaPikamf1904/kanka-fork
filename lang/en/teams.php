@@ -6,7 +6,7 @@ return [
         'translations'  => 'Translations',
     ],
     'leads' => [
-        'translators'   => 'Kanka is translated to several languages thanks to these amazing contributors.',
+        'translators'   => 'Chronicle is translated to several languages thanks to these amazing contributors.',
     ],
     'people'=> [
         'itzamna'   => [

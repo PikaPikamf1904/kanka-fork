@@ -41,7 +41,7 @@
             tooltip>
             <input type="number" name="length" id="reminder_length" class="w-full" value="{{ old('length', $reminder->length ?? 1) }}" placeholder="{{ __('calendars.placeholders.length') }}" aria-label="{{ __('calendars.placeholders.length') }}" data-url="{{ route('calendars.event-length', [$campaign, 'calendar' => $calendar ?? 0]) }}" />
             <p class="length-warning hidden text-error-content">
-                {!!  __('calendars.warnings.event_length', ['documentation' => '<a target="_blank" href="https://docs.kanka.io/en/latest/entries/calendars.html#long-lasting-reminders"><i class="fa-regular fa-external-link" aria-hidden="true"></i> ' . __('footer.documentation') . '</a>'])!!}
+                {!!  __('calendars.warnings.event_length', ['documentation' => '<a target="_blank"><i class="fa-regular fa-external-link" aria-hidden="true"></i> ' . __('footer.documentation') . '</a>'])!!}
             </p>
         </x-forms.field>
 </div>
@@ -62,7 +62,7 @@
         <x-forms.field
             field="type"
             :label="__('entities/events.fields.type')"
-            :helper=" __('entities/events.helpers.characters', ['more' => '<a target=\'_blank\' href=\'https://docs.kanka.io/en/latest/advanced/age.html\'>' . __('crud.actions.find_out_more') . '</a>'])">
+            :helper=" __('entities/events.helpers.characters', ['more' => '<a target=\'_blank\'>' . __('crud.actions.find_out_more') . '</a>'])">
             <x-forms.select name="type_id" :options="[null => '', 2 => __('entities/events.types.birth'), 3 =>  __('entities/events.types.death')]" :selected="$reminder->type_id ?? null" />
         </x-forms.field>
     @endif

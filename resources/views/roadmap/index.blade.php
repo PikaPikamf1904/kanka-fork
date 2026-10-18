@@ -13,10 +13,10 @@
                 <div class="grow flex flex-col gap-3 max-w-2xl">
                     <h1 class="">Public roadmap</h1>
 
-                    <p class="text-light">Welcome to Kanka's public roadmap, where you'll find features we are working on and upvote on features that you want to see added to Kanka.</p>
+                    <p class="text-light">Welcome to the public roadmap, where you'll find features we are working on and upvote on features that you want to see added to Kanka.</p>
 
                     <p>
-                    <a href="https://docs.kanka.io/en/latest/guides/roadmap.html" class="text-white underline">Learn more about the roadmap</a>
+                    <a class="text-white underline">Learn more about the roadmap</a>
                     </p>
                 </div>
             </div>

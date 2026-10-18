@@ -98,8 +98,8 @@
                 {{ __('subscriptions/finish.help.title') }}
             </h2>
             <p>{!! __('subscriptions/finish.help.helper', [
-    'contact-us' => '<a href="' . \App\Facades\Domain::toFront('contact') . '" class="text-link">' . __('subscriptions/finish.help.contact-us') . '</a>',
-    'docs' => '<a href="https://docs.kanka.io" class="text-link">' . __('footer.documentation') . '</a>'
+    'contact-us' => '' . __('subscriptions/finish.help.contact-us') . '',
+    'docs' => '<a class="text-link">' . __('footer.documentation') . '</a>'
 ]) !!}</p>
         </div>
     </x-grid>

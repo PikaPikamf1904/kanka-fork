@@ -17,7 +17,7 @@ return [
     ],
     'contact'   => [
         'feedback'  => 'If there\'s something we could have done better, we\'d love to hear from you:',
-        'helper'    => 'Even without a subscription, you\'re still a part of the Kanka community. Keep building your worlds, and feel free to reconnect whenever the time is right.',
+        'helper'    => 'Even without a subscription, you\'re still a part of the Chronicle community. Keep building your worlds, and feel free to reconnect whenever the time is right.',
         'send'      => 'Contact us with your feedback',
         'title'     => 'Stay in touch',
     ],

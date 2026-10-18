@@ -22,14 +22,14 @@
                     </x-forms.field>
 
                     @php $helper =  __('profiles.helpers.profile-name', [
-    'marketplace' => '<a href="' . config('marketplace.url') . '" class="text-link">' . __('footer.plugins'). '</a>',
+    'marketplace' => __('footer.plugins'),
     'profile' => '<a href="' . route('users.profile', $user) . '" class="text-link">' . __('profiles.settings.helpers.profile') . '</a>']) @endphp
                     <x-forms.field field="marketplace-name" :label="__('profiles.fields.profile-name')" :helper="$helper">
                         <input type="text" name="settings[marketplace_name]" maxlength="32" placeholder="{{ __('profiles.fields.profile-name') }}" class="rounded border p-2 w-full" value="{{ old('settings[marketplace_name]', $user->settings['marketplace_name'] ?? null) }}" />
                     </x-forms.field>
 
                     @php $helper =  __('profiles.helpers.pronouns', [
-                        'marketplace' => '<a href="' . config('marketplace.url') . '" class="text-link">' . __('footer.plugins'). '</a>',
+                        'marketplace' => __('footer.plugins'),
                         'profile' => '<a href="' . route('users.profile', $user) . '" class="text-link">' . __('profiles.settings.helpers.profile') . '</a>'])
                     @endphp
                     <x-forms.field field="pronouns" :label="__('profiles.fields.pronouns')" :helper="$helper">
@@ -44,7 +44,7 @@
                     </x-forms.field>
 
                     @php $helper =  __('profiles.helpers.link', [
-                        'marketplace' => '<a href="' . config('marketplace.url') . '" class="text-link">' . __('footer.plugins'). '</a>',
+                        'marketplace' => __('footer.plugins'),
                         'profile' => '<a href="' . route('users.profile', $user) . '"  class="text-link">' . __('profiles.settings.helpers.profile') . '</a>'])
                     @endphp
                     <x-forms.field field="link" :label="__('profiles.fields.link')" :helper="$helper">
@@ -62,7 +62,7 @@
                         <x-forms.field field="hide-sub" :label="__('profiles.fields.subscription_hiding')">
                             <input type="hidden" name="settings[hide_subscription]" value="0" />
                             <x-checkbox :text="__('profiles.fields.hide_subscription', [
-    'hall_of_fame' => '<a href=\'https://kanka.io/hall-of-fame\' class=\'text-link\'>' . __('front/hall-of-fame.title') . '</a>',
+    'hall_of_fame' => '<a class=\'text-link\'>' . __('front/hall-of-fame.title') . '</a>',
     ])">
                                 <input type="checkbox" name="settings[hide_subscription]" value="1" @if (old('settings[hide_subscription]', auth()->user()->settings['hide_subscription'] ?? false)) checked="checked" @endif />
                             </x-checkbox>

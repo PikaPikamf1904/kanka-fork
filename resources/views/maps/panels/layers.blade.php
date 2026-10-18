@@ -1,4 +1,4 @@
-<x-tutorial code="map_layers" doc="https://docs.kanka.io/en/latest/entries/maps/layers.html">
+<x-tutorial code="map_layers">
     <p>
         {{ __('maps/layers.helper.amount_v2') }}
     </p>

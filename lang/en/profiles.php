@@ -36,10 +36,10 @@ return [
     ],
     'newsletter'    => [
         'helpers'   => [
-            'header'    => 'Subscribe to the following email newsletters to be notified of what\'s going on with Kanka.',
+            'header'    => 'Subscribe to the following email newsletters to be notified of what\'s going on with Chronicle.',
         ],
         'options'   => [
-            'monthly'   => 'Kanka newsletter',
+            'monthly'   => 'Chronicle newsletter',
         ],
         'title'     => 'Newsletters',
         'updated'   => 'Newsletter preferences updated.',

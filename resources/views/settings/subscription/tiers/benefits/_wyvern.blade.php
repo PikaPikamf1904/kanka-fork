@@ -7,7 +7,7 @@
         @endif
     </div>
     <div class="flex flex-col gap-0.5">
-        <a href="https://kanka.io/premium?utm_source=subscription&utm_medium=referral&utm_campaign=wyvern" class="text-link">
+        <a class="text-link">
             @if (auth()->user()->hasLegacyBoosterNomenclature())
                 6 {{ __('tiers.features.boosters') }}
             @else
@@ -40,7 +40,7 @@
     <div class="w-8 shrink-0 text-center">
         <x-icon class="fa-regular fa-upload" />
     </div>
-    <a href="https://docs.kanka.io/en/latest/features/campaigns/import.html" class="text-link">
+    <a class="text-link">
         {{ __('tiers.features.import') }}
     </a>
 </div>
@@ -73,6 +73,6 @@
         <x-icon class="check" />
     </div>
     <div>
-        {!! __('tiers.features.discord', ['discord' => '<a href="https://kanka.io/go/discord" class="text-link">Discord</a>',]) !!}
+        {!! __('tiers.features.discord', ['discord' => '<a class="text-link">Discord</a>',]) !!}
     </div>
 </div>

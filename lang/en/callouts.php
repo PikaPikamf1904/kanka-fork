@@ -31,6 +31,7 @@ return [
         ],
     ],
     'premium'   => [
+        'unavailable'   => "This feature isn't available on this site.",
         'learn-more'    => 'See all premium features',
         'limitation'    => 'To access this feature, premium features need to be enabled for :campaign.',
         'multiple'      => 'To access these features, premium features need to be enabled for :campaign.',

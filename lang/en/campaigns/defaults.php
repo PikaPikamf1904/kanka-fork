@@ -18,7 +18,7 @@ return [
         'connections_mode'              => 'Set the default layout style for relation maps (available with premium).',
         'descendants'                   => 'When viewing entry sublists (like a location\'s characters), show only direct children or all descendants.',
         'display'                       => 'Set default display options for entry pages.',
-        'entity'                        => 'Controls what visibility Kanka applies automatically to new content.',
+        'entity'                        => 'Controls what visibility Chronicle applies automatically to new content.',
         'entity_privacy'                => 'Sets visibility for newly created characters, locations, etc.',
         'gallery_visibility'            => 'Default visibility value when uploading images to the gallery.',
         'post_collapsed'                => 'When creating articles, set the article as collapsed or expanded.',

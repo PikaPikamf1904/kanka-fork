@@ -7,7 +7,7 @@
         @endif
     </div>
     <div class="flex flex-col gap-0.5">
-        <a href="https://kanka.io/premium?utm_source=subscription&utm_medium=referral&utm_campaign=owlbear" class="text-link">
+        <a class="text-link">
             @if (auth()->user()->hasLegacyBoosterNomenclature())
                 3 {{ __('tiers.features.boosters') }}
             @else
@@ -64,6 +64,6 @@
         <x-icon class="check" />
     </div>
     <div>
-        {!! __('tiers.features.discord', ['discord' => '<a href="https://kanka.io/go/discord" class="text-link">Discord</a>',]) !!}
+        {!! __('tiers.features.discord', ['discord' => '<a class="text-link">Discord</a>',]) !!}
     </div>
 </div>

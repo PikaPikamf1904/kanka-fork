@@ -17,7 +17,7 @@
             <p>{{ __('history.cta') }}</p>
         </x-premium-cta>
     @else
-        <x-tutorial code="history" doc="https://docs.kanka.io/en/latest/features/history.html">
+        <x-tutorial code="history">
             <p>{!! __('history.helpers.base', ['amount' => config('entities.logs_delete')]) !!}</p>
         </x-tutorial>
     @endif

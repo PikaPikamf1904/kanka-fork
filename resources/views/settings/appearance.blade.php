@@ -23,7 +23,7 @@ $highlightClass = 'shadow-xs border-primary border-solid border-2';
                             <x-icon class="fa-regular fa-moon-over-sun" />
                             {{ __('settings/appearance.fields.theme') }}
                         </div>
-                        <a href="https://docs.kanka.io/en/latest/account/appearance.html#theme" target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
+                        <a target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
                             <x-icon class="fa-regular fa-arrow-up-right-from-square" /> {{ __('general.learn-more') }}
                         </a>
                     </div>
@@ -48,7 +48,7 @@ $highlightClass = 'shadow-xs border-primary border-solid border-2';
                             <x-icon class="fa-regular fa-calendar" />
                             {{ __('settings/appearance.fields.date-format') }}
                         </div>
-                        <a href="https://docs.kanka.io/en/latest/account/appearance.html#date-formatting" target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
+                        <a target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
                             <x-icon class="fa-regular fa-arrow-up-right-from-square" /> {{ __('general.learn-more') }}
                         </a>
                     </div>
@@ -72,7 +72,7 @@ $highlightClass = 'shadow-xs border-primary border-solid border-2';
                             <x-icon class="fa-regular fa-arrow-down-a-z" />
                             {{ __('settings/appearance.fields.campaign-order') }}
                         </div>
-                        <a href="https://docs.kanka.io/en/latest/account/appearance.html#campaign-order" target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
+                        <a target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
                             <x-icon class="fa-regular fa-arrow-up-right-from-square" /> {{ __('general.learn-more') }}
                         </a>
                     </div>
@@ -100,7 +100,7 @@ $highlightClass = 'shadow-xs border-primary border-solid border-2';
                                 <x-icon class="fa-regular fa-typewriter" />
                                 {{ __('settings/appearance.fields.editor') }}
                             </div>
-                            <a href="https://docs.kanka.io/en/latest/account/appearance.html#text-editor" target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
+                            <a target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
                                 <x-icon class="fa-regular fa-arrow-up-right-from-square" /> {{ __('general.learn-more') }}
                             </a>
                         </div>
@@ -131,7 +131,7 @@ $highlightClass = 'shadow-xs border-primary border-solid border-2';
                             <x-icon class="fa-regular fa-at" />
                             {{ __('settings/appearance.fields.mentions') }}
                         </div>
-                        <a href="https://docs.kanka.io/en/latest/account/appearance.html#mentions" target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
+                        <a target="_blank" class="text-link" data-tooltip data-title="{{ __('settings/appearance.actions.learn-more') }}">
                             <x-icon class="fa-regular fa-arrow-up-right-from-square" /> {{ __('general.learn-more') }}
                         </a>
                     </div>

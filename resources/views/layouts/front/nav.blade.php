@@ -1,7 +1,7 @@
 <nav class="flex items-center justify-between gap-16 lg:gap-20 h-32 px-5 max-w-7xl mx-auto">
     <a href="/" class="text-dark">
-        <svg class="h-28 w-28"  alt="Kanka Logo" >
-            <use href="/images/svgs/sprites.svg#kanka-logo"></use>
+        <svg class="h-28 w-28"  role="img" aria-label="{{ config('chronicle.name') }}" >
+            <use href="/images/svgs/sprites.svg#chronicle-logo"></use>
         </svg>
     </a>
     <div class="gap-8 lg:gap-12 items-center grow hidden lg:flex">
@@ -51,13 +51,13 @@
                         {{ __('front.menu.dashboard') }}
                     </a>
                 @endauth
-                <a href="https://kanka.io/features" class="link text-nav">
+                <a class="link text-nav">
                     {{ __('footer.features') }}
                 </a>
-                <a href="https://kanka.io/pricing" class="link text-nav">
+                <a class="link text-nav">
                     {{ __('footer.pricing') }}
                 </a>
-                <a href="https://kanka.io/campaigns" class="link text-nav">
+                <a class="link text-nav">
                     {{ __('footer.public-campaigns') }}
                 </a>
 

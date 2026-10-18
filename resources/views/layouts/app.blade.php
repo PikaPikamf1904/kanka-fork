@@ -32,7 +32,7 @@ if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme:
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta content='width=device-width, initial-scale=1, maximum-scale=5' name='viewport'>
     <meta property="og:title" content="{!! $seoTitle !!}" />
-    <meta property="og:site_name" content="{{ config('app.site_name') }}" />
+    <meta property="og:site_name" content="{{ config('chronicle.name') }}" />
     <link rel="canonical" href="{{ $cleanCanonical }}" />
 
 
@@ -41,9 +41,6 @@ if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme:
     @if (config('app.asset_url'))
         <link rel="preconnect" href="{{ config('app.asset_url') }}" crossorigin>
     @endif
-    <link rel="preconnect" href="https://cdn.kanka.io" crossorigin>
-    <link rel="preconnect" href="https://images.kanka.io" crossorigin>
-    <link rel="preconnect" href="https://th.kanka.io" crossorigin>
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
     <link rel="dns-prefetch" href="//www.googletagmanager.com">
     @vite([

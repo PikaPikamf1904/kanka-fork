@@ -15,7 +15,7 @@
             <x-alert type="info">
                 <p class="m-0">
                     {!! __('campaigns/builder.help', [
-                    'docs' => '<a target="_blank" href="https://docs.kanka.io/en/latest/features/campaigns/theme-builder.html">' . __('footer.documentation') . '</a>'
+                    'docs' => '<a target="_blank">' . __('footer.documentation') . '</a>'
                 ]) !!}
             </x-alert>
 

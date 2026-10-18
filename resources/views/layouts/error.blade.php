@@ -6,11 +6,11 @@
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="{{ __('front.meta.description', ['kanka' => config('app.name')]) }}">
-    <meta name="author" content="{{ config('app.name') }}">
+    <meta name="description" content="{{ __('front.meta.description', ['kanka' => config('chronicle.name')]) }}">
+    <meta name="author" content="{{ config('chronicle.name') }}">
 
-    <meta property="og:title" content="{{ $title ?? __('front.meta.title', ['kanka' => config('app.name')]) }} - {{ config('app.name') }}" />
-    <meta property="og:site_name" content="{{ config('app.site_name') }}" />
+    <meta property="og:title" content="{{ $title ?? __('front.meta.title', ['kanka' => config('chronicle.name')]) }} - {{ config('chronicle.name') }}" />
+    <meta property="og:site_name" content="{{ config('chronicle.name') }}" />
 
     <title>{{ $error }} {{ __('errors.' . $error . '.title') }}</title>
 
@@ -54,7 +54,6 @@
 
         <p class="lg:max-w-2xl mx-auto text-center">
             {!! __('errors.footer', [
-    'discord' => '<a href="https://kanka.io/go/discord" class="link-light">Discord</a>',
     'email' => '<a href="mailto:' . config('app.email') . '" class="link-light">' . config('app.email') . '</a>',
 ]) !!}
         </p>

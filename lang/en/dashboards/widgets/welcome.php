@@ -9,7 +9,7 @@ return [
     'intros'        => [
         '1' => 'Say hello to your new worldbuilding home, :user! We\'ve set up your first campaign and included two example :characters and :locations. These are also visible here on the dashboard.',
         '2' => 'To get started, click on the big :new-entity button (or press :letter on your keyboard), and click on :characters to create your first character. It\'s that easy! You can find all your characters, locations, and other :entities from the sidebar on the left of the page.',
-        '3' => 'Here are our top 5 tricks for using Kanka',
+        '3' => 'Here are our top 5 tricks for using Chronicle',
     ],
     'name'          => 'Welcome',
     'tag'           => 'Welcome',

@@ -21,7 +21,6 @@
     <x-forms.field
         field="recent-filters"
         :label="__('dashboard.widgets.recent.filters')"
-        link="https://docs.kanka.io/en/latest/guides/dashboard.html"
         css="col-span-full"
         tooltip
         :helper="__('dashboard.widgets.helpers.filters')"
@@ -50,7 +49,7 @@
         @else
             <x-helper>
                 <p>{!! __('dashboard.widgets.advanced_options_boosted', [
-        'boosted_campaign' => '<a href="https://kanka.io/premium" class="text-link">' . __('concept.premium-campaigns') . '</a>']) !!}</p>
+        'boosted_campaign' => '<a class="text-link">' . __('concept.premium-campaigns') . '</a>']) !!}</p>
             </x-helper>
         @endif
     </div>

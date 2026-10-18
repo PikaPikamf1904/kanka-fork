@@ -166,7 +166,6 @@
       <article class="max-w-2xl py-4 px-4 md:px-6">
           <p v-html="texts.modals.pitch.content" class="text-neutral-content"></p>
           <div class="flex flex-col sm:flex-row gap-3 flex-wrap w-full">
-              <a href="https://kanka.io/premium" class="btn2 btn-outline btn-sm" v-html="texts.modals.pitch.more"></a>
               <a :href=this.subscribe_url class="btn2 bg-boost text-white btn-sm" v-html="texts.modals.pitch.subscription">
               </a>
           </div>

@@ -7,10 +7,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="{{ __('front.meta.description') }}">
-    <meta name="author" content="{{ config('app.name') }}">
+    <meta name="author" content="{{ config('chronicle.name') }}">
 
-    <meta property="og:title" content="{{ $title ?? __('front.meta.title', ['kanka' => config('app.name')]) }}" />
-    <meta property="og:site_name" content="{{ config('app.site_name') }}" />
+    <meta property="og:title" content="{{ $title ?? __('front.meta.title', ['kanka' => config('chronicle.name')]) }}" />
+    <meta property="og:site_name" content="{{ config('chronicle.name') }}" />
 
     <title>{{ __('errors.503.title') }}</title>
     <meta content='width=device-width, initial-scale=1, maximum-scale=5' name='viewport'>
@@ -31,7 +31,7 @@
         @if (false)
         <h2 id="maintenance">Server maintenance</h2>
 
-        <p class="lg:max-w-2xl mx-auto text-center">Kanka is currently unavailable due to planned server maintenance.</p>
+        <p class="lg:max-w-2xl mx-auto text-center">{{ config('chronicle.name') }} is currently unavailable due to planned server maintenance.</p>
 
         <p class="lg:max-w-2xl mx-auto text-center">This maintenance is planned to last until <a href="https://everytimezone.com/s/6d60e3d1" target="_blank" class="link-light"><x-icon class="link" />  15:30 UTC</a>.</p>
         @else
@@ -41,9 +41,6 @@
         <p class="lg:max-w-2xl mx-auto text-center">{{ __('errors.503.body.1') }}</p>
         <p  class="lg:max-w-2xl mx-auto text-center">{{ __('errors.503.body.2') }}</p>
         @endif
-
-
-        <p class="lg:max-w-2xl mx-auto text-center">Join us over on our <a href="https://kanka.io/go/discord" class="link-light">Discord</a> to be notified as soon as the maintenance is over.</p>
     </div>
 </section>
 

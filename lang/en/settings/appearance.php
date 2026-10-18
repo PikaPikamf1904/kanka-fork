@@ -14,7 +14,7 @@ return [
         'r_date_joined'     => 'Date Joined (newest first)',
     ],
     'dismissible'       => [
-        'main'  => 'Control the way Kanka looks and feels. Please note that campaigns can override some of these settings.',
+        'main'  => 'Control the way Chronicle looks and feels. Please note that campaigns can override some of these settings.',
     ],
     'editors'           => [
         'default'   => 'Default (:name)',
@@ -49,7 +49,7 @@ return [
         'new-entity-workflow'   => 'Control which interface you are taken to after creating a new entry.',
         'overridable'           => 'Individual campaigns can override this preference.',
         'pagination'            => 'For lists that span multiple pages, define how many are visible on each page.',
-        'theme'                 => 'Choose how Kanka looks to you.',
+        'theme'                 => 'Choose how Chronicle looks to you.',
     ],
     'mentions'          => [
         'advanced'  => 'Advanced mentions :code',

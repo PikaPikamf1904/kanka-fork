@@ -24,7 +24,7 @@
             @if (empty($token))
                 <div class="flex gap-2 items-center rounded bg-base-100 text-base-content p-4">
                     <p class="grow">
-                    {!! __('Include with all subscription levels to Kanka.') !!}
+                    {!! __('Include with all subscription levels.') !!}
                     </p>
                     <a href="{{ route('settings.subscription') }}" class="btn2 btn-primary btn-sm">{{ __('upgrade') }}</a>
                 </div>

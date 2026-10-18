@@ -5,6 +5,9 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+// These tests cover the upstream premium prompts, which Chronicle hides by default.
+beforeEach(fn () => config(['chronicle.hide_promotions' => false]));
+
 it('shows the premium unlocker for a campaign admin', function () {
     config(['limits.campaigns.premium' => true]);
 

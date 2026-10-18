@@ -9,7 +9,7 @@
         <div class="entity-main-block grow flex flex-col gap-5 min-w-0">
             @if ($entity->child->tilingError())
                 <x-alert type="error">
-                    {!! __('maps.errors.tiling.error', ['discord' => '<a href="https://kanka.io/go/discord">Discord</a>']) !!}
+                    {!! __('maps.errors.tiling.error', ['discord' => '<a>Discord</a>']) !!}
                 </x-alert>
             @elseif ($entity->child->tilingRunning())
                 <x-alert type="warning">
