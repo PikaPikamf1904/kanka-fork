@@ -414,15 +414,6 @@
                     <i class="fa-regular fa-sparkles" aria-hidden="true"></i>
                     <span v-html="emptyState.public"></span>
                 </a>
-                <a
-                    v-if="entityType.is_standard"
-                    :href="emptyState.docsUrl"
-                    class="text-link flex gap-1 items-center"
-                    target="_blank"
-                >
-                    <i class="fa-regular fa-book" aria-hidden="true"></i>
-                    <span v-html="emptyState.learn"></span>
-                </a>
             </div>
         </div>
         <p
@@ -571,16 +562,6 @@
                     <span v-html="template.name"></span>
                 </a>
                 <hr class="m-0" v-if="templates.length > 0" />
-                <a
-                    href="https://docs.kanka.io/en/latest/guides/archetypes.html"
-                    class="px-2 py-2 hover:bg-base-200 rounded-xl flex items-center gap-1.5 transition-all duration-150 text-base-content text-xs"
-                >
-                    <i
-                        class="fa-regular fa-external-link text-neutral-content w-5"
-                        aria-hidden="true"
-                    ></i>
-                    <span class="text-nowrap" v-html="i18n.templates"></span>
-                </a>
             </div>
 
             <!-- Bulk actions menu (unchanged) -->

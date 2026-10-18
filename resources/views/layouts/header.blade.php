@@ -2,7 +2,7 @@
     <nav class="flex gap-2 justify-center items-center h-full px-3">
         <noscript>
                 <span class="bg-error text-error-content p-1 rounded text-sm">
-                    Kanka requires Javascript to work properly. Please enable it.
+                    {{ config('chronicle.name') }} requires Javascript to work properly. Please enable it.
                 </span>
         </noscript>
         <div class="flex-none flex md:w-sidebar justify-items items-center toggle-and-search gap-2">

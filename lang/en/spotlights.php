@@ -45,13 +45,13 @@ return [
             'q' => 'What happens if my campaign is selected?',
         ],
         'what'      => [
-            'a' => 'The Spotlight highlights exceptional campaigns built with Kanka. Selected campaigns are featured on the Kanka Showcase and in a short interview-style blog post.',
+            'a' => 'The Spotlight highlights exceptional campaigns built with Chronicle. Selected campaigns are featured on the Chronicle Showcase and in a short interview-style blog post.',
             'q' => 'What is the Spotlight?',
         ],
         'who'       => [
             'a' => [
                 'end'           => 'No minimum size. No system restriction.',
-                'lead'          => 'Any public campaign on Kanka can apply',
+                'lead'          => 'Any public campaign on Chronicle can apply',
                 'req1'          => 'Be publically accessible',
                 'req2'          => 'Show active use (content, history, or players)',
                 'req3'          => 'Represent the kind of worlds others can learn from',
@@ -79,7 +79,7 @@ return [
     ],
     'placeholders'  => [
         'inspiration'   => 'Books, games, history, music, vibes',
-        'kanka'         => 'Tell us a bit about why Kanka ended up being the right tool for your world',
+        'kanka'         => 'Tell us a bit about why Chronicle ended up being the right tool for your world',
         'proud'         => 'Could be lore, players, longevity, status',
         'stories'       => 'Tragedy, heroism, politics, found family, pure unadulterated chaos',
         'time'          => 'Months, years, decades, over the span of multiple lifetimes?',
@@ -87,9 +87,9 @@ return [
     ],
     'questions'     => [
         'inspiration'   => 'What inspires this world',
-        'kanka'         => 'Why do you run games in Kanka?',
+        'kanka'         => 'Why do you run games in Chronicle?',
         'proud'         => 'What are you most proud of?',
-        'share'         => 'Allow the Kanka team to use your answer in their marketing materials.',
+        'share'         => 'Allow the site admins to use your answer in their marketing materials.',
         'stories'       => 'What kind of stories emerge at the table?',
         'time'          => 'How long have you been building this world?',
         'world'         => 'What is this world really about?',
@@ -102,7 +102,7 @@ return [
         'success'   => 'Your application has been successfully retracted. You can now edit your application again.',
     ],
     'rules'         => <<<'TEXT'
-We select 1–3 campaigns each month to feature on the Kanka :showcase.
+We select 1–3 campaigns each month to feature on the Chronicle :showcase.
 Selection isn’t guaranteed. Spotlighted campaigns receive a permanent achievement and a published interview.
 TEXT
 ,

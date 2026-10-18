@@ -32,10 +32,5 @@
             {{ __('entities/inventories.actions.copy_from_entity') }}
         </x-dropdowns.item>
 
-        <x-dropdowns.divider />
-
-        <x-dropdowns.item :link="'https://docs.kanka.io/en/latest/features/inventory.html'" icon="fa-regular fa-book">
-            <span class="grow">{{ __('general.learn-more') }}</span>
-        </x-dropdowns.item>
     </div>
 </div>

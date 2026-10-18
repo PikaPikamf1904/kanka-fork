@@ -22,7 +22,7 @@ $moduleName = isset($entityType) ? $entityType->name() : $entity->entityType->na
             'allow' => '<span class="text-green-700 font-medium">' . __('crud.permissions.actions.bulk_entity.allow') . '</span>',
             'deny' => '<span class="text-red-600 font-medium">' . __('crud.permissions.actions.bulk_entity.deny') . '</span>',
             'inherit' => '<span class="text-neutral-content font-medium">' . __('crud.permissions.actions.bulk_entity.inherit') . '</span>',
-            'docs' => '<a href="https://docs.kanka.io/en/latest/features/permissions.html#entry-permissions" target="_blank" class="text-link">' . __('general.learn-more') . '</a>',
+            'docs' => '<a target="_blank" class="text-link">' . __('general.learn-more') . '</a>',
         ]) !!}</p>
     </x-helper>
     

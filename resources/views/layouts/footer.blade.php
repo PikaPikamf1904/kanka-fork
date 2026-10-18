@@ -6,7 +6,7 @@
                 <div class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center">
                     <p class="flex-1 text-neutral-content">
                         {{ __('cookieconsent.message') }}
-                        <a href="{{ Domain::toFront('privacy-policy') }}" target="_blank" class="text-link">{{ __('cookieconsent.link') }}</a>
+                        <a href="{{ asset('privacypolicy.html') }}" target="_blank" class="text-link">{{ __('cookieconsent.link') }}</a>
                     </p>
                     <div class="flex shrink-0 gap-2">
                         <button data-accept class="btn2 btn-xs btn-primary">{{ __('cookieconsent.allow') }}</button>
@@ -15,12 +15,13 @@
                 </div>
             </div>
             @endif
+            @unless (config('chronicle.hide_promotions'))
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
                 <div class="flex-col gap-4 hidden lg:flex col-span-2 ">
                     <div class="flex">
                         <a href="{{ route('home') }}" class="logo text-link">
-                            <svg class="h-28 w-28"  alt="Kanka Logo" >
-                                <use href="/images/svgs/sprites.svg#kanka-logo" fill="red"></use>
+                            <svg class="h-28 w-28" role="img" aria-label="{{ config('chronicle.name') }}">
+                                <use href="/images/svgs/sprites.svg#chronicle-logo"></use>
                             </svg>
                         </a>
                     </div>
@@ -49,7 +50,7 @@
 
                     <div class="text-xs text-neutral-content">
                         <p>
-                            Kanka v{{ config('app.version') }} - <span data-toggle="tooltip" data-html="true" data-title="{{ __('footer.server-time', ['server' => gethostname()]) }}<br />Page generated in {{ defined('LARAVEL_START') ? round((microtime(true) - LARAVEL_START) * 1000, 2) : 0 }} ms">{{ \Carbon\Carbon::now()->isoFormat('MMMM Do YYYY, h:mm A') }}</span>
+                            {{ config('chronicle.name') }} v{{ config('app.version') }} - <span data-toggle="tooltip" data-html="true" data-title="{{ __('footer.server-time', ['server' => gethostname()]) }}<br />Page generated in {{ defined('LARAVEL_START') ? round((microtime(true) - LARAVEL_START) * 1000, 2) : 0 }} ms">{{ \Carbon\Carbon::now()->isoFormat('MMMM Do YYYY, h:mm A') }}</span>
                         </p>
                     </div>
                 </div>
@@ -97,8 +98,8 @@
                     <div class="inline-block">
                         <a href="{{ route('home') }}" class="logo text-link">
 
-                            <svg class="h-28 w-28" alt="Kanka Logo" >
-                                <use href="/images/svgs/sprites.svg#kanka-logo"></use>
+                            <svg class="h-28 w-28" role="img" aria-label="{{ config('chronicle.name') }}">
+                                <use href="/images/svgs/sprites.svg#chronicle-logo"></use>
                             </svg>
                         </a>
                     </div>
@@ -118,11 +119,23 @@
                             'source' => '<a href="https://kanka.io/go/github" class="text-link">core code available on GitHub</a>',
                         ]) !!}
                     </p>
-                    <p>Kanka v{{ config('app.version') }} - {!! __('footer.copyright', ['copy' => '&copy;', 'year' => date('Y'), 'company' => 'Owlchester SNC'])!!}</p>
+                    <p>{{ config('chronicle.name') }} v{{ config('app.version') }} - {!! __('footer.copyright', ['copy' => '&copy;', 'year' => date('Y'), 'company' => 'Owlchester SNC'])!!}</p>
 
                     <p>{{ \Carbon\Carbon::now()->isoFormat('MMMM Do YYYY, h:mm a') }} ({{ gethostname() }})</p>
                 </div>
             </div>
+            @endunless
+            @if (config('chronicle.hide_promotions'))
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                @include('layouts._credit')
+                <div class="flex flex-wrap items-center gap-3">
+                    @include('layouts._lang-switcher')
+                    @if(config('tracking.consent'))
+                    <a href="#" onclick="window.dispatchEvent(new CustomEvent('show-cookie-consent')); return false;" class="text-link text-xs">{{ __('cookieconsent.preferences') }}</a>
+                    @endif
+                </div>
+            </div>
+            @endif
             <span data-ccpa-link="1"></span>
             <div id="ncmp-consent-link"></div>
         </div>

@@ -5,7 +5,7 @@
             <div class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center">
                 <p class="flex-1 text-white/70">
                     {{ __('cookieconsent.message') }}
-                    <a href="{{ Domain::toFront('privacy-policy') }}" target="_blank" class="text-blue-400 hover:underline">{{ __('cookieconsent.link') }}</a>
+                    <a href="{{ asset('privacypolicy.html') }}" target="_blank" class="text-blue-400 hover:underline">{{ __('cookieconsent.link') }}</a>
                 </p>
                 <div class="flex shrink-0 gap-2">
                     <button data-accept class="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700">{{ __('cookieconsent.allow') }}</button>
@@ -14,100 +14,15 @@
             </div>
         </div>
         @endif
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
-            <div class="flex-col gap-8 hidden lg:flex col-span-2 ">
-                <div class="flex">
-                    <a href="{{ route('home') }}" class="text-white">
-                        <svg class="h-28 w-28"  alt="Kanka Logo" class="text-white" >
-                            <use href="/images/svgs/sprites.svg#kanka-logo"></use>
-                        </svg>
-                    </a>
-                </div>
-
-                <div class="flex items-center gap-5 text-3xl flex-wrap">
-                    @include('layouts._socials')
-                </div>
-                <div class="text-xs">
-                    <p class="text-xs">
-                        {{ __('footer.humans') }}
-                    </p>
-                    <p class="text-xs">
-                        {!! __('footer.proof', [
-                            'community-funded' => '<a href="' . Domain::toFront('hall-of-fame') . '">community-funded</a>',
-                            'source' => '<a href="https://kanka.io/go/github">core code available on GitHub</a>',
-                        ]) !!}
-                    </p>
-                    <p class="text-xs">
-                        {!! __('footer.copyright', ['copy' => '&copy;', 'year' => date('Y'), 'company' => 'Owlchester SNC'])!!}
-                    </p>
-                </div>
-            </div>
-
-            <div class="flex flex-col gap-3 text-sm">
-                <span class="block text-nav uppercase">{{ __('footer.platform') }}</span>
-                <a href="{{ Domain::toFront('features') }}">{{ __('footer.features') }}</a>
-                <a href="{{ Domain::toFront('premium') }}">{{ __('footer.premium') }}</a>
-                <a href="{{ Domain::toFront('pricing') }}">{{ __('footer.pricing') }}</a>
-                <a href="{{ config('marketplace.url') }}" >{{ __('footer.plugins') }}</a>
-            </div>
-
-            <div class="flex flex-col gap-3 text-sm">
-                <span class="block text-nav uppercase">{{ __('footer.resources') }}</span>
-                <a href="{{ Domain::toFront('kb') }}">{{ __('footer.kb') }}</a>
-                <a href="https://docs.kanka.io/en/latest/index.html" target="_blank">{{ __('footer.documentation') }}</a>
-                <a href="{{ route('larecipe.index') }}" target="_blank">{{ __('front.features.api.link') }}</a>
-                <a href="https://blog.kanka.io" target="_blank">{{ __('footer.blog') }}</a>
-                <a href="https://status.kanka.io" target="_blank">{{ __('footer.status') }}</a>
-            </div>
-
-            <div class="flex flex-col gap-3 text-sm">
-                <span class="block text-nav uppercase">{{ __('footer.community') }}</span>
-                <a href="https://blog.kanka.io/category/news">{{ __('footer.whats-new') }}</a>
-                <a href="{{ Domain::toFront('campaigns') }}">{{ __('footer.public-campaigns') }}</a>
-                <a href="{{ Domain::toFront('showcase') }}">{{ __('footer.showcase') }}</a>
-                <a href="{{ route('roadmap') }}">{{ __('footer.roadmap') }}</a>
-                <a href="{{ Domain::toFront('hall-of-fame') }}">{{ __('front/hall-of-fame.title') }}</a>
-            </div>
-
-            <div class="flex flex-col gap-3 text-sm">
-                <span class="block text-nav uppercase">{{ __('footer.company') }}</span>
-                <a href="{{ Domain::toFront('about') }}">{{ __('footer.about') }}</a>
-                <a href="{{ Domain::toFront('contact') }}">{{ __('footer.contact') }}</a>
-                <a href="{{ Domain::toFront('privacy-policy') }}">{{ __('footer.privacy') }}</a>
-                <a href="{{ Domain::toFront('terms-and-conditions') }}">{{ __('footer.terms') }}</a>
-                <a href="{{ Domain::toFront('security') }}">{{ __('footer.security') }}</a>
-                <a href="{{ Domain::toFront('press-kit') }}">{{ __('footer.press-kit') }}</a>
-                @if(config('tracking.consent'))
-                <a href="#" onclick="window.dispatchEvent(new CustomEvent('show-cookie-consent')); return false;">{{ __('cookieconsent.preferences') }}</a>
-                @endif
-            </div>
+        <div class="flex flex-col items-center gap-4 text-center">
+            <a href="{{ route('home') }}" class="text-white">
+                <svg class="h-20 w-20" role="img" aria-label="{{ config('chronicle.name') }}">
+                    <title>{{ config('chronicle.name') }}</title>
+                    <use href="/images/svgs/sprites.svg#chronicle-logo"></use>
+                </svg>
+            </a>
+            @include('layouts._credit', ['centered' => true])
         </div>
-
-        <div class="lg:hidden flex flex-col gap-5 text-center">
-            <div class="flex justify-center">
-                <a href="{{ route('home') }}">
-                    <svg class="h-28 w-28"  alt="Kanka Logo" >
-                        <use href="/images/svgs/sprites.svg#kanka-logo"></use>
-                    </svg>
-                </a>
-            </div>
-
-            <div class="flex justify-center gap-5 text-3xl">
-                @include('layouts._socials')
-            </div>
-
-            <div class="text-center text-sm">
-                <p>{{ __('footer.humans') }}</p>
-                <p>
-                    {!! __('footer.proof', [
-                        'community-funded' => '<a href="' . Domain::toFront('hall-of-fame') . '">community-funded</a>',
-                        'source' => '<a href="https://kanka.io/go/github">core code available on GitHub</a>',
-                    ]) !!}
-                </p>
-                Kanka {!! __('footer.copyright', ['copy' => '&copy;', 'year' => date('Y'), 'company' => 'Owlchester SNC'])!!}
-            </div>
-        </div>
-
         <span data-ccpa-link="1"></span>
         <div id="ncmp-consent-link"></div>
     </div>

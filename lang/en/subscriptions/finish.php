@@ -13,7 +13,7 @@ return [
         'helper'        => 'If you have any questions or feedback, :contact-us or visit our :docs. We\'re here to make your worldbuilding experience magical.',
         'title'         => 'Need help?',
     ],
-    'next'      => 'Your support helps us grow and keep improving Kanka for everyone. Here is what you can do next to unclock all the benefits from your subscription:',
+    'next'      => 'Your support helps us grow and keep improving Chronicle for everyone. Here is what you can do next to unclock all the benefits from your subscription:',
     'premium'   => [
         'action'    => 'Unlock',
         'enabled'   => [
@@ -25,8 +25,8 @@ return [
     ],
     'roadmap'   => [
         'action'    => 'View the roadmap & suggest features',
-        'helper'    => 'We\'re building Kanka for you. Check out the public roadmap and suggest or vote on features you\'d love to see!',
-        'title'     => 'Help shape the future of Kanka',
+        'helper'    => 'We\'re building Chronicle for you. Check out the public roadmap and suggest or vote on features you\'d love to see!',
+        'title'     => 'Help shape the future of Chronicle',
     ],
-    'title'     => 'Thank you for supporting Kanka!',
+    'title'     => 'Thank you for supporting Chronicle!',
 ];

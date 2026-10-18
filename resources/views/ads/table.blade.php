@@ -1,3 +1,4 @@
+@unless (config('chronicle.hide_promotions'))
 <x-ad section="leaderboard" :campaign="isset($campaign) ? $campaign : null">
     @php
         $adId = 'nitro-row-' . $rows;
@@ -75,3 +76,4 @@
         </p>
     @endif
 </x-ad>
+@endunless

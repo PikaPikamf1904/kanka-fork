@@ -18,7 +18,7 @@ $fieldname = $iconFieldName ?? 'icon';
             {!! __('entities/links.helpers.icon', [
                 'fontawesome' => '<a href="' . config('fontawesome.search') .'" class="text-link">FontAwesome</a>',
                 'rpgawesome' => '<a href="https://nagoshiashumari.github.io/Rpg-Awesome/" class="text-link">RPGAwesome</a>',
-                'docs' => '<a href="https://docs.kanka.io/en/latest/articles/available-icons.html" class="text-link">' . __('footer.documentation') . '</a>',
+                'docs' => '<a class="text-link">' . __('footer.documentation') . '</a>',
                 'example' => '<i class="fa-solid fa-horse" aria-hidden="true"></i> <code>fa-solid fa-horse</code>',
             ]) !!}
         </x-slot>
@@ -31,7 +31,7 @@ $fieldname = $iconFieldName ?? 'icon';
             ]) !!}
         @else
             {!! __('callouts.booster.pitches.icon', [
-                'boosted-campaign' => '<a href="https://kanka.io/premium" class="text-link">' . __('concept.premium-campaign') . '</a>',
+                'boosted-campaign' => '<a class="text-link">' . __('concept.premium-campaign') . '</a>',
                 'fontawesome' => '<a href="' . config('fontawesome.search') .'" class="text-link">FontAwesome</a>',
             ]) !!}
         @endif

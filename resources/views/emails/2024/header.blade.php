@@ -11,7 +11,7 @@
 <tbody><tr>
 <td class="row" align="left" style="padding: 0 50px;">
 <a href="{{ route('home', ['utm_source' => $utmSource ?? 'welcome', 'utm_medium' => 'email']) }}">
-<img src="https://kanka-app-assets.s3.eu-central-1.amazonaws.com/emails/emblem-colors-small.png" border="0" alt="" width="120"  style="max-width: 120px; display: inline-block;">
+<img src="{{ asset('/images/chronicle/logo-240.png') }}" border="0" alt="{{ config('chronicle.name') }}" width="120"  style="max-width: 120px; display: inline-block;">
 </a>
 </td>
 </tr>

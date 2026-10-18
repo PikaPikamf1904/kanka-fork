@@ -2,7 +2,7 @@
 
 return [
     'news'              => [
-        'title' => 'Kanka news',
+        'title' => 'Chronicle news',
     ],
     'notifications'     => [
         'dismiss'   => 'Dismiss',

@@ -9,7 +9,7 @@ return [
         'notification'  => 'Members of the :admin role will be notified when the export is ready for download.',
         'title'         => 'Export :name',
         'type'          => 'Export type',
-        'warning'       => 'You are about to export all data from :name. This may take a few minutes depending on campaign size. You\'ll receive a notification when it\'s ready and can continue using Kanka in the meantime.',
+        'warning'       => 'You are about to export all data from :name. This may take a few minutes depending on campaign size. You\'ll receive a notification when it\'s ready and can continue using Chronicle in the meantime.',
     ],
     'errors'    => [
         'limit'     => 'The campaign has already been exported once today. Please try again tomorrow.',

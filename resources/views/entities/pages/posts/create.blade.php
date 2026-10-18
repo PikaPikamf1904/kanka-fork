@@ -14,7 +14,7 @@
 @section('content')
     @include('ads.top')
 
-    <x-tutorial code="posts" doc="https://docs.kanka.io/en/latest/features/articles.html" title="">
+    <x-tutorial code="posts" title="">
         <x-slot name="title">
             {!! __('onboarding/posts.title') !!}
         </x-slot>

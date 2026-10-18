@@ -18,8 +18,8 @@
 
         <p class="">
             {!! __('subscription.benefits.main', [
-                'more' => '<a href="https://kanka.io/pricing" class="text-link">' . __('subscription.benefits.more') . '</a>',
-                'boosters' => '<a href="https://kanka.io/premium" class="text-link">' . __('concept.premium-campaigns') . '</a>',
+                'more' => '<a class="text-link">' . __('subscription.benefits.more') . '</a>',
+                'boosters' => '<a class="text-link">' . __('concept.premium-campaigns') . '</a>',
                 'stripe' => '<a href="https://stripe.com" class="text-link">Stripe</a>'
             ]) !!}
         </p>
@@ -33,7 +33,7 @@
         </h2>
 
             <p>
-                {!! __('tiers.why', ['tiny' => '<a href="' . \App\Facades\Domain::toFront('about') . '" class="text-link" >' . __('tiers.tiny') . '</a>']) !!}
+                {!! __('tiers.why', ['tiny' => '' . __('tiers.tiny') . '']) !!}
             </p>
 
         @if (!$hasManual)

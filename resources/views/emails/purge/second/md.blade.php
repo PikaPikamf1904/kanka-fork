@@ -24,7 +24,7 @@
 {{ __('emails/purge/first.assure') }}
 
 {!! __('emails/purge/first.help', [
-'discord' => '[Discord](https://kanka.io/go/discord)',
+'discord' => '[Discord]('.config('app.url').')',
 'email' => '[' . config('app.email') . '](mailto:' . config('app.email') . ')',
 ]) !!}
 

@@ -177,7 +177,6 @@
         <div v-else class="flex flex-col gap-4 overflow-hidden">
             <div class="alert alert-warning p-4 flex flex-col gap-2" v-if="!props.premium">
                 <p v-html="trans('focus_locked')"></p>
-                <a href="https://kanka.io/premium" class="text-link">Learn more</a>
             </div>
             <div v-else class="max-w-32 flex items-center justify-center">
                 <div class="relative inline-block">

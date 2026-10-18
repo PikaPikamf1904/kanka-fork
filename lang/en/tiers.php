@@ -49,5 +49,5 @@ return [
         'wyvern'    => 'Ideal for game masters running multiple adventures or collaborative storytellers',
     ],
     'tiny'      => 'tiny team',
-    'why'       => 'Kanka is built by a :tiny of passionate worldbuilders. Subscriptions fund the people, servers, and time needed to keep improving the platform sustainably. There are no dark patterns, no investor pressure, and no infinite growth chasing. Development is steady and guided by our community.',
+    'why'       => 'Chronicle is built by a :tiny of passionate worldbuilders. Subscriptions fund the people, servers, and time needed to keep improving the platform sustainably. There are no dark patterns, no investor pressure, and no infinite growth chasing. Development is steady and guided by our community.',
 ];

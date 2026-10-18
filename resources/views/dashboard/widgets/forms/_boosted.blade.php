@@ -14,7 +14,7 @@
         </a>
     @endif
 
-    <a href="https://kanka.io/premium" class="text-neutral-content text-center hover:text-primary text-xs">
+    <a class="text-neutral-content text-center hover:text-primary text-xs">
         {!! __('callouts.premium.learn-more') !!}
     </a>
     

@@ -38,7 +38,7 @@
             @elseif ($content?->isApproved())
                 <div class="bg-light rounded-2xl p-6 flex flex-col gap-4">
                     <h2 class="text-lg font-bold">{{ __('spotlights.approved.title') }}</h2>
-                    <p class="text-dark">{!! __('spotlights.approved.description', ['spotlight' => '<a href="' . \App\Facades\Domain::toFront('spotlight') . '" class="underline">Spotlight</a>']) !!}</p>
+                    <p class="text-dark">{!! __('spotlights.approved.description', ['spotlight' => 'Spotlight']) !!}</p>
                 </div>
             @elseif ($content?->isRejected())
                 <div class="bg-light rounded-2xl p-6 flex flex-col gap-4">

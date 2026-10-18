@@ -1,6 +1,6 @@
 <?php
 
 return [
-    'first' => 'Your Kanka account email has been changed to :email.',
+    'first' => 'Your Chronicle account email has been changed to :email.',
     'title' => 'Email changed',
 ];

@@ -19,13 +19,13 @@
 
     <p><b>{{ __('emails/welcome.2023.basics.title') }}</b></p>
     <p>{!! __('emails/welcome.2023.basics.text_1', [
-        'kb' => '<a target="_blank" href="https://kanka.io/kb">' . __('footer.kb') . '</a>',
-        'doc' => '<a target="_blank" href="https://docs.kanka.io/en/latest/index.html"> ' . __('footer.documentation') . '</a>',
+        'kb' => '<a target="_blank" href="'.config('app.url').'">' . __('footer.kb') . '</a>',
+        'doc' => '<a target="_blank" href="'.config('app.url').'"> ' . __('footer.documentation') . '</a>',
     ]) !!}</p>
 
     <p><b>{{ __('emails/welcome.2023.chat.title') }}</b></p>
     <p>{!! __('emails/welcome.2023.chat.text_1', [
-        'discord' => '<a href="https://kanka.io/go/discord">Discord</a>',
+        'discord' => '<a href="'.config('app.url').'">Discord</a>',
         'email' => '<a href="mailto:' . config('app.email') . '">' . config('app.email') . '</a>'
     ]) !!}</p>
 

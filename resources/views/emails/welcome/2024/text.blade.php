@@ -22,10 +22,10 @@
     'kb' => '[' . __('footer.kb') . '](' . \App\Facades\Domain::toFront('kb') . ')',
 ]) !!}
 - {!! __('emails/welcome/2024.what_4', [
-    'doc' => '[' . __('footer.documentation') . '](https://docs.kanka.io/en/latest/index.html)',
+    'doc' => '[' . __('footer.documentation') . ']('.config('app.url').')',
 ]) !!}
 - {!! __('emails/welcome/2024.what_5', [
-    'campaigns' => '[' . __('footer.public-campaigns') . '](https://kanka.io/campaigns)',
+    'campaigns' => '[' . __('footer.public-campaigns') . ']('.config('app.url').')',
 ]) !!}
 
 </x-mail::panel>
@@ -36,6 +36,6 @@ _Jay and Jon_
 
 {!! __('emails/welcome/2024.ps', [
     'email' => '[' . config('app.email') . '](mailto:' . config('app.email') . ')',
-    'discord' => '[Discord](https://kanka.io/go/discord)',
+    'discord' => '[Discord]('.config('app.url').')',
 ]) !!}
 </x-mail::message>

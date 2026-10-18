@@ -10,7 +10,7 @@ TEXT
         'question'  => 'Can I cancel my subscription at any time?',
     ],
     'cost'          => [
-        'answer'    => 'Kanka offers three subscription tiers named after D&D monsters: Owlbear, Wyvern, and Elemental. Pricing varies based on your preferred currency (USD, EUR, or BRL). You\'ll enjoy two months for free when choosing an annual subscription instead of monthly billing.',
+        'answer'    => 'Chronicle offers three subscription tiers named after D&D monsters: Owlbear, Wyvern, and Elemental. Pricing varies based on your preferred currency (USD, EUR, or BRL). You\'ll enjoy two months for free when choosing an annual subscription instead of monthly billing.',
         'question'  => 'How much does a subscription cost?',
     ],
     'data'          => [
@@ -18,7 +18,7 @@ TEXT
         'question'  => 'What happens to my data if I cancel my subscription?',
     ],
     'discount'      => [
-        'answer'    => 'Yes! We reward our annual subscribers with hefty discounts for free compared to monthly billing. This is our way of thanking you for your long-term commitment to Kanka.',
+        'answer'    => 'Yes! We reward our annual subscribers with hefty discounts for free compared to monthly billing. This is our way of thanking you for your long-term commitment to Chronicle.',
         'question'  => 'Are there any discounts for annual subscriptions?',
     ],
     'downgrade'     => [
@@ -30,8 +30,8 @@ TEXT
         'question'  => 'What happens if my payment fails?',
     ],
     'help'          => [
-        'answer'    => 'Your subscription pays for our time, our servers, and the freedom to keep Kanka sustainable without chasing growth at all costs. It lets us fix bugs faster, build features we actually believe in, and stay responsive to the community instead of investors. Quite simply: it keeps Kanka alive and getting better.',
-        'question'  => 'How does my subscription help Kanka?',
+        'answer'    => 'Your subscription pays for our time, our servers, and the freedom to keep Chronicle sustainable without chasing growth at all costs. It lets us fix bugs faster, build features we actually believe in, and stay responsive to the community instead of investors. Quite simply: it keeps Chronicle alive and getting better.',
+        'question'  => 'How does my subscription help Chronicle?',
     ],
     'methods'       => [
         'answer'    => <<<'TEXT'
@@ -54,12 +54,12 @@ TEXT
         'question'  => 'How secure is my payment information?',
     ],
     'sharing'       => [
-        'answer'    => 'Absolutely! Your subscription allows you to enable premium campaigns that benefit everyone involved. All campaign members enjoy premium features within that campaign, regardless of their personal subscription status, making Kanka perfect for collaborative worldbuilding.',
+        'answer'    => 'Absolutely! Your subscription allows you to enable premium campaigns that benefit everyone involved. All campaign members enjoy premium features within that campaign, regardless of their personal subscription status, making Chronicle perfect for collaborative worldbuilding.',
         'question'  => 'Can I share my account/subscription with others?',
     ],
     'title'         => 'Frequently Asked Questions',
     'trial'         => [
-        'answer'    => 'While we don\'t offer a traditional trial, Kanka\'s free version provides robust worldbuilding and campaign management tools to get you started. When you\'re ready for more, subscribing unlocks premium features like increased image upload limits, an ad-free experience, exclusive Discord roles, and additional enhancements to your worldbuilding toolkit.',
+        'answer'    => 'While we don\'t offer a traditional trial, Chronicle\'s free version provides robust worldbuilding and campaign management tools to get you started. When you\'re ready for more, subscribing unlocks premium features like increased image upload limits, an ad-free experience, exclusive Discord roles, and additional enhancements to your worldbuilding toolkit.',
         'question'  => 'Is there a free trial available?',
     ],
     'update'        => [
@@ -67,7 +67,7 @@ TEXT
         'question'  => 'How do I update my billing information?',
     ],
     'why'           => [
-        'answer'    => 'Kanka is built and maintained by a tiny, independent team. Subscriptions are what allow us to work on it long-term, improve it steadily, and keep it free of dark patterns. You\'re not paying a corporation, you\'re directly funding the people who design, build, and support the platform.',
-        'question'  => 'Why does Kanka charge for subscriptions?',
+        'answer'    => 'Chronicle is built and maintained by a tiny, independent team. Subscriptions are what allow us to work on it long-term, improve it steadily, and keep it free of dark patterns. You\'re not paying a corporation, you\'re directly funding the people who design, build, and support the platform.',
+        'question'  => 'Why does Chronicle charge for subscriptions?',
     ],
 ];

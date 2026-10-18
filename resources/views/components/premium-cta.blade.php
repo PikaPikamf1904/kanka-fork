@@ -1,4 +1,9 @@
 <div class="rounded-xl bg-box p-4 md:p-6 flex flex-col gap-4 shadow-xs mx-auto max-w-2xl">
+    @if (config('chronicle.hide_promotions'))
+        <h2 class="text-2xl">
+            {{ __('callouts.premium.unavailable') }}
+        </h2>
+    @else
     <h2 class="text-2xl">
         @isset ($title)
             {{ $title }}
@@ -18,17 +23,8 @@
         <x-helper>
             {!! $slot !!}
         </x-helper>
-        @if (isset($doc))
-            <p>
-                <a
-                    href="https://docs.kanka.io/en/latest/{{ $doc }}" class="link text-link">
-                    <x-icon class="fa-regular fa-book" />
-                    {{ __('general.documentation') }}
-                </a>
-            </p>
-        @endif
     </x-grid>
 
-
     <x-premium-cta-footer :campaign="$campaign" />
+    @endif
 </div>

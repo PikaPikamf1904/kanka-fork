@@ -71,9 +71,9 @@
 </style>
 <div class="primary">
 
-    <div class="header" style="background-image: url(https://kanka-app-assets.s3.amazonaws.com/emails/email-banner.jpg); background-position: top center; background-size: cover; width: 100%; height: 220px; text-align: center;">
+    <div class="header" style="background-color: #f1e4c3; width: 100%; height: 220px; text-align: center;">
         <a href="{{ route('home', ['utm_source' => ($utmSource ?? 'notification'), 'utm_medium' => 'email', 'utm_campaign' => ($utmCampaign ?? 'notification')]) }}">
-            <img src="https://th.kanka.io/cHKXasGfCKw8sQTzvc2ujNmni_A=/120x120/smart/src/app/logos/kanka-logo-large.png" alt="Kanka logo" title="Kanka logo" style="margin: 50px;" width="120px" height="120px">
+            <img src="{{ asset('/images/chronicle/logo-240.png') }}" alt="{{ config('chronicle.name') }}" title="{{ config('chronicle.name') }}" style="margin: 50px;" width="120px" height="120px">
         </a>
     </div>
 
@@ -81,21 +81,10 @@
         @yield('content')
 
         <div class="footer">
-            <p>
-                <a href="https://kanka.io/go/discord" class="social" target="discord" title="Discord" rel="noreferrer">
-                    <img src="{{ asset('/images/socials/discord-brands.png') }}" /></a>
-                <a href="https://kanka.io/go/facebook" class="social" target="facebook" title="Facebook" rel="noreferrer">
-                    <img src="{{ asset('/images/socials/facebook-brands.png') }}" /></a>
-                <a href="https://kanka.io/go/instagram" class="social" target="instagram" title="Instagram" rel="noreferrer">
-                    <img src="{{ asset('/images/socials/instagram-brands.png') }}" /></a>
-                <a href="https://kanka.io/go/youtube" class="social" target="youtube" title="Youtube" rel="noreferrer">
-                    <img src="{{ asset('/images/socials/youtube-brands.png') }}" /></a>
-                <a href="https://kanka.io/go/twitter" class="social" target="twitter" title="Twitter" rel="noreferrer">
-                    <img src="{{ asset('/images/socials/twitter-brands.png') }}" /></a>
-            </p>
+            
 
             @if (!empty($user))
-                <i>This email was automatically sent to {{ $user->email }} by <a href="https://kanka.io">Kanka.io</a>.</i>
+                <i>This email was automatically sent to {{ $user->email }} by {{ config('chronicle.name') }}.</i>
             @endif
 
             <p class="copy">Copyright &copy; {{ date('Y') }} Owlchester SNC</p>

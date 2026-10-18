@@ -54,16 +54,16 @@
                             <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #ffffff; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;">{{ __('emails/welcome/2024.what_2') }}</p>
                             <ul style="font-family: 'Inter', sans-serif; color: #ffffff; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;">
                                 <li dir="ltr">
-                                    <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #ffffff; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">{!! __('emails/welcome/2024.what_3', ['kb' => '<a href="https://kanka.io/kb?utm_source=welcome&utm_medium=email" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"><strong>' . __('footer.kb') . '</strong></a>']) !!}</p>
+                                    <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #ffffff; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">{!! __('emails/welcome/2024.what_3', ['kb' => '<a href="'.config('app.url').'" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"><strong>' . __('footer.kb') . '</strong></a>']) !!}</p>
                                 </li>
                                 <li dir="ltr">
                                     <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #ffffff; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">{!! __('emails/welcome/2024.what_4', [
-    'doc' => '<a href="https://docs.kanka.io/?utm_source=welcome&utm_medium=email" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"><strong>' . __('footer.documentation') . '</strong></a>'
+    'doc' => '<a href="'.config('app.url').'" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"><strong>' . __('footer.documentation') . '</strong></a>'
     ]) !!}</p>
                                 </li>
                                 <li dir="ltr">
                                     <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #ffffff; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">{!! __('emails/welcome/2024.what_5', [
-    'campaigns' => '<a href="https://kanka.io/campaigns?utm_source=welcome&utm_medium=email" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"><strong>' . __('footer.public-campaigns') . '</strong></a>'
+    'campaigns' => '<a href="'.config('app.url').'" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"><strong>' . __('footer.public-campaigns') . '</strong></a>'
     ]) !!}</p>
                                 </li>
                             </ul>
@@ -97,7 +97,7 @@
                             <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #515856; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;"><em>Jay &amp; Jon</em></p>
                             <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #515856; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;"><br></p>
                             <p dir="ltr" style="font-family: 'Inter', sans-serif; color: #515856; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;">{!! __('emails/welcome/2024.ps', [
-    'discord' => '<a href="https://kanka.io/go/discord" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"></strong>Discord<strong></a>',
+    'discord' => '<a href="'.config('app.url').'" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"></strong>Discord<strong></a>',
     'email' => '<a href="mailto:' . config('app.email') . '" style="color: #2CB191; font-weight: normal; font-style: normal; text-decoration: underline;"><strong>' . config('app.email') . '</strong></a>',
     ]) !!}</p>
                             <p style="font-family: 'Inter', sans-serif; color: #515856; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;"><br></p>

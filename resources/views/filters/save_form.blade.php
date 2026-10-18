@@ -35,7 +35,7 @@
                         {!! __('filters.helpers.icon-premium', [
                             'fontawesome' => '<a href="' . config('fontawesome.search') . '" class="text-link">FontAwesome</a>',
                             'example' => '<i class=\'fa-regular fa-user-beard-bolt\' aria-hidden=\'true\'></i> <code>fa-solid fa-horse</code>',
-                            'premium' => '<a href="https://kanka.io/premium" class="text-link">' . __('concept.premium-campaign') . '</a>',
+                            'premium' => '<a class="text-link">' . __('concept.premium-campaign') . '</a>',
                         ]) !!}
                     </x-slot>
                 </x-forms.field>

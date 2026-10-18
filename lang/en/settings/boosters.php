@@ -14,7 +14,7 @@ return [
         'actions'   => [
             'confirm'   => 'Boost it!',
             'remove'    => 'Stop boosting :campaign',
-            'subscribe' => 'Subscribe to Kanka',
+            'subscribe' => 'Subscribe to Chronicle',
             'upgrade'   => 'Upgrade your subscription',
         ],
         'confirm'   => 'How exciting! You\'re about to boost :campaign. This will assign one (:cost) of your available campaign boosters.',
@@ -64,7 +64,7 @@ return [
         ],
         'success'   => 'The :campaign campaign is now superboosted. Enjoy all the new awesome features!',
         'title'     => 'Superboost :campaign',
-        'upgrade'   => 'Ready for the ultimate Kanka experience? Superboosting :campaign will assign :cost additional campaign boosters.',
+        'upgrade'   => 'Ready for the ultimate Chronicle experience? Superboosting :campaign will assign :cost additional campaign boosters.',
     ],
     'title'     => 'Campaign Boosters',
     'unboost'   => [

@@ -4,8 +4,8 @@
 
 @php
     if (config('auth.fast_registration')) {
-        $name = 'Kanka' . rand(100, 9999999);
-        $email = $name . '@kanka.io';
+        $name = config('chronicle.name') . rand(100, 9999999);
+        $email = $name . '@example.test';
     }
 @endphp
 
@@ -73,6 +73,7 @@
                 @endif
             </div>
         @endif
+        @unless (config('chronicle.hide_promotions'))
         <div class="">
             <div class="text-gray-500 text-sm">
                 <label for="newsletter" class="dark:text-slate-200">
@@ -81,6 +82,7 @@
                 </label>
             </div>
         </div>
+        @endunless
 
         <div class="">
             <div id="btn-wait" class="rounded border border-gray-200 px-6 py-2 bg-gray-200 disabled" style="display: none;">
@@ -129,8 +131,8 @@
 
     <div class="grow text-sm text-gray-500">
         {!! __('auth.register.tos', [
-'terms' => '<a href="https://kanka.io/terms-and-conditions" class="text-blue-500 hover:text-blue-800">' . __('footer.terms') . '</a>',
-'privacy' => '<a href="https://kanka.io/privacy-policy" class="text-blue-500 hover:text-blue-800">' . __('footer.privacy') . '</a>',
+'terms' => '<a href="'.asset('privacypolicy.html').'" class="text-blue-500 hover:text-blue-800">' . __('footer.terms') . '</a>',
+'privacy' => '<a href="'.asset('privacypolicy.html').'" class="text-blue-500 hover:text-blue-800">' . __('footer.privacy') . '</a>',
 ]) !!}
     </div>
 </div>

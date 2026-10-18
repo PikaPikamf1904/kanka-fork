@@ -17,12 +17,6 @@
                 :link="route('campaign-sidebar', [$campaign])">
                 {{ __('bookmarks.actions.customise') }}
             </x-dropdowns.item>
-            <x-dropdowns.divider></x-dropdowns.divider>
-            <x-dropdowns.item
-                icon="fa-regular fa-book"
-                link="https://docs.kanka.io/en/latest/advanced/bookmarks.html">
-                {{ __('general.learn-more') }}
-            </x-dropdowns.item>
         </div>
     </div>
 </div>

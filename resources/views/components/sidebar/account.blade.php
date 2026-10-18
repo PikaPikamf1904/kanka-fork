@@ -99,7 +99,7 @@
                 <x-sidebar.section :text="__('settings.menu.other')" />
 
                 <ul class="sidebar-submenu list-none p-0 m-0">
-                    @if (auth()->user()->isLegacyPatron() || app()->isLocal())
+                    @if ((auth()->user()->isLegacyPatron() || app()->isLocal()) && ! config('chronicle.hide_promotions'))
                         <li class="px-2 {{ $active('patreon') }} subsection">
                             <x-sidebar.element
                                 :url="route('settings.patreon')"
@@ -108,6 +108,7 @@
                             ></x-sidebar.element>
                         </li>@endif
 
+                    @unless (config('chronicle.hide_promotions'))
                     <li class="px-2 {{ $active('apps') }} subsection">
                         <x-sidebar.element
                             :url="route('settings.apps')"
@@ -115,6 +116,7 @@
                             :text="__('settings.menu.apps')"
                         ></x-sidebar.element>
                     </li>
+                    @endunless
                         <li class="px-2 {{ $active('referrals') }} subsection">
                             <x-sidebar.element
                                 :url="route('settings.referrals')"

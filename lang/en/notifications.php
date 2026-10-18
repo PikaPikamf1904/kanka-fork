@@ -3,7 +3,7 @@
 return [
     'apps'              => [
         'discord'   => [
-            'invalid'   => 'Your Discord token has expired. Please re-sync your Discord and Kanka account.',
+            'invalid'   => 'Your Discord token has expired. Please re-sync your Discord and Chronicle account.',
         ],
     ],
     'campaign'          => [
@@ -47,7 +47,7 @@ return [
             'remove'    => 'You have been removed from the :role role of :campaign.',
         ],
         'troubleshooting'   => [
-            'joined'    => 'The Kanka team-member :user joined :campaign.',
+            'joined'    => 'An admin, :user, joined :campaign.',
         ],
     ],
     'clear'             => [
@@ -57,7 +57,7 @@ return [
     ],
     'features'          => [
         'approved'  => 'Your idea :feature has been approved.',
-        'finished'  => 'Your idea :feature is now available in Kanka!',
+        'finished'  => 'Your idea :feature is now available in Chronicle!',
         'rejected'  => 'Your idea :feature has been rejected, reason: :reason.',
     ],
     'header'            => 'You have :count notifications',
@@ -76,11 +76,11 @@ return [
     ],
     'subscriptions'     => [
         'charge_fail'   => 'An error occurred while processing your payment. Please wait a moment while we try again. If nothing changes, please contact us.',
-        'deleted'       => 'Your subscription to Kanka was automatically cancelled after too many failed attempts to charge your card. Please go to your Subscription settings and try updating your payment details.',
-        'ended'         => 'Your subscription to Kanka has ended. Your premium campaigns and Discord roles have been disabled. We hope to see you back soon!',
+        'deleted'       => 'Your subscription to Chronicle was automatically cancelled after too many failed attempts to charge your card. Please go to your Subscription settings and try updating your payment details.',
+        'ended'         => 'Your subscription to Chronicle has ended. Your premium campaigns and Discord roles have been disabled. We hope to see you back soon!',
         'failed'        => 'We couldn\'t charge your payment details. Please update them in your Payment Method settings.',
-        'started'       => 'Your subscription to Kanka has started.',
-        'trial'         => 'Your free trial to Kanka has ended. We hope you loved it and hope to see you back soon!',
+        'started'       => 'Your subscription to Chronicle has started.',
+        'trial'         => 'Your free trial to Chronicle has ended. We hope you loved it and hope to see you back soon!',
     ],
     'unread'            => 'New notification',
 ];

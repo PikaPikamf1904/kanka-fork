@@ -15,7 +15,7 @@ return [
         'subscribers'   => 'Subscribers referred: :amount',
         'users'         => '[1] one user|{2,*} :amount users',
     ],
-    'title'     => 'Invite friends to Kanka',
+    'title'     => 'Invite friends to Chronicle',
     'toasts'    => [
         'copied'    => 'Link copied to clipboard',
     ],

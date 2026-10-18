@@ -35,7 +35,7 @@
         'cta_title' => __('gallery.cta.title'),
         'cta_action' => __('gallery.cta.action'),
         'cta_helper' => __('gallery.cta.helper', [
-            'premium-campaign' => '<a href="https://kanka.io/premium" class="text-link">' . __('concept.premium-campaign') . '</a>',
+            'premium-campaign' => '<a class="text-link">' . __('concept.premium-campaign') . '</a>',
             'size' => \Illuminate\Support\Number::format(config('limits.gallery.premium') / (1024 * 1024), 2)
             ]),
     ]);

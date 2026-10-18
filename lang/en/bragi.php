@@ -10,8 +10,8 @@ return [
         'out-of-tokens' => 'You are out of tokens! You\'ll automatically get more on :date.',
     ],
     'here'          => 'here',
-    'intro'         => 'Hi! I\'m :name, an AI here to help you generate backstories for your characters in Kanka. You can learn more about me :here.',
-    'kankappy'      => 'They are secretly a disciple of Kankappy.',
+    'intro'         => 'Hi! I\'m :name, an AI here to help you generate backstories for your characters in Chronicle. You can learn more about me :here.',
+    'kankappy'      => 'They are secretly a disciple of the Archivist.',
     'loading'       => 'Please hang tight, I\'m thinking hard and it can take up to a minute!',
     'placeholders'  => [
         'prompt'    => 'Provide a prompt that will be transformed into a backstory.',

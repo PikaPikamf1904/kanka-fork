@@ -22,7 +22,6 @@
         :hidden="empty($model) || empty($model->entityType)"
         :label="__('dashboard.widgets.recent.filters')"
         tooltip
-        link="https://docs.kanka.io/en/latest/guides/dashboard.html"
         :helper="__('dashboard.widgets.helpers.filters')">
         <input type="text" name="config[filters]" value="{{ old('config[filters]', $model?->config['filters'] ?? null) }}" maxlength="191" class="w-full" id="config[filters]" placeholder="" />
     </x-forms.field>

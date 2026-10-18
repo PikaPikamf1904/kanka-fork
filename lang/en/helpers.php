@@ -20,14 +20,14 @@ return [
     ],
     'public'            => 'Watch a tutorial video on Youtube explaining public campaigns.',
     'troubleshooting'   => [
-        'description'       => 'A member of Kanka\'s team has sent you to this page. Select a campaign from the dropdown to generate a token so we can temporarily join your campaign as an admin.',
+        'description'       => 'A member of Chronicle\'s team has sent you to this page. Select a campaign from the dropdown to generate a token so we can temporarily join your campaign as an admin.',
         'errors'            => [
             'token_exists'  => 'A token already exists for :campaign.',
         ],
         'save_btn'          => 'Generate token',
         'select_campaign'   => 'Select a campaign',
         'subtitle'          => 'Please send help!',
-        'success'           => 'Please copy the following token and send it to someone on Kanka\'s team.',
+        'success'           => 'Please copy the following token and send it to someone on Chronicle\'s team.',
         'title'             => 'Assistance',
     ],
     'widget-filters'    => [

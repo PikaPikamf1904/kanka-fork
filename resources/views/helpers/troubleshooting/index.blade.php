@@ -14,7 +14,7 @@
 
             @if($token)
                 <p class="">{!! __('assistance.success.opening', [
-'discord' => '<a href="https://kanka.io/go/discord" class="text-link">Discord</a>'
+'discord' => '<a class="text-link">Discord</a>'
 ]) !!}</p>
                 <p>
                     <strong>{{ __('assistance.success.token') }}</strong><br />

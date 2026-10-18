@@ -121,7 +121,7 @@
                 </a>
             @endif
 
-            <a class="btn2 btn-sm btn-link" href="//docs.kanka.io/en/latest/advanced/filters.html" target="_blank" title="{{ __('helpers.filters.title') }}">
+            <a class="btn2 btn-sm btn-link" target="_blank" title="{{ __('helpers.filters.title') }}">
                 {{ __('helpers.filters.title') }}
             </a>
         </menu>

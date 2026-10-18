@@ -9,7 +9,7 @@
     @else
         <p>
             {!! __('confirm.delete.recoverable', [
-                'premium-campaign' => '<a href="' . \App\Facades\Domain::toFront('premium') . '" class="text-link">' . __('concept.premium-campaign') . '</a>',
+                'premium-campaign' => '' . __('concept.premium-campaign') . '',
                 'day' => '<span class="amount">' . config('entities.hard_delete') . '</span>'
             ])!!}
         </p>

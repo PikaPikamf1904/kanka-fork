@@ -104,7 +104,7 @@ return [
         'moons'             => 'Adding moons will make all eight phases of their cycle show up in the calendar and makes them available as recurring reminder options.',
         'parent_calendar'   => 'Giving the calendar a parent calendar will include the reminders and weather effects of the parent calendar.',
         'reset'             => 'Always start the beginning of the month or year on the first week day.',
-        'seasons'           => 'Create seasons for the calendar by providing when each of them start. Kanka will take care of the rest.',
+        'seasons'           => 'Create seasons for the calendar by providing when each of them start. Chronicle will take care of the rest.',
         'show_birthdays'    => 'Show the yearly birthdays of characters that have a birthday reminder on this calendar up to their death date.',
         'skip_year_zero'    => 'By default, the calendar\'s first year is year zero. Enable this option to skip year zero.',
         'weekdays'          => 'Set the weekday names. At least 2 weekdays are required.',

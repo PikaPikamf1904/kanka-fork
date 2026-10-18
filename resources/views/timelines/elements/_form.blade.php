@@ -77,7 +77,7 @@ if (!empty($era)) {
                 <x-helper>
                     <p>
                     <x-icon class="premium" />
-                    {!! __('crud.errors.boosted_campaigns', ['boosted' => '<a href="https://kanka.io/premium" class="text-link">' . __('concept.premium-campaign') . '</a>']) !!}
+                    {!! __('crud.errors.boosted_campaigns', ['boosted' => '<a class="text-link">' . __('concept.premium-campaign') . '</a>']) !!}
                     </p>
                 </x-helper>
             @endif
