@@ -358,6 +358,7 @@ return [
         DomainServiceProvider::class,
         LimitServiceProvider::class,
         ImporterServiceProvider::class,
+        App\Providers\EntranceServiceProvider::class,
 
     ],
 
