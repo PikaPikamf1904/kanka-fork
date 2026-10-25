@@ -1,0 +1,152 @@
+/*
+ * Floating relations graph (layouts/graph-panel.blade.php, js/graph-panel.js).
+ * A window over the page with the relations web in an iframe. It can be dragged by its title
+ * bar and resized from its corner. On small screens it becomes a full-width bottom sheet.
+ */
+.graph-panel {
+    position: fixed;
+    z-index: 950;
+    display: flex;
+    flex-direction: column;
+    top: 4rem;
+    right: 1rem;
+    width: min(32rem, calc(100vw - 2rem));
+    height: min(28rem, calc(100vh - 5rem));
+    min-width: 18rem;
+    min-height: 12rem;
+    background: hsl(var(--b1));
+    color: hsl(var(--bc));
+    border: 1px solid hsl(var(--b3));
+    border-radius: 0.75rem;
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+    overflow: hidden;
+}
+
+.graph-panel[hidden] {
+    display: none;
+}
+
+.graph-panel-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+    background: hsl(var(--b2));
+    border-bottom: 1px solid hsl(var(--b3));
+    cursor: move;
+    touch-action: none;
+    user-select: none;
+}
+
+.graph-panel-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.graph-panel-bar button,
+.graph-panel-bar a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    color: inherit;
+}
+
+.graph-panel-bar button:hover,
+.graph-panel-bar a:hover,
+.graph-panel-bar button:focus-visible,
+.graph-panel-bar a:focus-visible {
+    background: hsl(var(--b3));
+}
+
+.graph-panel-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.graph-panel-body iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.graph-panel-resize {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: nwse-resize;
+    touch-action: none;
+    background: linear-gradient(135deg, transparent 50%, hsl(var(--bc) / 0.35) 50%, hsl(var(--bc) / 0.35) 60%, transparent 60%, transparent 70%, hsl(var(--bc) / 0.35) 70%, hsl(var(--bc) / 0.35) 80%, transparent 80%);
+}
+
+/* While dragging or resizing, the iframe must not swallow the pointer. */
+.graph-panel.is-moving iframe {
+    pointer-events: none;
+}
+
+.graph-panel.is-minimized {
+    height: auto !important;
+    min-height: 0;
+}
+
+.graph-panel.is-minimized .graph-panel-body,
+.graph-panel.is-minimized .graph-panel-resize {
+    display: none;
+}
+
+.graph-panel.is-maximized {
+    top: 3.5rem !important;
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    bottom: 0.5rem !important;
+    width: auto !important;
+    height: auto !important;
+}
+
+.graph-panel.is-maximized .graph-panel-resize {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .graph-panel,
+    .graph-panel.is-maximized {
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        height: 75vh !important;
+        min-width: 0;
+        border-radius: 0.75rem 0.75rem 0 0;
+    }
+
+    .graph-panel.is-maximized {
+        top: 3rem !important;
+        height: auto !important;
+    }
+
+    .graph-panel.is-minimized {
+        height: auto !important;
+    }
+
+    .graph-panel-bar {
+        cursor: default;
+    }
+
+    .graph-panel-resize {
+        display: none;
+    }
+}

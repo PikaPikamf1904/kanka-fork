@@ -16,6 +16,15 @@ return [
         'view'          => 'View web',
         'zoom-fit'      => 'Zoom to fit',
     ],
+    'panel'     => [
+        'close'         => 'Close',
+        'full-page'     => 'Open as a full page',
+        'maximize'      => 'Maximize',
+        'minimize'      => 'Minimize',
+        'refresh'       => 'Refresh',
+        'restore'       => 'Restore',
+        'toggle'        => 'Relations graph',
+    ],
     'search'    => [
         'empty'         => 'No match in this web',
         'placeholder'   => 'Find an entity',

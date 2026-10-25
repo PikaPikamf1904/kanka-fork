@@ -21,7 +21,7 @@
             <ul
                 v-if="search.trim().length > 0"
                 id="web-search-results"
-                class="absolute top-full mt-1 left-0 right-0 flex flex-col bg-base-100 shadow-lg rounded-xl p-1 max-h-72 overflow-y-auto"
+                class="absolute z-10 top-full mt-1 left-0 right-0 flex flex-col bg-base-100 shadow-lg rounded-xl p-1 max-h-72 overflow-y-auto"
                 role="listbox"
             >
                 <li v-for="result in searchResults" :key="result.id" role="option">
@@ -50,7 +50,7 @@
                 </button>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a :href="selected.link" class="btn2 btn-primary btn-sm">
+                <a :href="selected.link" :target="props.embed ? '_top' : null" class="btn2 btn-primary btn-sm">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                     <span v-html="trans('open')"></span>
                 </a>
@@ -64,7 +64,7 @@
 
     <!-- Bottom toolbar -->
     <div v-if="ready" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-700 flex items-center gap-1.5 bg-base-100/80 backdrop-blur rounded-xl shadow-lg px-2 py-1.5">
-        <a v-if="ready" :href="urls.back" :title="trans('back')" class="btn2 btn-ghost" tabindex="0">
+        <a v-if="ready && !props.embed" :href="urls.back" :title="trans('back')" class="btn2 btn-ghost" tabindex="0">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
         </a>
 
@@ -196,6 +196,10 @@ const props = defineProps<{
     api: String,
     premium: Boolean,
     creator: Boolean,
+    // Embedded in the floating graph panel: entity links open in the main page, and the graph
+    // starts focused on the entity that page shows.
+    embed?: Boolean,
+    focus?: String,
 }>()
 
 const ready = ref(false)
@@ -265,10 +269,28 @@ onMounted(async () => {
 
     window.initTooltips();
 
-    if (!props.premium) {
+    if (props.embed) {
+        focusOn(props.focus)
+    } else if (!props.premium) {
         window.openDialog('web-premium')
     }
 })
+
+const focusOn = (id) => {
+    if (!id || !cy.value) return
+    const node = cy.value.getElementById(String(id))
+    if (node.length === 0) return
+    selectNode(node)
+    toggleFocus()
+}
+
+const openLink = (link: string) => {
+    if (props.embed && window.top) {
+        window.top.location.assign(link)
+        return
+    }
+    window.location.assign(link)
+}
 
 onBeforeUnmount(() => {
     if (cy.value) {
@@ -493,7 +515,7 @@ const addListeners = () => {
     cy.value.on('dbltap', 'node', function (evt) {
         const link = evt.target.data('link');
         if (link) {
-            window.location.assign(link);
+            openLink(link);
         }
     });
 

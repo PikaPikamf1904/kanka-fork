@@ -31,6 +31,19 @@
         <div class="flex-1 navbar-actions">
 
             <div class="flex justify-end items-center gap-2">
+                @if (!empty($graphPanel))
+                    <button
+                        type="button"
+                        id="graph-panel-toggle"
+                        class="text-neutral-content hover:text-accent text-xl min-w-9 min-h-9 inline-flex items-center justify-center rounded-lg"
+                        aria-controls="graph-panel"
+                        aria-expanded="false"
+                        title="{{ __('connections/web.panel.toggle') }}"
+                    >
+                        <x-icon class="fa-regular fa-circle-nodes" />
+                        <span class="sr-only">{{ __('connections/web.panel.toggle') }}</span>
+                    </button>
+                @endif
                 @guest
                     <a href="{{ route('login') }}" class="text-link">
                         {{ __('front.menu.login') }}
