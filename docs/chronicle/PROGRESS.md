@@ -66,3 +66,48 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
 - **Pest:** 1287 passed / 15 failed / 7 skipped. The failure set is the same as the baseline's.
 - **Note:** unboosted campaigns show only the 10 newest relations in the web
   (`limits.campaigns.web`). This is Kanka's own limit, and it is left as it is.
+
+## Checkpoint 3 — map navigation, levels and stairs
+
+- **Breadcrumbs:** the explorer shows the trail of parent maps above the map name
+  (Region > Mill > Ground floor). Each crumb opens that map.
+- **Maps inside:** a "Maps inside (n)" menu lists a map's child maps.
+- **Levels:** maps that share a parent are shown as levels, for floors. A switcher sits
+  bottom-left, the current level is highlighted (`aria-current`), and buttons are at least
+  36px tall for touch. It hides while a side panel is open.
+- **Stairs and child-map markers:** use a normal marker linked to the target map entity. Its
+  details panel already offers "Explore <map>" (Kanka's `PinPreviewResource`), so no new
+  backend was needed.
+- **Data:** `ExploreApiService::navigation()` adds `navigation` (ancestors, children, levels)
+  to the map-api payload. Every query goes through the campaign's permission scopes, so a
+  player never sees a hidden map in any list. The trail stops at the first parent they can't
+  see. Nothing new is stored: nesting is Kanka's existing parent map.
+- **Tests:** `tests/Feature/Privacy/MapNavigationTest.php` (4 tests) covers:
+  - the full lists for the DM;
+  - a player sees no DM-only map names, and the hidden map returns 404;
+  - the trail stops at a hidden parent;
+  - an isolated map has empty navigation.
+- **Firefox:** 31/31 map checks pass, using five synthetic nested maps. They cover:
+  - breadcrumbs, levels, the current level, and switching levels;
+  - the child-map list;
+  - the stairs marker's link to the cellar;
+  - marker positions kept after a reload;
+  - player filtering (lists, page and API), with the hidden map returning 404;
+  - phone (375×812) and tablet (820×1180): no overflow, the controls on screen, zoom
+    controls present.
+- **Pest:** 1291 passed / 15 failed / 7 skipped. To confirm the 15 failures are the baseline
+  set, I re-ran the failing files with these changes stashed: the same 15 fail at HEAD. They
+  are:
+  - CalendarAdvancer (unexpected failures)
+  - EntityAsset (update without upload)
+  - MapTest: zoom above limit; real zoom limits
+  - ExploreApiController: zoom limits; hidden-focus fallback
+  - GroupController (create top-level)
+  - MapMarkerPathRender (not boosted)
+  - MarkerController (null entry)
+  - MarkdownExport (CRLF)
+  - ExploreController (tiling redirect)
+  - EntityMentionsPolymorphic migration
+  - TilingMigrations
+  - EntityObserverTiling
+  - PinResource (parsed entry)

@@ -52,10 +52,79 @@ class ExploreApiService
                 ->all(),
             'visibilities' => $this->visibilityOptions(),
             'default_visibility_id' => $this->hasUser() ? $this->campaign->defaultVisibility()->value : null,
+            'navigation' => $this->navigation($mapEntity),
             'presets' => $this->presets($mapEntity),
             'can_manage_presets' => $this->canManagePresets(),
             'i18n' => $this->translations(),
             'interactive' => $this->interactive(),
+        ];
+    }
+
+    /**
+     * Where this map sits in the campaign's map tree (maps nest through entities.parent_id):
+     * the parent maps for the breadcrumbs, the child maps, and the "levels" — this map and its
+     * siblings, which is how floors of one building are modelled. Every lookup goes through the
+     * entity AclScope, so a map the viewer can't see is never listed, and the breadcrumbs stop at
+     * the first hidden parent instead of skipping over it.
+     */
+    protected function navigation(Entity $mapEntity): array
+    {
+        $ancestors = [];
+        $seen = [$mapEntity->id => true];
+        $parent = null;
+        $parentId = $mapEntity->parent_id;
+        while ($parentId && ! isset($seen[$parentId]) && count($ancestors) < 20) {
+            $next = $this->mapEntities()->find($parentId);
+            if (! $next) {
+                break;
+            }
+            $parent ??= $next;
+            $seen[$next->id] = true;
+            array_unshift($ancestors, $this->navigationItem($next));
+            $parentId = $next->parent_id;
+        }
+
+        $children = $this->mapEntities()
+            ->where('parent_id', $mapEntity->id)
+            ->get()
+            // Natural, case-insensitive order, so "Floor 2" comes before "Floor 10" on every database.
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->map(fn (Entity $entity) => $this->navigationItem($entity))
+            ->all();
+
+        $levels = [];
+        if ($parent) {
+            $levels = $this->mapEntities()
+                ->where('parent_id', $parent->id)
+                ->get()
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values()
+                ->map(fn (Entity $entity) => $this->navigationItem($entity) + ['current' => $entity->id === $mapEntity->id])
+                ->all();
+        }
+
+        return [
+            'ancestors' => $ancestors,
+            'children' => $children,
+            // A single level is just this map, nothing to switch to.
+            'levels' => count($levels) > 1 ? $levels : [],
+        ];
+    }
+
+    protected function mapEntities()
+    {
+        return Entity::query()
+            ->where('campaign_id', $this->campaign->id)
+            ->where('type_id', config('entities.ids.map'));
+    }
+
+    protected function navigationItem(Entity $entity): array
+    {
+        return [
+            'id' => $entity->id,
+            'name' => $entity->name,
+            'url' => route('entities.map', [$this->campaign, $entity]),
         ];
     }
 
@@ -334,6 +403,11 @@ class ExploreApiService
                 'legacy_pins_help' => __('maps/explorer.settings.legacy_pins_help'),
                 'save' => __('crud.save'),
                 'error_save' => __('maps/explorer.settings.error_save'),
+            ],
+            'navigation' => [
+                'children' => __('maps/explorer.navigation.children'),
+                'levels' => __('maps/explorer.navigation.levels'),
+                'trail' => __('maps/explorer.navigation.trail'),
             ],
             'presence' => [
                 'role_edit' => __('maps/explorer.presence.role_edit'),

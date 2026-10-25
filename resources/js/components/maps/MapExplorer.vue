@@ -34,6 +34,22 @@
                 <i class="fa-regular fa-list" aria-hidden="true" />
             </button>
             <div>
+                <nav
+                    v-if="nav.ancestors.length"
+                    class="map-trail"
+                    :aria-label="data.i18n.navigation?.trail"
+                >
+                    <ol class="flex flex-wrap items-center gap-1 text-xs text-shadow-[0_0_4px_hsl(var(--b1)),0_0_8px_hsl(var(--b1))]">
+                        <li
+                            v-for="crumb in nav.ancestors"
+                            :key="crumb.id"
+                            class="flex items-center gap-1"
+                        >
+                            <a :href="crumb.url" class="hover:underline">{{ crumb.name }}</a>
+                            <i class="fa-regular fa-chevron-right text-[0.6rem] text-neutral-content" aria-hidden="true" />
+                        </li>
+                    </ol>
+                </nav>
                 <button
                     class="text-2xl font-semibold leading-tight cursor-pointer text-shadow-[0_0_4px_hsl(var(--b1)),0_0_8px_hsl(var(--b1))]"
                     :ref="el => (mapMenuBtnRef = el)"
@@ -67,6 +83,23 @@
                     </template>
                 </div>
                 <p class="text-sm text-neutral-content text-shadow-[0_0_4px_hsl(var(--b1)),0_0_8px_hsl(var(--b1))]">{{ markersCountText }}</p>
+                <details v-if="nav.children.length" class="map-children mt-1">
+                    <summary class="btn2 btn-default btn-sm cursor-pointer">
+                        <i class="fa-regular fa-map" aria-hidden="true" />
+                        {{ data.i18n.navigation?.children }} ({{ nav.children.length }})
+                    </summary>
+                    <ul class="mt-1 flex flex-col gap-1 bg-base-100 rounded-xl shadow-lg p-1 max-h-64 overflow-y-auto">
+                        <li v-for="child in nav.children" :key="child.id">
+                            <a
+                                :href="child.url"
+                                class="flex items-center gap-2 px-2 py-2 hover:bg-base-200 rounded-xl text-sm text-base-content"
+                            >
+                                <i class="fa-regular fa-arrow-turn-down-right w-5 text-center text-neutral-content" aria-hidden="true" />
+                                <span>{{ child.name }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </details>
             </div>
 
             <div class="flex gap-1 overflow-hidden" v-if="data.interactive?.show_presence && activeUsers.length > 1">
@@ -90,6 +123,25 @@
                 v-tippy="presenceError"
             />
         </div>
+
+        <nav
+            v-if="nav.levels.length"
+            class="map-levels fixed left-4 bottom-24 z-[1100] flex-col gap-1 bg-base-100 rounded-xl shadow-lg p-1 max-h-[50vh] overflow-y-auto"
+            :class="anyPanelOpen ? 'hidden' : 'flex'"
+            :aria-label="data.i18n.navigation?.levels"
+        >
+            <span class="px-2 pt-1 text-xs text-neutral-content">{{ data.i18n.navigation?.levels }}</span>
+            <a
+                v-for="level in nav.levels"
+                :key="level.id"
+                :href="level.url"
+                class="px-3 py-2 rounded-lg text-sm min-h-9"
+                :class="level.current ? 'bg-primary text-primary-content font-semibold' : 'hover:bg-base-200 text-base-content'"
+                :aria-current="level.current ? 'page' : null"
+            >
+                {{ level.name }}
+            </a>
+        </nav>
 
         <div
             v-if="canEdit && data.map.tiling_prompt_eligible && !tilingPromptDismissed"
@@ -320,6 +372,8 @@ const markersCountText = computed(() => {
 
     return template.replace(':count', count);
 });
+
+const nav = computed(() => ({ ancestors: [], children: [], levels: [], ...(data.value.navigation || {}) }));
 
 const isTilingRunning = computed(() => data.value.map.tiling === 'running');
 

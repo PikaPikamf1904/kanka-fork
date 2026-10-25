@@ -71,6 +71,11 @@ return [
         'template_name_placeholder'     => 'e.g. Capital, Ruin, Quest...',
         'untitled_template'             => 'Untitled template',
     ],
+    'navigation'    => [
+        'children'  => 'Maps inside',
+        'levels'    => 'Levels',
+        'trail'     => 'Map trail',
+    ],
     'markers_count' => [
         'one'   => '1 marker',
         'other' => ':count markers',
