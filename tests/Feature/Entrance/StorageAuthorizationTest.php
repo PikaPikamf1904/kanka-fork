@@ -223,3 +223,38 @@ it('routes existing storage files through Laravel on the built-in preview server
         @rmdir($root);
     }
 });
+
+it('keeps the app base URL on the built-in preview server for existing uploads', function () {
+    $root = sys_get_temp_dir() . '/chronicle-router-' . bin2hex(random_bytes(8));
+    $public = $root . '/public';
+    mkdir($public . '/storage/campaigns/1', 0700, true);
+    copy(base_path('server.php'), $root . '/server.php');
+    file_put_contents($public . '/storage/campaigns/1/map.png', 'disposable map');
+    file_put_contents($public . '/index.php', '<?php $r = Symfony\Component\HttpFoundation\Request::createFromGlobals();'
+        . ' echo $r->getBaseUrl() . "|" . $r->getPathInfo();');
+
+    $saved = $_SERVER;
+    try {
+        // What PHP's built-in server reports when the requested path is an existing file.
+        $uri = '/storage/campaigns/1/map.png';
+        $_SERVER['REQUEST_URI'] = $uri;
+        $_SERVER['SCRIPT_NAME'] = $uri;
+        $_SERVER['PHP_SELF'] = $uri;
+        $_SERVER['SCRIPT_FILENAME'] = $public . $uri;
+        ob_start();
+        include $root . '/server.php';
+        $body = ob_get_clean();
+
+        expect($body)->toBe('|' . $uri);
+    } finally {
+        $_SERVER = $saved;
+        @unlink($public . '/storage/campaigns/1/map.png');
+        @unlink($public . '/index.php');
+        @unlink($root . '/server.php');
+        @rmdir($public . '/storage/campaigns/1');
+        @rmdir($public . '/storage/campaigns');
+        @rmdir($public . '/storage');
+        @rmdir($public);
+        @rmdir($root);
+    }
+});

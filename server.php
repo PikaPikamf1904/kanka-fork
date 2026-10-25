@@ -19,4 +19,11 @@ if ($uri !== '/' && ! $isStorageRequest && file_exists(__DIR__ . '/public' . $ur
     return false;
 }
 
+// The built-in server points SCRIPT_NAME at the requested file when it exists (an upload behind
+// the public/storage symlink), so Laravel took the upload's URL as its base URL and routed the
+// request to "/" instead of StoredUploadController. Everything here runs through index.php.
+$_SERVER['SCRIPT_FILENAME'] = __DIR__ . '/public/index.php';
+$_SERVER['SCRIPT_NAME'] = '/index.php';
+$_SERVER['PHP_SELF'] = '/index.php';
+
 require_once __DIR__ . '/public/index.php';

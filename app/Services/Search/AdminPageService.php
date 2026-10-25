@@ -3,6 +3,7 @@
 namespace App\Services\Search;
 
 use App\Traits\CampaignAware;
+use Illuminate\Support\Facades\Route;
 
 class AdminPageService
 {
@@ -37,7 +38,7 @@ class AdminPageService
     {
         $campaign = $this->campaign;
 
-        return [
+        $pages = [
             [
                 'name' => __('campaigns.show.actions.edit'),
                 'icon' => 'fa-regular fa-cog',
@@ -75,12 +76,6 @@ class AdminPageService
                 'name' => __('campaigns/categories.tab'),
                 'icon' => 'fa-regular fa-floppy-disks',
                 'url' => route('campaign.modules', $campaign),
-                'group' => 'admin',
-            ],
-            [
-                'name' => __('campaigns.show.tabs.plugins'),
-                'icon' => 'fa-regular fa-puzzle-piece',
-                'url' => route('campaign_plugins.index', $campaign),
                 'group' => 'admin',
             ],
             [
@@ -162,5 +157,17 @@ class AdminPageService
                 'keywords' => ['code', 'source'],
             ],
         ];
+
+        // The plugin pages only exist when the marketplace is configured (it is off in Chronicle).
+        if (Route::has('campaign_plugins.index')) {
+            array_splice($pages, 6, 0, [[
+                'name' => __('campaigns.show.tabs.plugins'),
+                'icon' => 'fa-regular fa-puzzle-piece',
+                'url' => route('campaign_plugins.index', $campaign),
+                'group' => 'admin',
+            ]]);
+        }
+
+        return $pages;
     }
 }

@@ -62,6 +62,26 @@ mode switches CSRF protection back on, so a POST then needs a token (see the doc
 content whose names start with `dmonly`, then checks that no page or JSON response a
 player can reach contains that text, and that the DM still sees it.
 
+## Running Chronicle locally (development)
+
+`deploy/dev/local.sh` runs the app in one container, `chronicle-dev`. It listens on
+http://127.0.0.1:8090, which is this computer only. It uses PHP's built-in server
+(`server.php`) and MariaDB.
+
+```bash
+deploy/dev/local.sh up        # first start installs dependencies, builds assets, seeds data
+deploy/dev/local.sh logins    # the two synthetic accounts and their generated passwords
+deploy/dev/local.sh sync      # after editing code; "sync build" also rebuilds the JS/CSS
+deploy/dev/local.sh down      # stop; "destroy" deletes the container and its database
+```
+
+The seed (`deploy/dev/local/seed.php`) creates an invented campaign, "Silverfen Vale". It has
+a DM account (`dm@chronicle.test`, campaign admin) and a player account
+(`player@chronicle.test`). The campaign has public and DM-only entities, so permissions can
+be checked by eye. The container generates the passwords on first start and keeps them only
+inside the container. Debug mode is on and the database has no password: this setup is for
+development only, and must never hold real campaign data.
+
 ## Staging rehearsal (a Big Bertha look-alike)
 
 `staging.sh` starts a Debian 13 machine with systemd in a container and runs the real kit
