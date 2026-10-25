@@ -111,3 +111,39 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
   - TilingMigrations
   - EntityObserverTiling
   - PinResource (parsed entry)
+
+## Checkpoint 4 — appearance
+
+- **Self-hosted backgrounds:** the login, register, campaign-switcher and sidebar backgrounds,
+  and the public campaign thumbnail fallback, no longer load the mountain photo from
+  `th.kanka.io`. They use `public/images/chronicle/vale.svg`, a dusk valley drawn for Chronicle.
+- **Infobox:** in the Chronicle themes, the profile box beside a character, location or NPC
+  page is a wiki-style card: a gold rule under a serif title, and small-caps labels with dotted
+  separators. Pins get a gold edge, and the sidebar widens to 15rem on large screens. Grid cards
+  get a thin gold rim and serif names.
+- **Dashboard overview:** a dashboard without widgets now shows links to every enabled module
+  plus the relations web, and the eight most recently updated entries
+  (`resources/views/dashboard/chronicle/_overview.blade.php`). The recent list is an ordinary
+  `Entity` query, so it goes through the permission scope.
+- **Chronicle Night:** a dark theme (`resources/css/themes/chronicle-night.css`) with ink
+  pages, ivory text and gold accents. It imports `chronicle.css`, so the infobox and serif
+  headings carry over. Pick it under Settings → Appearance.
+- **Tests:**
+  - `tests/Feature/Privacy/DashboardOverviewTest.php`: the DM's overview lists hidden
+    entries, and a player's overview contains no DM-only text;
+  - `AppearanceThemeTest` covers `chronicle-night` as well.
+- **Firefox (look.mjs):** 40/40 checks pass, on desktop 1280, tablet 820 and phone 375. They
+  cover:
+  - the login background is local, and `vale.svg` is served;
+  - the dashboard, character list and character page load in both themes, with no horizontal
+    overflow;
+  - the overview shows modules and recent entries;
+  - the night theme reports a dark colour scheme;
+  - no requests to `kanka.io`, no page errors and no 5xx responses.
+- **Pest:** 1294 passed / 15 failed / 7 skipped. The 15 failures are the same tests as at
+  checkpoint 3.
+- **Still open:**
+  - the standalone marker create page throws "window.map undefined";
+  - the summernote font returns 404;
+  - admin links show in players' command search. Not yet checked whether those routes refuse
+    players; to verify next.

@@ -78,6 +78,7 @@ export default defineConfig({
                 'resources/css/themes/dark.css',
                 'resources/css/themes/midnight.css',
                 'resources/css/themes/chronicle.css',
+                'resources/css/themes/chronicle-night.css',
 
                 'resources/css/print/print.css',
             ],

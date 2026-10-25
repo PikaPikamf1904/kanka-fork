@@ -1,0 +1,64 @@
+/*
+ * Chronicle Night: the Chronicle encyclopedia theme for evening sessions. Ink-blue pages,
+ * ivory text and the same muted gold accents. It reuses chronicle.css (serif headings, the
+ * infobox) and only swaps the colours.
+ */
+@import './chronicle.css';
+
+@layer theme {
+    html {
+        color-scheme: dark;
+    }
+    :root {
+        --content-wrapper-background: hsl(222 30% 10%);
+        --body-background: hsl(222 30% 10%);
+        /* For the legacy editor, make it compatible with dark mode */
+        --tinymce-filter: invert(90%) !important;
+
+        /* Pale gold for buttons and links, readable on ink */
+        --p: 42 62% 62%;
+        --pf: 42 62% 52%;
+        --pc: 222 32% 10%;
+
+        --s: 220 26% 20%;
+        --sf: 220 24% 26%;
+        --sc: 42 50% 88%;
+
+        --a: 42 52% 52%;
+        --af: 42 52% 44%;
+        --ac: 222 32% 10%;
+
+        --n: 220 22% 22%;
+        --nf: 220 20% 28%;
+        --nc: 40 18% 68%;
+
+        /* Ink panels */
+        --b1: 222 28% 14%;
+        --b2: 222 28% 17%;
+        --b3: 222 26% 22%;
+        /* Ivory text */
+        --bc: 42 40% 90%;
+
+        --in: 215 40% 22%;
+        --inc: 212 60% 86%;
+        --wa: 34 55% 22%;
+        --wac: 42 85% 80%;
+        --er: 2 45% 22%;
+        --erc: 2 80% 85%;
+        --su: 150 30% 18%;
+        --suc: 140 45% 80%;
+
+        --si: 224 34% 8%;
+        --sif: 220 30% 18%;
+        --sic: 42 50% 88%;
+
+        --sidebar-placeholder: linear-gradient(160deg, hsl(220 34% 18%) 0%, hsl(224 34% 8%) 100%);
+
+        --link-text: hsl(var(--p)/1);
+        --link-hover: hsl(42 70% 72%);
+    }
+}
+
+.alert {
+    border: 1px solid var(--alert-bg);
+}

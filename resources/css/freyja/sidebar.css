@@ -52,7 +52,7 @@
     }
 }
 .main-sidebar-placeholder {
-    background-image: var(--sidebar-placeholder, url('https://th.kanka.io/kZFdGAs5iN41r9mDqNqix8BxaAA=/240x208/smart/src/app/backgrounds/mountain-background-medium.jpg'));
+    background-image: var(--sidebar-placeholder, url('/images/chronicle/vale.svg'));
 }
 
 section.sidebar-campaign {

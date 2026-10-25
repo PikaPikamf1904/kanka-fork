@@ -30,7 +30,7 @@ it('saves the theme the user picks', function (string $theme) {
         ->assertSee('data-vite="resources/css/themes/' . $theme . '.css"', false)
         ->getContent();
     expect($page)->toMatch('/name="theme"[^>]*value="' . $theme . '"\s+checked="checked"/');
-})->with(['dark', 'midnight', 'chronicle']);
+})->with(['dark', 'midnight', 'chronicle', 'chronicle-night']);
 
 it('goes back to the light theme when none is picked', function () {
     $this->asUser();

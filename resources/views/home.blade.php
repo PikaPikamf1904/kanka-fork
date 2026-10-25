@@ -59,6 +59,7 @@ use App\Enums\Widget;
                         @include('dashboard.widgets._' . $widget->widget->value)
                     </div>
             @endforeach
+            @includeWhen(!empty($overview), 'dashboard.chronicle._overview')
 
         </div>
 
