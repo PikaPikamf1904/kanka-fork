@@ -43,6 +43,8 @@ class FullTextController extends Controller
 
         // Then get the actual entities from the campaign
         $models = Entity::whereIn('id', $results)
+            // Chronicle: the results list shows each entity's type; without this it's a query per row.
+            ->with('entityType')
             ->orderBy('name')
             ->paginate();
 

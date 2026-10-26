@@ -264,3 +264,22 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
   character would be on the first page of the list and search results. Repeated runs had
   pushed it to page 2, so those checks were made run-specific; the app was not at fault.
 - **Full Pest suite:** 1319 passed, 15 failed, 7 skipped. Same known baseline set.
+
+## Checkpoint 10: performance and Big Bertha readiness (local)
+
+- **Production caches:** `php artisan optimize` (config, events, 1213 routes, views) builds
+  cleanly. `release.sh` runs the same four caches.
+- **Measured per page** (dev container on the PC, warm cache, DM and player alike): dashboard
+  9 queries / 26 ms, entity list 5 / 17 ms, character page 19–20 / 50 ms, map explore 3 / 10 ms,
+  graph data 6 / 10 ms, full-text search 15 / 38 ms. Peak memory is 50–55 MB per request, so
+  six FPM children (`pm.max_children = 6`) need about 330 MB. Bertha's slower CPU and HDD will
+  be several times slower; that still needs measuring on the real machine.
+- **Fixed:** the full-text results page ran a query per result for the entity type. It is now
+  eager-loaded, which drops the query count from 29 to 15 at 15 results.
+- **Measurement note:** run from the command line, the character page looked like 40 queries.
+  `Entity::getChildAttribute` skips its cache in console mode (for queue workers), so the
+  measurement set `APP_RUNNING_IN_CONSOLE=false` to behave like a web request.
+- **Checked, no change needed:** the production template uses the env names Kanka's config
+  actually reads (`CACHE_DRIVER`, `QUEUE_DRIVER`, `FILESYSTEM_DRIVER`, `QUEUE_HEAVY_DRIVER`).
+  Every job that names a queue uses `heavy`, which the heavy worker runs. OPcache keeps
+  `validate_timestamps = 0`, with a reload on each release.
