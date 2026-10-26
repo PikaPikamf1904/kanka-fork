@@ -283,3 +283,20 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
   actually reads (`CACHE_DRIVER`, `QUEUE_DRIVER`, `FILESYSTEM_DRIVER`, `QUEUE_HEAVY_DRIVER`).
   Every job that names a queue uses `heavy`, which the heavy worker runs. OPcache keeps
   `validate_timestamps = 0`, with a reload on each release.
+
+## Checkpoint 11: full regression
+
+- **Fixed:** old list links (`/w/{campaign}/characters?page=2&order=…`) redirected to the new
+  `/t/{type}` listing without their query string, so the page, filters and order were lost.
+  The redirect in `CrudController::crudIndex` now keeps them (test in `DmOnlyContentTest`, red
+  without the fix). This was found because the e2e player check kept reading page 1.
+- **Fixed:** PHPStan's one error (`StoredUploadController` passed a model to `abort_unless`; it
+  now checks `exists()`). No behaviour change.
+- **Full Pest suite:** 1319 passed, 15 failed, 7 skipped. The failures are the same known
+  baseline set as at checkpoints 8–10.
+- **PHPStan:** no errors across the whole configured analysis. **Pint:** clean on every changed
+  file.
+- **Firefox:** core 22/22 on three runs; maps 31/31, graph 19/19, mobile and tablet sweep
+  112/112, plus the fix and editing-warning checks (3/3, 7/7, 6/6). No 5xx responses. Once, a
+  font request was aborted by the browser when the script navigated away mid-load. The font
+  itself serves with 200.

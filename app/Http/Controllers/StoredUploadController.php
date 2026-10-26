@@ -124,7 +124,7 @@ class StoredUploadController extends Controller
         $layer = MapLayer::query()
             ->where('image_path', $path)
             ->whereHas('map', fn ($query) => $query->where('campaign_id', $campaignId))
-            ->first();
+            ->exists();
         abort_unless($layer, 404);
     }
 
