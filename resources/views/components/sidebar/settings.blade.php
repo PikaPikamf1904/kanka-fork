@@ -28,6 +28,7 @@
                     ></x-sidebar.element>
                 </li>
             @endcan
+            @can('stats', $campaign)
             @if (config('limits.campaigns.premium'))
             <li class="px-2 section-achievements {{ $active('achievements') }}">
                 <x-sidebar.element
@@ -45,6 +46,7 @@
                     :text="__('campaigns.show.tabs.stats')"
                 ></x-sidebar.element>
             </li>
+            @endcan
             @if (auth()->check() && (auth()->user()->can('members', $campaign) || auth()->user()->can('applications', $campaign) || auth()->user()->can('roles', $campaign)))
                 <li class="section-management pt-4">
                     <x-sidebar.section :text="__('campaigns.show.tabs.management')" />

@@ -56,10 +56,31 @@
     <script src="{{ asset('/vendor/leaflet/leaflet.markercluster.layersupport.js') }}"></script>
     <script src="{{ asset('/vendor/leaflet/leaflet.path.drag.js') }}"></script>
     <script src="{{ asset('/vendor/leaflet/leaflet.editable.js') }}"></script>
+    <script src="{{ asset('/vendor/leaflet/leaflet.layerstree.js') }}"></script>
     @vite([
         'resources/js/location/map-v3.js',
     ])
-    @if (!request()->ajax() && !empty($source))
+    @if (!request()->ajax() && empty($source))
+        {{-- Chronicle: the standalone create page draws the map too, and a click on it places the new marker. --}}
+        @include('maps._setup', ['editable' => true])
+        <script type="text/javascript">
+            window.map = map{{ $map->id }};
+            (function () {
+                var placed = null;
+                window.map.on('click', function (ev) {
+                    var latField = document.querySelector('#marker-latitude');
+                    var lngField = document.querySelector('#marker-longitude');
+                    if (latField) latField.value = ev.latlng.lat.toFixed(3);
+                    if (lngField) lngField.value = ev.latlng.lng.toFixed(3);
+                    if (placed) {
+                        placed.setLatLng(ev.latlng);
+                    } else {
+                        placed = L.marker(ev.latlng).addTo(window.map);
+                    }
+                });
+            })();
+        </script>
+    @elseif (!request()->ajax() && !empty($source))
         @include('maps._setup', ['single' => true, 'model' => $source, 'editable' => true])
         <script type="text/javascript">
             var labelShapeIcon = new L.Icon({

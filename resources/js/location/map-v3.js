@@ -358,11 +358,14 @@ function handleExploreMapClick(ev) {
 
 window.handleExploreMapClick = handleExploreMapClick;
 
-window.map.invalidateSize();
+// Pages opened inside a dialog have no map of their own.
+if (window.map) {
+    window.map.invalidateSize();
 
-window.map.on('popupopen', function (ev) {
-    window.initDialogs();
-});
+    window.map.on('popupopen', function (ev) {
+        window.initDialogs();
+    });
+}
 
 initForms();
 initMapEntryClick();

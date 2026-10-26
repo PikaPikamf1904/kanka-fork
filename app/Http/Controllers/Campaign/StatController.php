@@ -15,6 +15,8 @@ class StatController extends Controller
 
     public function index(Campaign $campaign)
     {
+        $this->authorize('stats', $campaign);
+
         $stats = $this->statService->campaign($campaign)->get();
 
         $entityTypes = [];

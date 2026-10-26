@@ -147,3 +147,29 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
   - the summernote font returns 404;
   - admin links show in players' command search. Not yet checked whether those routes refuse
     players; to verify next.
+
+## Checkpoint 5: authorization and marker fixes
+
+- **Command search admin links:** `AdminPageService` gives each admin page the policy ability
+  its own controller checks (`update`, `members`, `roles`, `webhooks`, `logs`, `setting`,
+  `recover`, `gallery`, `stats`), and lists a page only when the viewer passes it. Players no
+  longer see links to settings, roles, webhooks, the change log, modules, recovery or styles.
+  The routes themselves already refused players (403); that is now covered by a test.
+- **Stats and achievements are admin-only.** Both pages count every entity, hidden ones
+  included, and cache one result for all viewers, so a player could see how much hidden
+  content exists. `CampaignPolicy::stats` now requires a campaign admin. The controllers check
+  it, and the sidebar links and both search page lists hide the pages from everyone else.
+- **Marker create page:** the standalone page now draws the map (`maps._setup`) and loads
+  the layers-tree script. A click on the map fills the latitude and longitude fields and drops
+  a pin. `map-v3.js` no longer assumes a map exists (dialogs have none).
+- **Summernote font "404":** not a bug. Firefox reported status 2152398850
+  (NS_BINDING_ABORTED), meaning the font download was cancelled when the page navigated
+  away. The font file is served with status 200.
+- **Tests:** `tests/Feature/Privacy/CommandSearchPagesTest.php` (4 tests): the admin's list,
+  the player's list, the player refused on 9 admin routes, and the admin opening stats.
+- **Firefox:**
+  - `fix1.mjs` 3/3: map click fills the coordinates; no 404s on editor pages.
+  - `fix1b.mjs` 7/7: the player sees no stats link and gets 403 on stats, with no admin pages
+    in the command search; the DM sees all of them.
+- **Full Pest suite:** 1298 passed, 15 failed, 7 skipped. The 15 failures are the same known
+  baseline set as checkpoint 4; nothing new.

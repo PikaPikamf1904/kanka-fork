@@ -471,8 +471,8 @@ class SearchService
         // Fill data with hardcoded pages and roles
         $this
             ->addCampaignPage('crud.tabs.overview', 'overview')
-            ->addCampaignPage('campaigns.show.tabs.achievements', 'campaign.achievements')
-            ->addCampaignPage('campaigns.show.tabs.stats', 'campaign.stats');
+            ->addCampaignPage('campaigns.show.tabs.achievements', 'campaign.achievements', 'stats')
+            ->addCampaignPage('campaigns.show.tabs.stats', 'campaign.stats', 'stats');
 
         if (isset($this->user)) {
             $this
@@ -480,8 +480,8 @@ class SearchService
                 ->addCampaignPage('campaigns.show.tabs.defaults', 'campaign-defaults', 'update')
                 ->addCampaignPage('campaigns.show.tabs.roles', 'campaign_roles.index', 'roles')
                 ->addCampaignPage('campaigns/applications.title', 'applications.index', 'applications')
-                ->addCampaignPage('campaigns.show.tabs.modules', 'campaign.modules')
-                ->addCampaignPage('campaigns/categories.tab', 'campaign.modules')
+                ->addCampaignPage('campaigns.show.tabs.modules', 'campaign.modules', 'setting')
+                ->addCampaignPage('campaigns/categories.tab', 'campaign.modules', 'setting')
                 ->addCampaignPage('campaigns.show.tabs.recovery', 'recovery', 'update')
                 ->addCampaignPage('campaigns.show.tabs.styles', 'campaign_styles.index', 'update')
                 ->addCampaignPage('campaigns.show.tabs.export', 'campaign.export')
