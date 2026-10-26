@@ -29,7 +29,7 @@ class FullTextController extends Controller
         }
 
         /** @var ?Entity $entity */
-        $entity = Entity::with('entityType')->where('name', $term)->first();
+        $entity = Entity::with('entityType')->where(['name' => $term, 'campaign_id' => $campaign->id])->first();
         if ($entity) {
             $term2 = $entity->entityType->code . ':' . $entity->id;
         }

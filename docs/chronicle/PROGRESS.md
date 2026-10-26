@@ -193,3 +193,22 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
   1180×820, with no horizontal overflow anywhere. The one failure was full-text search
   (500 with Meilisearch absent), fixed in checkpoint 7.
 - **Full Pest suite:** 1305 passed, 15 failed, 7 skipped. Same known baseline set.
+
+## Checkpoint 7: full-text search without Meilisearch
+
+- **The bug:** full-text search (`/search/fulltext`, `/search?q=`, the API, and the command
+  center's full-text mode) talked to Meilisearch directly. Chronicle runs with
+  `SCOUT_DRIVER=null` and no Meilisearch, so the page returned 500 here, and would on Big Bertha
+  too.
+- **The fix:** `EntitySearchService` uses Meilisearch only when Scout is set to it. Otherwise,
+  or when Meilisearch can't be reached (the error is reported, not shown), it searches the
+  campaign's entity names and entries in the database. That is the same text the index holds.
+  Results still load through the permission-scoped models, so hidden entities stay out. The
+  command center gets a short excerpt with the match marked. The page's exact-name lookup is
+  now limited to the current campaign.
+- **Tests:** `tests/Feature/Privacy/FullTextSearchTest.php` (5 tests): the DM finds both
+  entities; the player gets only the public one from the page, the command center and the API;
+  and an unreachable Meilisearch falls back instead of failing.
+- **Firefox mobile sweep:** 112/112 pass, with the full-text pages working for the DM and the
+  player.
+- **Full Pest suite:** 1310 passed, 15 failed, 7 skipped. Same known baseline set.

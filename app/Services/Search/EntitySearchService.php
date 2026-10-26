@@ -59,9 +59,14 @@ class EntitySearchService
      */
     public function search(?string $term = null, ?string $term2 = null): array
     {
+        // Chronicle: self-hosted installs run without Meilisearch (SCOUT_DRIVER=null or
+        // database), so search the database instead of failing with a 500.
+        if (! $this->usesMeilisearch()) {
+            return $this->process($this->databaseHits($term, $term2))->fetch();
+        }
+
         // Get results from Meilisearch
         $client = new Client(config('scout.meilisearch.host'), config('scout.meilisearch.key'));
-        $client->getKeys();
         $queries = [
             (new SearchQuery)
                 ->setIndexUid('entities')
@@ -84,7 +89,13 @@ class EntitySearchService
                     ->setLimit($this->limit)
                     ->setHitsPerPage($this->limit);
         }
-        $results = $client->multiSearch($queries);
+        try {
+            $results = $client->multiSearch($queries);
+        } catch (ExceptionInterface $e) {
+            report($e);
+
+            return $this->process($this->databaseHits($term, $term2))->fetch();
+        }
 
         if ($term2) {
             $entities = array_merge($results['results'][0]['hits'], $results['results'][1]['hits']);
@@ -120,17 +131,20 @@ class EntitySearchService
             $queries[] = $baseQuery($term2);
         }
 
-        try {
-            $client = new Client(config('scout.meilisearch.host'), config('scout.meilisearch.key'));
-            $client->getKeys();
-            $results = $client->multiSearch($queries);
-        } catch (ExceptionInterface) {
-            return [];
-        }
-
-        $hits = $results['results'][0]['hits'] ?? [];
-        if ($term2) {
-            $hits = array_merge($hits, $results['results'][1]['hits'] ?? []);
+        if (! $this->usesMeilisearch()) {
+            $hits = $this->databaseHits($term, $term2, true);
+        } else {
+            try {
+                $client = new Client(config('scout.meilisearch.host'), config('scout.meilisearch.key'));
+                $results = $client->multiSearch($queries);
+                $hits = $results['results'][0]['hits'] ?? [];
+                if ($term2) {
+                    $hits = array_merge($hits, $results['results'][1]['hits'] ?? []);
+                }
+            } catch (ExceptionInterface $e) {
+                report($e);
+                $hits = $this->databaseHits($term, $term2, true);
+            }
         }
 
         if (empty($hits)) {
@@ -180,6 +194,73 @@ class EntitySearchService
         }
 
         return $output;
+    }
+
+    protected function usesMeilisearch(): bool
+    {
+        return config('scout.driver') === 'meilisearch';
+    }
+
+    /**
+     * Chronicle: database stand-in for the Meilisearch query. It matches the same text the
+     * index holds (entity name and entry) and returns hits in the same shape. Visibility is
+     * applied afterwards, when the hits are loaded through the permission-scoped models.
+     */
+    protected function databaseHits(?string $term, ?string $term2 = null, bool $snippets = false): array
+    {
+        $terms = array_values(array_filter([mb_trim((string) $term), mb_trim((string) $term2)], fn ($t) => $t !== ''));
+        if (empty($terms)) {
+            $this->pages = 0;
+
+            return [];
+        }
+
+        $query = Entity::query()
+            ->where('campaign_id', $this->campaign->id)
+            ->where(function ($query) use ($terms) {
+                foreach ($terms as $value) {
+                    $like = '%' . addcslashes($value, '\%_') . '%';
+                    $query->orWhere('name', 'like', $like)->orWhere('entry', 'like', $like);
+                }
+            });
+
+        $limit = $snippets ? 20 : $this->limit;
+        $this->pages = (int) ceil($query->count() / max(1, $limit));
+
+        $columns = $snippets ? ['id', 'name', 'entry'] : ['id'];
+        $entities = $query
+            ->orderBy('name')
+            ->forPage($snippets ? 1 : $this->page, $limit)
+            ->get($columns);
+
+        return $entities->map(function (Entity $entity) use ($terms, $snippets) {
+            $hit = ['id' => (string) $entity->id, 'entity_id' => $entity->id, 'type' => 'entity'];
+            if ($snippets) {
+                $hit['_formatted'] = ['entry' => $this->databaseSnippet((string) $entity->entry, $terms[0])];
+            }
+
+            return $hit;
+        })->all();
+    }
+
+    /**
+     * A short excerpt of the entry around the first match, with the match marked.
+     */
+    protected function databaseSnippet(string $entry, string $term): string
+    {
+        $text = mb_trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($entry))));
+        $position = mb_stripos($text, $term);
+        if ($position === false) {
+            return '';
+        }
+
+        $start = max(0, $position - 60);
+        $before = mb_substr($text, $start, $position - $start);
+        $match = mb_substr($text, $position, mb_strlen($term));
+        $after = mb_substr($text, $position + mb_strlen($term), 60);
+
+        return ($start > 0 ? '… ' : '') . e($before) . '<mark>' . e($match) . '</mark>' . e($after)
+            . ($position + mb_strlen($term) + 60 < mb_strlen($text) ? ' …' : '');
     }
 
     /**
