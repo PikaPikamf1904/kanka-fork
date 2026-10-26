@@ -212,3 +212,28 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
 - **Firefox mobile sweep:** 112/112 pass, with the full-text pages working for the DM and the
   player.
 - **Full Pest suite:** 1310 passed, 15 failed, 7 skipped. Same known baseline set.
+
+## Checkpoint 8: nested record privacy
+
+- **The leak:** nested routes (`/entities/{entity}/posts/{post}`, `…/relations/{relation}`,
+  `…/inventory/{inventory}`, `…/attributes/{attribute}`, and their web counterparts such as
+  inventory details and post logs) bind each model by its own id. The controllers authorize the
+  entity in the URL and then return the child without checking that it belongs to that entity.
+  A player could read a hidden entity's posts, relations, inventory and attributes through any
+  entity they can see. A new test reproduced it (200 before the fix).
+- **The fix:** `App\Http\Middleware\EnsureNestedBindings`, in the `web` and `api` groups right
+  after route binding. For each pair of neighbouring bound models it requires the child's
+  `<parent>_id` column (campaign_id, entity_id, map_id, …) to point at that parent, and answers
+  404 otherwise. Overrides: a relation belongs to its `owner_id`; a marker's `entity_id` is the
+  entity it links to, so that pair is left to the map checks. Children without such a column
+  are skipped.
+- **Route audit:** all 68 parent→child model pairs in the route table were listed with the
+  column the check uses. Pairs with no column (for example a campaign's posts, presets and
+  timeline elements) stay on the controllers' own checks.
+- **Tests:** `tests/Feature/Privacy/NestedBindingPrivacyTest.php` (3 tests): children still
+  load through their own parent; a hidden entity's children are refused through a visible
+  entity's API and web URLs; another campaign's records are refused for the player and the
+  admin. Two upstream tests that expected 403 for another campaign's import now expect 404.
+- **Firefox:** core pages, maps 31/31, graph 19/19 and the earlier fix checks all pass, with no
+  page errors or 5xx responses.
+- **Full Pest suite:** 1313 passed, 15 failed, 7 skipped. Same known baseline set.

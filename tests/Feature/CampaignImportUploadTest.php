@@ -80,7 +80,8 @@ it('presign — token belonging to different campaign gets 403', function () {
 
     $this->actingAs($user)
         ->postJson(route('campaign.import.presign', [$campaignA, $token]), ['ext' => 'zip'])
-        ->assertStatus(403);
+        // Chronicle: EnsureNestedBindings refuses another campaign's token with a 404.
+        ->assertNotFound();
 });
 
 it('presign — token not in PREPARED status gets 422', function () {
