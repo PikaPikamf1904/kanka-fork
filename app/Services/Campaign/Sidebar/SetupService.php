@@ -20,6 +20,7 @@ class SetupService
 
     protected $layout = [
         'dashboard' => null,
+        'graph' => null,
         'bookmarks' => null,
         'world' => [ // world
             'characters',
@@ -71,6 +72,15 @@ class SetupService
                 'label' => 'sidebar.dashboard',
                 'module' => false,
                 'route' => 'dashboard',
+                'fixed' => true,
+            ],
+            // Chronicle: the relationship graph gets its own labelled entry so it is easy to find,
+            // also in the mobile menu. WebController and WebService still apply the viewer's permissions.
+            'graph' => [
+                'icon' => 'fa-duotone fa-diagram-project',
+                'label' => 'sidebar.graph',
+                'module' => false,
+                'route' => 'connections.web',
                 'fixed' => true,
             ],
             'bookmarks' => [

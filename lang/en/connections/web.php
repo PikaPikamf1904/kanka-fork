@@ -23,7 +23,7 @@ return [
         'minimize'      => 'Minimize',
         'refresh'       => 'Refresh',
         'restore'       => 'Restore',
-        'toggle'        => 'Relations graph',
+        'toggle'        => 'Relationship Graph',
     ],
     'search'    => [
         'empty'         => 'No match in this web',
@@ -33,5 +33,5 @@ return [
         'text'  => 'This is a preview of the full campaign-wide relations web. Free campaigns can explore up to :amount nodes. Premium campaigns unlock the complete map with every relation and full navigation. Upgrade to see your entier world\'s structure at once.',
         'title' => 'Preview limited to :amount relations',
     ],
-    'title'     => 'Relations web',
+    'title'     => 'Relationship Graph',
 ];

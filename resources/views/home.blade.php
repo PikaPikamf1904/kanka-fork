@@ -31,6 +31,16 @@ use App\Enums\Widget;
 
         @include('ads.top')
 
+        @if (empty($overview))
+            {{-- Chronicle: the overview has its own graph tile; dashboards with widgets get this link. --}}
+            <div class="flex">
+                <a href="{{ route('connections.web', $campaign) }}" class="btn2 btn-sm dashboard-graph-link min-h-11">
+                    <x-icon class="fa-regular fa-diagram-project" />
+                    {{ __('sidebar.graph') }}
+                </a>
+            </div>
+        @endif
+
             <div class="dashboard-widgets grid grid-cols-12 gap-4 md:gap-5 ">
 
 {{--            <x-alert type="error" class="col-span-12">--}}

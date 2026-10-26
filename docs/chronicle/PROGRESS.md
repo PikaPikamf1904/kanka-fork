@@ -355,3 +355,32 @@ Verified with a scripted check (33 PASS, 0 FAIL) both on 127.0.0.1:8089 and thro
   and pages send `Cache-Control: no-cache, private`; no `http://` links on the pages.
 
 No passwords, hostnames or tunnel details are recorded in this repo.
+
+## 2026-10-26 — Relationship Graph is easier to find
+
+The graph already existed in three places that were easy to miss on a tablet: an icon-only header
+button (floating panel), a tile on the dashboard overview that only shows when the dashboard has no
+widgets, and "View web" on the Relations page (which needs the `relations` module).
+
+- New fixed campaign menu entry **Relationship Graph** (`sidebar.graph`), right after Dashboard. The
+  campaign menu is also the mobile menu, so it shows there too. It links to the existing
+  `connections.web` page; `WebController` and `WebService` still decide what each viewer sees.
+- Dashboards with widgets get a "Relationship Graph" button above the widgets; the overview keeps its tile.
+- Panel, page and tile titles now all say "Relationship Graph".
+- `tests/Feature/Privacy/GraphNavigationTest.php`: DM and player both get the entry; the player's
+  graph page and graph data contain no DM-only text. Privacy + Branding folders: 122 passed, 4 skipped.
+- Preview container: deployed, caches cleared, scripted check 37 PASS / 0 FAIL (4 new graph checks).
+
+## Future checkpoint — Fandom-style wiki (recorded, not started)
+
+Direction from the owner. Not to be started before it is scheduled; Chronicle branding and the
+fantasy theme stay.
+- Rich, interconnected articles with clickable references between entities.
+- Infoboxes for characters and NPCs (portrait, key facts, affiliations, location, status).
+- A table of contents on long articles; categories and category pages; navigation boxes and
+  "see also" sections.
+- Powerful search (titles, aliases, body text, categories) that keeps DM-only content out for players.
+- Lore organized for exploration: hubs per region, faction, era and storyline.
+- Mobile-friendly layouts for tablet and phone reading.
+- Every new surface must keep the existing permission rules and privacy tests (hidden entities,
+  DM-only aliases, properties and mentions).
