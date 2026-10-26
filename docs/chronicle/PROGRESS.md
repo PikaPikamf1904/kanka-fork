@@ -332,3 +332,26 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
 - **Watch on Big Bertha:** provisioning restarts MariaDB with Chronicle's settings (localhost
   only, 40 connections, 512 MB buffer pool). Check first whether the Pokémon bot uses MariaDB or
   MySQL.
+
+## 2026-10-26 — Temporary tablet preview (staging container only)
+
+The `chronicle-staging` rehearsal container (synthetic Silverfen Vale campaign, no real data) was opened
+to the owner's tablet through a temporary Cloudflare Quick Tunnel (no account, no domain). The tunnel
+runs on this PC and ends when its process stops; nothing on Big Bertha or in Cloudflare was changed.
+
+Changes made inside the container only (not in this repo):
+- `.env`: `APP_DEBUG=false`, `APP_ENV=production`, registration off, `APP_FORCE_HTTPS=true`,
+  `SESSION_SECURE_COOKIE=true`, `APP_URL` set to the tunnel address, `TRUSTED_PROXIES` covering the
+  Docker bridge. The previous file is kept in the container as a backup.
+- nginx HTTP Basic Auth in front of the whole site as an extra gate, on top of Kanka's own login.
+
+Verified with a scripted check (33 PASS, 0 FAIL) both on 127.0.0.1:8089 and through the tunnel:
+- every path, including `/storage`, `/build`, the API and `/.env`, returns 401 without the gate;
+- registration closed; no debug pages, stack traces, Telescope, Horizon or log files reachable;
+- API without a token returns 401; a wrong account password does not sign in;
+- the player sees public characters but not the DM-only "The Grey Envoy" in the list JSON, the
+  graph or search, and opening its page directly returns 404; the DM sees it;
+- session cookies are `Secure; HttpOnly; SameSite=Lax`; Cloudflare reports `DYNAMIC` (not cached)
+  and pages send `Cache-Control: no-cache, private`; no `http://` links on the pages.
+
+No passwords, hostnames or tunnel details are recorded in this repo.
