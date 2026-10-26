@@ -15,9 +15,9 @@ use Symfony\Component\HttpFoundation\Response;
  * Chronicle: nested routes (/campaigns/{campaign}/entities/{entity}/posts/{post}, …) bind each
  * model by its own id, without checking that it belongs to the model before it in the URL. The
  * controllers authorize the parent and then hand out the child, so a child of a hidden entity, or
- * of another campaign, could be read through any parent the viewer can open. This checks every
- * pair of neighbouring bound models: when the child has a column pointing at the parent's type
- * (campaign_id, entity_id, map_id, …), it must point at that parent.
+ * of another campaign, could be read through any parent the viewer can open. This checks each
+ * bound model against every one before it: when the child has a column pointing at the parent's
+ * type (campaign_id, entity_id, map_id, …), it must point at that parent.
  */
 class EnsureNestedBindings
 {
@@ -41,15 +41,20 @@ class EnsureNestedBindings
     {
         $route = $request->route();
         if ($route) {
-            $parent = null;
+            // Each model is checked against every model before it, not only its neighbour:
+            // /{campaign}/preset_types/{preset_type}/presets/{preset} must keep the preset in
+            // the campaign even though the preset type sits between them.
+            $parents = [];
             foreach ($route->parameters() as $value) {
                 if (! $value instanceof Model) {
                     continue;
                 }
-                if ($parent && ! $this->belongs($parent, $value)) {
-                    abort(404);
+                foreach ($parents as $parent) {
+                    if (! $this->belongs($parent, $value)) {
+                        abort(404);
+                    }
                 }
-                $parent = $value;
+                $parents[] = $value;
             }
         }
 

@@ -8,11 +8,15 @@
  */
 
 use App\Enums\Visibility;
+use App\Http\Middleware\VerifyCsrfToken;
 use App\Models\Attribute;
 use App\Models\Campaign;
 use App\Models\Character;
 use App\Models\Inventory;
+use App\Models\Map;
 use App\Models\Post;
+use App\Models\Preset;
+use App\Models\PresetType;
 use App\Models\Relation;
 
 require_once __DIR__ . '/support.php';
@@ -94,4 +98,58 @@ it('refuses another campaign\'s records through this campaign\'s URL', function 
             expectNoDmOnlyText($response, "{$who} {$url}");
         }
     }
+});
+
+it('gives the DM the editing warning only for this campaign\'s records', function () {
+    $this->asUser()->withCampaign();
+    $fx = nestedBindingFixture();
+    $warning = fn (string $model, int $id) => $this->get(route('campaign.editing-warning', [1, 'model' => $model, 'id' => $id]));
+
+    dmOnlyAdmin();
+    $this->asWebRequest();
+    $warning('Entity', $fx['public']->id)->assertOk();
+    $warning('Post', $fx['post']->id)->assertOk();
+    // Only the models that have an edit warning.
+    $warning('User', 1)->assertNotFound();
+    expect($warning('Entity', $fx['foreign']->entity->id)->status())->toBeIn([403, 404]);
+});
+
+it('refuses a player the editing warning of a hidden record', function () {
+    $this->asUser()->withCampaign();
+    $fx = nestedBindingFixture();
+    $warning = fn (string $model, int $id) => $this->get(route('campaign.editing-warning', [1, 'model' => $model, 'id' => $id]));
+
+    // A separate test from the admin's: the permission service caches the first user it sees.
+    dmOnlyPlayer();
+    $this->asWebRequest();
+    foreach (['Entity' => $fx['hidden']->id, 'Post' => $fx['post']->id] as $model => $id) {
+        $response = $warning($model, $id);
+        expect($response->status())->toBeIn([403, 404], $model);
+        expectNoDmOnlyText($response, "editing warning {$model}");
+    }
+});
+
+it('refuses to turn another campaign\'s post into a template', function () {
+    $this->asUser()->withCampaign();
+    $fx = nestedBindingFixture();
+    $foreignPost = Post::factory()->create(['entity_id' => $fx['foreign']->entity->id, 'name' => 'dmonly-foreign-post']);
+
+    dmOnlyAdmin();
+    $this->asWebRequest();
+    $this->get(route('posts.template', [1, $foreignPost]))->assertNotFound();
+    expect($foreignPost->fresh()->isTemplate())->toBeFalse();
+});
+
+it('refuses another campaign\'s preset through this campaign\'s URL', function () {
+    $this->asUser()->withCampaign();
+    $fx = nestedBindingFixture();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $preset = Preset::create(['name' => 'dmonly-foreign-preset', 'type_id' => PresetType::MARKER, 'campaign_id' => 2, 'visibility_id' => Visibility::All, 'config' => []]);
+
+    dmOnlyAdmin();
+    $this->asWebRequest();
+    $this->withoutMiddleware(VerifyCsrfToken::class);
+    expect($this->getJson(route('preset_types.presets.show', [1, PresetType::MARKER, $preset->id]))->status())->toBeIn([403, 404]);
+    expect($this->deleteJson(route('entities.map-presets.destroy', [1, $map->entity, $preset->id]))->status())->toBeIn([403, 404]);
+    expect(Preset::allCampaigns()->withoutGlobalScopes()->find($preset->id))->not->toBeNull();
 });

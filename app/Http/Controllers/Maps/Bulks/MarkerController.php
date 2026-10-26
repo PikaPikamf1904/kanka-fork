@@ -32,7 +32,7 @@ class MarkerController extends Controller
         if (request()->ajax()) {
             return response()->json(['success' => true]);
         }
-        $count = $this->campaign($campaign)->bulkProcess($request, MapMarker::class);
+        $count = $this->campaign($campaign)->bulkProcess($request, MapMarker::class, ['map_id' => $map->id]);
 
         return redirect()
             ->route('maps.map_markers.index', [$campaign, 'map' => $map])

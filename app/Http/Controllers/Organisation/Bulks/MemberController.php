@@ -38,7 +38,7 @@ class MemberController extends Controller
             return response()->json(['success' => true]);
         }
 
-        $count = $this->bulkProcess($request, OrganisationMember::class);
+        $count = $this->bulkProcess($request, OrganisationMember::class, ['organisation_id' => $organisation->id]);
 
         return redirect()
             ->route('organisations.members', [$campaign, $organisation])

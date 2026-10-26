@@ -237,3 +237,30 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
 - **Firefox:** core pages, maps 31/31, graph 19/19 and the earlier fix checks all pass, with no
   page errors or 5xx responses.
 - **Full Pest suite:** 1313 passed, 15 failed, 7 skipped. Same known baseline set.
+
+## Checkpoint 9: editing warning, post templates, bulk actions
+
+- **Every ancestor, not just the neighbour:** `EnsureNestedBindings` now checks each bound model
+  against every model before it in the URL. `/{campaign}/preset_types/{type}/presets/{preset}`
+  therefore keeps the preset in the campaign even though the preset type sits between them.
+- **Editing warning:** `campaign.editing-warning` took any model name and id (`App\Models\` +
+  the `model` parameter) and showed who was editing it, with no permission check. It now
+  accepts only Entity, Post, TimelineElement and QuestElement, answers 404 for a record outside
+  the campaign, and requires edit rights on the record (post permissions for a post). The view
+  also had an upstream bug that sent `TimelineElement` for quest elements, and it warned about
+  module models (Character, …) by the module's id rather than the entity's. Both are fixed.
+- **Post templates:** `posts.template` toggled the template flag on any post id. It now refuses
+  posts from another campaign.
+- **Bulk actions:** the bulk delete, patch and edit of map markers, layers and groups, calendar
+  events, organisation members and timeline eras looked ids up across the whole table. Anyone
+  who could edit one map could delete the markers of a hidden map, or of another campaign. The
+  lookup in `BulkControllerTrait::bulkProcess` is now scoped to the parent in the URL.
+- **Tests:** four new tests in `NestedBindingPrivacyTest` (editing warning as DM and player,
+  post template, cross-campaign preset), and `tests/Feature/Privacy/BulkPrivacyTest.php` (bulk
+  delete and patch through another map's URL). The bulk tests and the template test fail
+  without their fixes. The existing bulk tests (37 together) pass.
+- **Firefox:** core 22/22, maps 31/31, graph 19/19, plus the earlier fix and editing-warning
+  checks, with no page errors or 5xx responses. Two core checks assumed the newest test
+  character would be on the first page of the list and search results. Repeated runs had
+  pushed it to page 2, so those checks were made run-specific; the app was not at fault.
+- **Full Pest suite:** 1319 passed, 15 failed, 7 skipped. Same known baseline set.
