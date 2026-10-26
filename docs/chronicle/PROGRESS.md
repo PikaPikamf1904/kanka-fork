@@ -300,3 +300,35 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
   112/112, plus the fix and editing-warning checks (3/3, 7/7, 6/6). No 5xx responses. Once, a
   font request was aborted by the browser when the script navigated away mid-load. The font
   itself serves with 200.
+
+## Checkpoint 12: Big Bertha read-only check and install rehearsal
+
+**Big Bertha (read-only, no login):**
+- Reachable at the address the deploy notes give, about 2 ms away on the LAN.
+- The SSH server reports `OpenSSH_10.0p2 Debian-7+deb13u4`, which means Debian 13 with current
+  updates.
+- Ports 80, 443, 3306 and 8080 do not answer from the LAN, so nothing is serving web pages there
+  yet.
+- **Stopped at SSH:** the host key differs from the one this PC remembers. It is the same key
+  the deploy README already recorded after the Debian reinstall, but it has not been confirmed at
+  Big Bertha's own screen, so I did not bypass the check. There was no login, so CPU flags,
+  memory, disks and running services (including the Pokémon bot) are still unchecked.
+
+**Release:** `deploy/local/build-release.sh` built `kanka-20261025-2037-8ebdb85c0.tar.gz`
+(52 MB, git-ignored). It contains no `.env` files, databases, keys or backups.
+
+**Rehearsal in a disposable Debian 13 container** (`chronicle-staging`, 127.0.0.1:8089):
+- **Fixed:** provisioning stopped at nginx. The `/storage/` block from the upload-authorization
+  commit used a one-argument `try_files`, which nginx rejects, so the install on Big Bertha
+  would have failed at that step too. The block now uses `rewrite ^ /index.php last;`.
+  `SelfHostingConfigTest` guards it (red without the fix).
+- After the fix:
+  - provisioning completes;
+  - the first-install deploy passes its health check;
+  - `kanka-verify` reports 49 PASS and 3 expected WARN (the scheduler had not run yet, the
+    container's port mapping differs, no backup yet);
+  - the login page renders as Chronicle and the built assets serve;
+  - a file left in uploads that no record owns returns 404 from the app instead of being served.
+- **Watch on Big Bertha:** provisioning restarts MariaDB with Chronicle's settings (localhost
+  only, 40 connections, 512 MB buffer pool). Check first whether the Pokémon bot uses MariaDB or
+  MySQL.

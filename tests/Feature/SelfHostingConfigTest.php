@@ -107,3 +107,16 @@ it('stores the s3 disk locally outside the web root when configured', function (
     expect(Storage::disk('s3')->exists('exports/1/test.zip'))->toBeTrue();
     Storage::disk('s3')->deleteDirectory('exports/1');
 });
+
+it('keeps the nginx site valid and routes uploads through the app', function () {
+    $conf = file_get_contents(base_path('deploy/server/nginx-kanka.conf'));
+
+    // nginx refuses to start when try_files has a single argument (it needs a file to test first).
+    preg_match_all('/^\s*try_files\s+([^;]+);/m', $conf, $matches);
+    foreach ($matches[1] as $args) {
+        expect(count(preg_split('/\s+/', trim($args))))->toBeGreaterThan(1);
+    }
+
+    preg_match('/location \/storage\/ \{(.*?)\}/s', $conf, $storage);
+    expect($storage[1] ?? '')->toContain('rewrite ^ /index.php last;')->not->toContain('$uri');
+});
