@@ -77,5 +77,10 @@ class MarkerController extends Controller
         if (! $entity->isMap() || $mapMarker->map_id !== $entity->child->id) {
             abort(404);
         }
+        // Chronicle: the explorer payload drops markers in a hidden group or pointing at a hidden
+        // entity; the per-marker endpoints must not hand them out either.
+        if (! $mapMarker->visible()) {
+            abort(404);
+        }
     }
 }

@@ -33,6 +33,10 @@ class MapLayerApiController extends ApiController
     {
         $this->authorize('access', $campaign);
         $this->authorize('view', $map->entity);
+        // Chronicle: the record must belong to this map, not to one the viewer can't open.
+        if ($mapLayer->map_id !== $map->id) {
+            abort(404);
+        }
 
         return new Resource($mapLayer);
     }
@@ -65,6 +69,9 @@ class MapLayerApiController extends ApiController
     ) {
         $this->authorize('access', $campaign);
         $this->authorize('update', $map->entity);
+        if ($mapLayer->map_id !== $map->id) {
+            abort(404);
+        }
         $mapLayer->update($request->all());
 
         return new Resource($mapLayer);
@@ -83,6 +90,9 @@ class MapLayerApiController extends ApiController
     ) {
         $this->authorize('access', $campaign);
         $this->authorize('update', $map->entity);
+        if ($mapLayer->map_id !== $map->id) {
+            abort(404);
+        }
         $mapLayer->delete();
 
         return response()->json(null, 204);

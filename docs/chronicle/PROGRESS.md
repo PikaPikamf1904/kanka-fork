@@ -173,3 +173,23 @@ Known but not fixed. These are upstream or cosmetic, so they are out of scope fo
     in the command search; the DM sees all of them.
 - **Full Pest suite:** 1298 passed, 15 failed, 7 skipped. The 15 failures are the same known
   baseline set as checkpoint 4; nothing new.
+
+## Checkpoint 6: map privacy
+
+- **Marker preview and details:** both now refuse (404) a marker that the explorer payload
+  would drop: one in a hidden group, or one pointing at an entity the viewer can't see. The
+  details route also checks the marker belongs to the map in the URL, so a marker on a hidden
+  map can't be read through a public map's address.
+- **API:** the marker list leaves out markers in hidden groups or pointing at hidden entities,
+  and marker show applies the same rule. Marker, layer and group show/update/destroy check the
+  record belongs to the map in the URL. Nested routes are not scope-bound, so before this a
+  layer or group from a hidden map could be read through any visible map.
+- **Web layer and group edit/update/destroy:** same map check (404).
+- **Tests:** `tests/Feature/Privacy/MapPrivacyTest.php` (7 tests). The tests caught three real
+  leaks before the fixes went in: a 200 preview for a marker in a hidden group, the API marker
+  list including it, and API layer/group show across maps.
+- **Firefox:** `maps.mjs` 31/31 and `core.mjs` all pass after sync.
+- **Mobile sweep:** `mobile.mjs` covers 20 pages as DM and player at 375×812, 820×1180 and
+  1180×820, with no horizontal overflow anywhere. The one failure was full-text search
+  (500 with Meilisearch absent), fixed in checkpoint 7.
+- **Full Pest suite:** 1305 passed, 15 failed, 7 skipped. Same known baseline set.
