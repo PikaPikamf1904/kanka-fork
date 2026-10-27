@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\Broadcast;
 //    return (int) $user->id === (int) $id;
 // });
 
+// Live map marker updates: each member hears only about markers they can see, by id alone.
+Broadcast::channel('users.{id}.maps', function (User $user, $id) {
+    return (int) $user->id === (int) $id;
+});
+
 Broadcast::channel('whiteboard.{id}', function (User $user, $id) {
     $whiteboard = Whiteboard::withInvisible()->findOrFail($id);
     $entity = $whiteboard->entity()->withInvisible()->firstOrFail();
@@ -46,11 +51,15 @@ Broadcast::channel('map.{id}', function (User $user, $id) {
     return false;
 });
 
+// Groups and layers as a campaign admin sees them (Admin visibility included). Editors who
+// aren't admins follow the presence channel, which carries only what every member may see.
 Broadcast::channel('map.{id}.admin', function (User $user, $id) {
     $map = Map::withInvisible()->findOrFail($id);
     $entity = $map->entity()->withInvisible()->firstOrFail();
 
     EntityPermission::campaign($entity->campaign);
 
-    return $user->can('member', $entity->campaign) && $user->can('update', $entity);
+    return $user->can('member', $entity->campaign)
+        && $user->can('admin', $entity->campaign)
+        && $user->can('update', $entity);
 });

@@ -318,6 +318,12 @@ const updateAlerts = () => {
     let now = new Date().getTime();
     let delay = now - (60 * 5000); // Wait 5 minutes between each request on the db
 
+    // Background tabs don't ask the server; the next check after the tab is shown does
+    if (document.hidden) {
+        queueFetch();
+        return;
+    }
+
     if (!last || last < delay) {
         fetchAlerts();
     } else {

@@ -65,6 +65,30 @@ it('resolves a sanitized custom svg icon as an image data uri', function () {
         ->and(base64_decode(substr($icon['value'], strlen('data:image/svg+xml;base64,'))))->toContain('<svg');
 });
 
+it('drops a custom svg icon that carries a DTD, which the sanitizer cannot be trusted with', function () {
+    $this->asUser()->withCampaign(['boost_count' => 1]);
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $payloads = [
+        '<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY x "&lt;script&gt;alert(1)&lt;/script&gt;">]><svg xmlns="http://www.w3.org/2000/svg"><text>&x;</text></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><!DOCTYPE svg [<!ATTLIST svg onload CDATA "alert(1)">]><circle r="4"/></svg>',
+        '<?xml version="1.0"?><! doctype svg><svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>',
+    ];
+
+    foreach ($payloads as $payload) {
+        $marker = MapMarker::factory()->create(['map_id' => $map->id, 'icon' => 1, 'custom_icon' => $payload]);
+
+        expect($marker->fresh()->custom_icon)->toBeNull();
+    }
+
+    // A plain icon with an XML declaration is still kept.
+    $marker = MapMarker::factory()->create([
+        'map_id' => $map->id,
+        'icon' => 1,
+        'custom_icon' => '<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>',
+    ]);
+    expect($marker->fresh()->custom_icon)->toContain('<circle');
+});
+
 it('ignores a custom icon when the campaign is not boosted', function () {
     $this->asUser()->withCampaign();
     $map = Map::factory()->create(['campaign_id' => 1]);

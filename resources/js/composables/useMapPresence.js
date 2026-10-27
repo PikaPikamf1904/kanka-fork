@@ -11,7 +11,7 @@ export function colourForUser(userId) {
     return `hsl(${hue}, 70%, 50%)`
 }
 
-export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated, onContentsChanged, onMarkerChanged, onTilingChanged } = {}) {
+export function useMapPresence(getInteractive, getI18n, { onMapUpdated, onContentsChanged, onMarkerChanged, onMarkersResync, onTilingChanged } = {}) {
     const activeUsers = ref([])
     const remoteCursors = ref({})
     const error = ref(null)
@@ -20,6 +20,8 @@ export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated,
     let channel = null
     let connectedChannelName = null
     let adminChannelName = null
+    let userChannelName = null
+    let wasConnected = false
 
     let connecting = false
     let unmounted = false
@@ -72,6 +74,17 @@ export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated,
             error.value = i18n.error_connecting
         })
 
+        // Marker updates sent while the socket was down are lost: reload the pins on reconnect.
+        echo.connector.pusher.connection.bind('state_change', ({ current }) => {
+            if (current !== 'connected') {
+                return
+            }
+            if (wasConnected) {
+                onMarkersResync?.()
+            }
+            wasConnected = true
+        })
+
         channel = echo.join(interactive.channel)
         connectedChannelName = interactive.channel
 
@@ -111,21 +124,32 @@ export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated,
             onTilingChanged?.(payload)
         })
 
-        if (canEdit) {
-            adminChannelName = interactive.channel + '.admin'
+        // Only campaign admins may join the admin channel (it carries Admin-only groups and
+        // layers); the server says whether this user is one.
+        if (interactive.admin_channel) {
+            adminChannelName = interactive.admin_channel
             const adminChannel = echo.private(adminChannelName)
             adminChannel.listen('.MapContentsChanged', (payload) => {
                 onContentsChanged?.(payload)
-            })
-            adminChannel.listen('.MapMarkerChanged', (payload) => {
-                onMarkerChanged?.(payload)
             })
         } else {
             channel.listen('.MapContentsChanged', (payload) => {
                 onContentsChanged?.(payload)
             })
-            channel.listen('.MapMarkerChanged', (payload) => {
+        }
+
+        // Markers never go out on the shared map channels. Each member gets a private feed of
+        // the ids of markers they can see, and fetches the marker itself from the map API.
+        if (interactive.user_channel) {
+            userChannelName = interactive.user_channel
+            const userChannel = echo.private(userChannelName)
+            userChannel.listen('.MapMarkerChanged', (payload) => {
                 onMarkerChanged?.(payload)
+            })
+            userChannel.listen('.MapMarkersResync', (payload) => {
+                if (Number(payload?.campaign_id) === Number(interactive.campaign_id)) {
+                    onMarkersResync?.()
+                }
             })
         }
 
@@ -157,6 +181,9 @@ export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated,
         }
         if (echo && adminChannelName) {
             echo.leave(adminChannelName)
+        }
+        if (echo && userChannelName) {
+            echo.leave(userChannelName)
         }
     })
 

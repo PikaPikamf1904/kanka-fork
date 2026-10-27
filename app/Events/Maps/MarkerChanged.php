@@ -2,29 +2,34 @@
 
 namespace App\Events\Maps;
 
-use App\Http\Resources\Maps\Explore\PinResource;
-use App\Models\MapMarker;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithBroadcasting;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Broadcasting\ShouldRescue;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels;
 
-class MarkerChanged implements ShouldBroadcastNow, ShouldRescue
+/**
+ * A marker changed on a map. This only goes to the users who can see the marker (worked out by
+ * MarkerAudience), each on their own private channel, and carries nothing but ids and the
+ * action: the clients fetch the marker itself through the permission-checked map API.
+ */
+class MarkerChanged implements ShouldBroadcastNow, ShouldDispatchAfterCommit, ShouldRescue
 {
     use Dispatchable;
     use InteractsWithBroadcasting;
     use InteractsWithSockets;
-    use SerializesModels;
 
+    /**
+     * @param  array<int, int>  $userIds
+     */
     public function __construct(
-        public MapMarker $marker,
+        public int $mapId,
+        public int $markerId,
         public string $action,
-        public bool $includeRestricted = false,
+        public array $userIds,
     ) {
         $this->broadcastVia('reverb');
     }
@@ -34,11 +39,12 @@ class MarkerChanged implements ShouldBroadcastNow, ShouldRescue
      */
     public function broadcastOn(): array
     {
-        return [
-            $this->includeRestricted
-                ? new PrivateChannel('map.' . $this->marker->map_id . '.admin')
-                : new PresenceChannel('map.' . $this->marker->map_id),
-        ];
+        return array_map(fn (int $id) => new PrivateChannel('users.' . $id . '.maps'), $this->userIds);
+    }
+
+    public function broadcastWhen(): bool
+    {
+        return ! empty($this->userIds);
     }
 
     public function broadcastAs(): string
@@ -48,20 +54,10 @@ class MarkerChanged implements ShouldBroadcastNow, ShouldRescue
 
     public function broadcastWith(): array
     {
-        $action = $this->action;
-
-        if (! $this->includeRestricted && $action !== 'deleted' && ! $this->marker->isPubliclyVisible()) {
-            $action = 'deleted';
-        }
-
-        $map = $this->marker->map;
-
         return [
-            'action' => $action,
-            'id' => $this->marker->id,
-            'pin' => $action === 'deleted'
-                ? null
-                : new PinResource($this->marker)->campaign($map->campaign)->mapEntity($map->entity),
+            'action' => $this->action,
+            'id' => $this->markerId,
+            'map_id' => $this->mapId,
         ];
     }
 }

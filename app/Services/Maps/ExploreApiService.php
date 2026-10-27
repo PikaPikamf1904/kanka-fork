@@ -207,6 +207,11 @@ class ExploreApiService
             'port' => config('broadcasting.connections.reverb.options.port'),
             'scheme' => config('broadcasting.connections.reverb.options.scheme'),
             'channel' => 'map.' . $this->map->id,
+            // Admins get the complete groups and layers; everyone else what all members may see.
+            'admin_channel' => $this->user->can('admin', $this->campaign) ? 'map.' . $this->map->id . '.admin' : null,
+            // Marker updates come privately, per user, as ids to fetch from map-api/markers/{id}.
+            'user_channel' => 'users.' . $this->user->id . '.maps',
+            'campaign_id' => $this->campaign->id,
             'show_presence' => CampaignCache::campaign($this->campaign)->members()->count() > 1,
             'user' => [
                 'id' => $this->user->id,
