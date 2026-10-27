@@ -23,7 +23,14 @@ class EntityInventoryApiController extends ApiController
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
 
-        return Resource::collection($entity->inventories()->paginate());
+        // Rows pointing at an item the user cannot see are hidden, as on the entity page.
+        return Resource::collection(
+            $entity->inventories()
+                ->where(function ($query) {
+                    $query->whereNull('item_id')->orHas('item.entity');
+                })
+                ->paginate()
+        );
     }
 
     /**
@@ -33,6 +40,8 @@ class EntityInventoryApiController extends ApiController
     {
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
+
+        abort_if($inventory->item_id && ! $inventory->item?->entity, 404);
 
         return new Resource($inventory);
     }

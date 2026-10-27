@@ -6,10 +6,13 @@
  * carry ids, so these tests look for the hidden entity's id in the response.
  */
 
+use App\Enums\Visibility;
 use App\Models\Ability;
 use App\Models\Entity;
 use App\Models\EntityAbility;
 use App\Models\EntityMention;
+use App\Models\Inventory;
+use App\Models\Item;
 use App\Models\Relation;
 
 require_once __DIR__ . '/support.php';
@@ -105,6 +108,37 @@ it('does not list or show abilities that are hidden from the player', function (
     $this->asWebRequest();
     $ids = collect($this->getJson($base)->assertOk()->json('data'))->pluck('id');
     expect($ids)->toContain($visibleRow->id)->not->toContain($secretRow->id);
+    $this->getJson($base . '/' . $secretRow->id)->assertNotFound();
+    $this->getJson($base . '/' . $visibleRow->id)->assertOk();
+
+    dmOnlyAdmin();
+    $this->asWebRequest();
+    $ids = collect($this->getJson($base)->assertOk()->json('data'))->pluck('id');
+    expect($ids)->toContain($secretRow->id);
+});
+
+it('does not list or show inventory rows for items hidden from the player', function () {
+    $this->asUser()->withCampaign();
+    ['public' => $public] = dmOnlyFixture();
+    $visible = Item::factory()->create(['campaign_id' => 1, 'name' => 'Lantern']);
+    $secret = Item::factory()->create(['campaign_id' => 1, 'name' => 'Cursed Blade', 'is_private' => true]);
+    $secret->entity->update(['is_private' => true]);
+
+    $make = fn (array $attributes) => Inventory::create($attributes + [
+        'entity_id' => $public->id,
+        'amount' => 1,
+        'visibility_id' => Visibility::All,
+    ]);
+    $visibleRow = $make(['item_id' => $visible->id]);
+    $secretRow = $make(['item_id' => $secret->id]);
+    $namedRow = $make(['name' => 'Loose coins']);
+
+    $base = '/api/1.0/campaigns/1/entities/' . $public->id . '/inventory';
+
+    dmOnlyPlayer();
+    $this->asWebRequest();
+    $ids = collect($this->getJson($base)->assertOk()->json('data'))->pluck('id');
+    expect($ids)->toContain($visibleRow->id)->toContain($namedRow->id)->not->toContain($secretRow->id);
     $this->getJson($base . '/' . $secretRow->id)->assertNotFound();
     $this->getJson($base . '/' . $visibleRow->id)->assertOk();
 
