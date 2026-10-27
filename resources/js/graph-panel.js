@@ -83,7 +83,7 @@ const applyLayout = () => {
     clamp();
 };
 
-const open = () => {
+const open = (moveFocus = false) => {
     panel.hidden = false;
     toggle()?.setAttribute('aria-expanded', 'true');
     if (!panel.querySelector('iframe')) {
@@ -91,6 +91,11 @@ const open = () => {
     }
     state.open = true;
     saveState();
+    // Opened from the button: put keyboard focus inside the window so Escape closes it.
+    // Not when it reopens by itself on page load.
+    if (moveFocus) {
+        panel.focus({ preventScroll: true });
+    }
 };
 
 const close = () => {
@@ -131,7 +136,7 @@ const init = () => {
 
     document.addEventListener('click', (event) => {
         if (event.target.closest('#graph-panel-toggle')) {
-            panel.hidden ? open() : close();
+            panel.hidden ? open(true) : close();
         }
     });
 

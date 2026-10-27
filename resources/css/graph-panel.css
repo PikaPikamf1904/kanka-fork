@@ -120,6 +120,25 @@
     display: none;
 }
 
+/* Finger-sized controls on touch screens (the mouse sizes above are 36px). */
+@media (pointer: coarse) {
+    .graph-panel-bar button,
+    .graph-panel-bar a,
+    #graph-panel-toggle {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
+
+    .graph-panel-resize {
+        width: 2rem;
+        height: 2rem;
+    }
+}
+
+.graph-panel:focus {
+    outline: none;
+}
+
 @media (max-width: 767px) {
     .graph-panel,
     .graph-panel.is-maximized {

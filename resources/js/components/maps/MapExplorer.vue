@@ -135,7 +135,7 @@
                 v-for="level in nav.levels"
                 :key="level.id"
                 :href="level.url"
-                class="px-3 py-2 rounded-lg text-sm min-h-9"
+                class="px-3 py-2 rounded-lg text-sm min-h-9 pointer-coarse:min-h-11"
                 :class="level.current ? 'bg-primary text-primary-content font-semibold' : 'hover:bg-base-200 text-base-content'"
                 :aria-current="level.current ? 'page' : null"
             >
