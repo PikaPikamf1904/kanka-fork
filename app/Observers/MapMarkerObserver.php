@@ -75,6 +75,11 @@ class MapMarkerObserver
         }
 
         if (Str::startsWith($mapMarker->custom_icon, ['<svg', '<?xml'])) {
+            // svg-sanitize <=0.22 can be fooled by DTD entities (GHSA-9rjx-3jch-6vjf,
+            // GHSA-v383-3rw5-q8rf), and an icon never needs a DTD, so refuse any outright.
+            if (preg_match('/<!\s*(DOCTYPE|ENTITY|ATTLIST|ELEMENT)/i', $mapMarker->custom_icon)) {
+                return null;
+            }
             $sanitizer = new Sanitizer;
             $cleanSvg = $sanitizer->sanitize($mapMarker->custom_icon);
             if ($cleanSvg !== false) {
