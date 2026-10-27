@@ -213,7 +213,10 @@ const cy = shallowRef(null)
 const currentEntity = shallowRef(null)
 const relation = shallowRef(null)
 const cyContainer = ref()
-const entityTooltips = ref(Array)
+// Tooltip HTML by entity id. A plain object: `ref(Array)` stored the Array constructor itself.
+const entityTooltips: Record<string, string> = {}
+// Ids of the entities already in `elements`, so adding one doesn't scan the whole list.
+let knownEntityIds = new Set<string>()
 let nodeTippy: Instance | null = null
 const downloadDropdown = ref(false)
 const fabDropdown = ref(false)
@@ -319,9 +322,10 @@ const parseData = (data) => {
 
 const addEntity = (entity) => {
     // Already loaded entity
-    if (elements.value.find(e => e.data.id == entity.id)) {
+    if (knownEntityIds.has(String(entity.id))) {
         return;
     }
+    knownEntityIds.add(String(entity.id));
 
     const element = {
         group: 'nodes',
@@ -473,7 +477,6 @@ const loadData = async () => {
 const addToCy = async () => {
     if (!cy.value) return
 
-    drawing.value = true;
     drawing.value = true;
 
     // add all of the elements (nodes and edges) to the graph. Hide orphans to keep the graph clean.
@@ -746,15 +749,15 @@ const showNodeTooltip = (node: any) => {
         appendTo: () => document.body, // keep it simple & safe
         onShow(instance) {
             const id = String(node.id());
-            if (id in entityTooltips.value) {
-                instance.setContent(entityTooltips.value[id]);
+            if (id in entityTooltips) {
+                instance.setContent(entityTooltips[id]);
                 return;
             }
             axios.get(node.data().tooltip)
                 .then((res) => {
                     const html = res.data;
                     instance.setContent(html);
-                    entityTooltips.value[id] = html;
+                    entityTooltips[id] = html;
                 })
                 .catch((error) => {
                         instance.setContent(`Failed loading tooltip. ${error}`);
@@ -912,6 +915,7 @@ const handleRelationCreate = async (data) => {
 
 const reloadData = async () => {
     elements.value = [];
+    knownEntityIds = new Set<string>();
     await loadData();
     cy.value.elements().remove();
     cy.value.add(elements.value);
