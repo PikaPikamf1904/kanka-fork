@@ -43,6 +43,9 @@ class EntityRelationApiController extends ApiController
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
 
+        // A relation to an entity the user cannot see is hidden, as it is in index().
+        abort_unless($relation->target, 404);
+
         return new Resource($relation);
     }
 
