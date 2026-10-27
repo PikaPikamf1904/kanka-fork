@@ -189,7 +189,7 @@ it('hides a layer image of a map the visitor cannot see', function () {
     $service = entranceBoot();
     $this->asUser()->withCampaign(['visibility_id' => CampaignVisibility::public]);
     $map = Map::factory()->create(['campaign_id' => 1]);
-    $path = 'maps/1/layer-' . bin2hex(random_bytes(4)) . '.png';
+    $path = 'campaigns/1/layer-' . bin2hex(random_bytes(4)) . '.png';
     $layer = MapLayer::factory()->create(['map_id' => $map->id]);
     $layer->forceFill(['image_path' => $path])->saveQuietly();
     Storage::disk('public')->put($path, 'map layer image');
