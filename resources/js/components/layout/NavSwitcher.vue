@@ -292,7 +292,9 @@ const onClickOutside = (event) => {
 }
 const readRelease = (release) => {
     let index = releases.value.releases.findIndex(msg => msg.id === release.id);
-    releases.value.releases.slice(index, 1);
+    if (index !== -1) {
+        releases.value.releases.splice(index, 1);
+    }
     updateUnread();
 }
 const readNotification = (notification) => {
