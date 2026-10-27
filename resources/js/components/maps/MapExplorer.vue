@@ -313,6 +313,7 @@ import { centroid } from "../../maps/polygon.js";
 import { panelsToClose } from "../../maps/panelExclusivity.js";
 import { insertGroupIntoList } from "../../maps/groupTree.js";
 import { upsertPin } from "../../maps/pinCollection.js";
+import { createLiveMarkers, markerUrl } from "../../maps/liveMarkers.js";
 import DetailPanel from "./DetailPanel.vue";
 import GroupModal from "./GroupModal.vue";
 import LeafletCanvas from "./LeafletCanvas.vue";
@@ -361,7 +362,8 @@ const {
         canEdit: props.canEdit,
         onMapUpdated: handleRemoteMapUpdate,
         onContentsChanged: handleContentsChanged,
-        onMarkerChanged: handleMarkerChanged,
+        onMarkerChanged: (payload) => liveMarkers.changed(payload),
+        onMarkersResync: () => liveMarkers.resync(),
         onTilingChanged: handleTilingChanged,
     },
 );
@@ -517,14 +519,29 @@ function handleContentsChanged({ groups, layers }) {
     data.value.layers = layers;
 }
 
-function handleMarkerChanged({ action, pin, id }) {
-    if (action === 'deleted') {
-        data.value.pins = data.value.pins.filter((p) => p.id !== id);
-        return;
-    }
-
-    data.value.pins = upsertPin(data.value.pins, pin);
-}
+// Live updates name a marker by id only; it is fetched under the user's own permissions.
+const liveMarkers = createLiveMarkers({
+    getMapId: () => data.value.map?.id,
+    fetchPin: async (id) => (await axios.get(markerUrl(props.api, id, window.location.href))).data,
+    fetchPins: async () => (await axios.get(props.api)).data.pins || [],
+    getPins: () => data.value.pins,
+    setPins: (pins) => {
+        data.value.pins = pins;
+    },
+    onRemoved: (id) => {
+        if (selectedPin.value?.id === id) {
+            selectedPin.value = null;
+        }
+        if (editingPin.value?.id === id) {
+            editingPin.value = null;
+        }
+    },
+    onUpdated: (pin) => {
+        if (selectedPin.value?.id === pin.id) {
+            selectedPin.value = pin;
+        }
+    },
+});
 
 function defaultColour() {
     try {

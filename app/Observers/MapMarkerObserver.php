@@ -2,9 +2,9 @@
 
 namespace App\Observers;
 
-use App\Events\Maps\MarkerChanged;
 use App\Models\MapMarker;
 use App\Rules\FontAwesomeIcon;
+use App\Services\Maps\MarkerAudience;
 use enshrined\svgSanitize\Sanitizer;
 use Illuminate\Support\Str;
 
@@ -37,24 +37,30 @@ class MapMarkerObserver
 
     public function created(MapMarker $mapMarker): void
     {
-        $this->broadcastChange($mapMarker, 'created');
+        app(MarkerAudience::class)->after($mapMarker, 'created');
+    }
+
+    public function updating(MapMarker $mapMarker): void
+    {
+        // Who could see the marker before this change: they must hear that it's gone if they
+        // can't see it any more, and nobody else may hear about it at all.
+        app(MarkerAudience::class)->before($mapMarker);
     }
 
     public function updated(MapMarker $mapMarker): void
     {
-        $this->broadcastChange($mapMarker, 'updated');
+        app(MarkerAudience::class)->after($mapMarker, 'updated');
+    }
+
+    public function deleting(MapMarker $mapMarker): void
+    {
+        app(MarkerAudience::class)->before($mapMarker);
     }
 
     public function deleted(MapMarker $mapMarker)
     {
         $mapMarker->map->touchSilently();
-        $this->broadcastChange($mapMarker, 'deleted');
-    }
-
-    protected function broadcastChange(MapMarker $mapMarker, string $action): void
-    {
-        MarkerChanged::dispatch($mapMarker, $action);
-        MarkerChanged::dispatch($mapMarker, $action, true);
+        app(MarkerAudience::class)->after($mapMarker, 'deleted');
     }
 
     /**
