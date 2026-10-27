@@ -11,6 +11,7 @@ $graphFocus = isset($entity) && $entity instanceof \App\Models\Entity ? $entity-
     class="graph-panel"
     role="dialog"
     aria-labelledby="graph-panel-title"
+    tabindex="-1"
     data-src="{{ route('connections.web', [$campaign, 'embed' => 1]) }}"
     data-focus="{{ $graphFocus }}"
     data-campaign="{{ $campaign->id }}"

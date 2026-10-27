@@ -1,12 +1,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue'
-import Echo from 'laravel-echo'
-import Pusher from 'pusher-js'
 
-// laravel-echo's reverb broadcaster routes through the same Pusher-protocol
-// connector as the 'pusher' broadcaster, which requires a Pusher client to be
-// globally available (or passed via options.client) — it is never bundled
-// automatically, so it must be set here explicitly.
-window.Pusher = Pusher
+// laravel-echo and pusher-js are only fetched when a map actually has live presence
+// (see connect()), so maps without it don't download or parse them.
 
 const CURSOR_EVENT = 'cursor'
 
@@ -26,8 +21,34 @@ export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated,
     let connectedChannelName = null
     let adminChannelName = null
 
-    function connect(interactive) {
-        if (!interactive || channel) {
+    let connecting = false
+    let unmounted = false
+
+    async function connect(interactive) {
+        if (!interactive || channel || connecting) {
+            return
+        }
+        connecting = true
+
+        let Echo
+        try {
+            const [echoModule, pusherModule] = await Promise.all([
+                import('laravel-echo'),
+                import('pusher-js'),
+            ])
+            Echo = echoModule.default
+            // laravel-echo's reverb broadcaster routes through the same Pusher-protocol
+            // connector as the 'pusher' broadcaster, which requires a Pusher client to be
+            // globally available (or passed via options.client) — it is never bundled
+            // automatically, so it must be set here explicitly.
+            window.Pusher = pusherModule.default
+        } catch (e) {
+            connecting = false
+            return
+        }
+
+        if (unmounted) {
+            connecting = false
             return
         }
 
@@ -130,6 +151,7 @@ export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated,
     }
 
     onBeforeUnmount(() => {
+        unmounted = true
         if (echo && connectedChannelName) {
             echo.leave(connectedChannelName)
         }
