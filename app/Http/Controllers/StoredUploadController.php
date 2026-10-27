@@ -121,9 +121,10 @@ class StoredUploadController extends Controller
             return;
         }
 
+        // The map's entity must pass the ACL scopes too, as in the legacy branch above.
         $layer = MapLayer::query()
             ->where('image_path', $path)
-            ->whereHas('map', fn ($query) => $query->where('campaign_id', $campaignId))
+            ->whereHas('map', fn ($query) => $query->where('campaign_id', $campaignId)->whereHas('entity'))
             ->exists();
         abort_unless($layer, 404);
     }

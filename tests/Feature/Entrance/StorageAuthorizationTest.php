@@ -185,6 +185,26 @@ it('keeps thumbnail and map tile URLs on the protected local upload route', func
     $this->get('/storage/' . $tilePath)->assertOk();
 });
 
+it('hides a layer image of a map the visitor cannot see', function () {
+    $service = entranceBoot();
+    $this->asUser()->withCampaign(['visibility_id' => CampaignVisibility::public]);
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $path = 'maps/1/layer-' . bin2hex(random_bytes(4)) . '.png';
+    $layer = MapLayer::factory()->create(['map_id' => $map->id]);
+    $layer->forceFill(['image_path' => $path])->saveQuietly();
+    Storage::disk('public')->put($path, 'map layer image');
+
+    sharedGuestWithUploadGrant($this, $service);
+    $this->get('/storage/' . $path)->assertOk();
+
+    $map->entity->forceFill(['is_private' => true])->saveQuietly();
+    sharedGuestWithUploadGrant($this, $service);
+    $this->get('/storage/' . $path)->assertNotFound();
+
+    $this->actingAs(User::findOrFail(1))->asWebRequest();
+    $this->get('/storage/' . $path)->assertOk();
+});
+
 it('routes existing storage files through Laravel on the built-in preview server', function () {
     $root = sys_get_temp_dir() . '/chronicle-router-' . bin2hex(random_bytes(8));
     $public = $root . '/public';
