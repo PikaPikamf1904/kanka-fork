@@ -75,7 +75,11 @@ export function Layout() {
           </div>
           <div className="header-actions">
             <button type="button" className="icon-button" onClick={nextTheme} title={`Theme: ${theme}`}>
-              <span aria-hidden="true">{theme === 'dark' ? '☾' : theme === 'light' ? '☀' : '◐'}</span>
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" className="theme-icon">
+                <circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                {theme === 'dark' && <circle cx="10" cy="10" r="7.5" fill="currentColor" />}
+                {theme === 'auto' && <path d="M10 2.5 A7.5 7.5 0 0 1 10 17.5 Z" fill="currentColor" />}
+              </svg>
               <span className="visually-hidden">Change theme (now {theme})</span>
             </button>
           </div>
