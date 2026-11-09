@@ -1,0 +1,191 @@
+openapi: 3.1.0
+info:
+  title: AI Command Center API
+  version: 0.1.0
+  description: >
+    Read API served on 127.0.0.1:8787 (reached from the phone only via `tailscale serve`).
+    Every data endpoint returns an Envelope. "Unavailable" values are explicit objects, never 0.
+    Ingest endpoints (/v1/logs, /v1/metrics, /local/*) live on 127.0.0.1:4318 and are not listed here.
+servers:
+  - url: /api/v1
+components:
+  parameters:
+    range:
+      name: range
+      in: query
+      schema: { type: string, enum: [last_hour, today, prev_24h, prev_7d, prev_30d, custom_dates, custom], default: today }
+    start:
+      name: start
+      in: query
+      description: ISO date (custom_dates) or ISO timestamp (custom; no offset = America/Phoenix)
+      schema: { type: string }
+    end:
+      name: end
+      in: query
+      schema: { type: string }
+    compare:
+      name: compare
+      in: query
+      schema: { type: boolean, default: false }
+    provider:
+      name: provider
+      in: query
+      schema: { type: string, enum: [claude, grok, all], default: all }
+  schemas:
+    RangeInfo:
+      type: object
+      required: [start, end, tz, bucket_seconds]
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        tz: { type: string }
+        bucket_seconds: { type: integer }
+    QualityMix:
+      type: object
+      properties:
+        observed: { type: number }
+        estimated: { type: number }
+        imported: { type: number }
+    Coverage:
+      type: object
+      required: [pct, gaps]
+      properties:
+        pct: { type: number, minimum: 0, maximum: 100 }
+        gaps:
+          type: array
+          items:
+            type: object
+            properties:
+              source_id: { type: string }
+              start: { type: string, format: date-time }
+              end: { type: string, format: date-time }
+    Envelope:
+      type: object
+      required: [range, data, quality, coverage]
+      properties:
+        range: { $ref: '#/components/schemas/RangeInfo' }
+        data: {}
+        compare:
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                range: { $ref: '#/components/schemas/RangeInfo' }
+                data: {}
+                delta_pct: { type: object, additionalProperties: { type: [number, 'null'] } }
+                insufficient_coverage: { type: boolean }
+        quality: { $ref: '#/components/schemas/QualityMix' }
+        coverage: { $ref: '#/components/schemas/Coverage' }
+    TokenTotals:
+      type: object
+      properties:
+        input: { type: integer, description: excludes cache reads }
+        output: { type: integer, description: includes reasoning }
+        reasoning: { type: [integer, 'null'] }
+        cache_read: { type: integer }
+        cache_write: { type: integer }
+    CostTotals:
+      type: object
+      properties:
+        estimated_list_usd: { type: [number, 'null'] }
+        provider_reported_usd: { type: [number, 'null'] }
+        estimated_pricing_table_usd: { type: [number, 'null'] }
+        configured_plan_usd: { type: [number, 'null'] }
+        unknown_cost_units: { type: integer }
+        billed: { const: unavailable }
+    ProviderSummary:
+      type: object
+      properties:
+        provider: { type: string, enum: [claude, grok] }
+        tokens: { $ref: '#/components/schemas/TokenTotals' }
+        requests: { type: integer }
+        sessions: { type: integer }
+        active_sessions_now: { type: integer }
+        errors: { type: integer }
+        cost: { $ref: '#/components/schemas/CostTotals' }
+        verified_tasks: { type: [integer, 'null'] }
+    Unavailable:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { const: unavailable }
+        reason: { type: string }
+        docs_url: { type: [string, 'null'] }
+    LimitSnapshot:
+      type: object
+      required: [status, window, used_pct, observed_at, stale]
+      properties:
+        status: { const: observed }
+        window: { type: string, enum: [five_hour, seven_day, spend_limit] }
+        used_pct: { type: number }
+        resets_at: { type: [string, 'null'], format: date-time }
+        observed_at: { type: string, format: date-time }
+        stale: { type: boolean }
+paths:
+  /summary:
+    get:
+      summary: KPI tiles per provider
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }, { $ref: '#/components/parameters/compare' }, { $ref: '#/components/parameters/provider' }]
+      responses:
+        '200': { description: 'Envelope<data: ProviderSummary[]>' }
+  /timeseries:
+    get:
+      parameters:
+        - { $ref: '#/components/parameters/range' }
+        - { $ref: '#/components/parameters/start' }
+        - { $ref: '#/components/parameters/end' }
+        - { $ref: '#/components/parameters/compare' }
+        - { $ref: '#/components/parameters/provider' }
+        - { name: metric, in: query, required: true, schema: { type: string, enum: [tokens, cost, requests, errors, sessions, subagents, cache] } }
+        - { name: group_by, in: query, schema: { type: string, enum: [provider, model, token_type, cost_kind], default: provider } }
+      responses:
+        '200': { description: 'Envelope<data: {buckets: string[], series: {key, values: (number|null)[]}[]}>; null = no coverage' }
+  /models:
+    get:
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }, { $ref: '#/components/parameters/provider' }]
+      responses: { '200': { description: 'Envelope<data: {provider, model, tokens: TokenTotals, cost: CostTotals, share}[]>' } }
+  /sessions:
+    get:
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }, { $ref: '#/components/parameters/provider' }, { name: cursor, in: query, schema: { type: string } }, { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }]
+      responses: { '200': { description: 'Envelope<data: {items, next_cursor}>' } }
+  /sessions/{pk}:
+    get:
+      parameters: [{ name: pk, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: 'Session detail: turns, subagent tree, errors, tests, commits' }, '404': { description: not found } }
+  /subagents:
+    get:
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }, { $ref: '#/components/parameters/provider' }]
+      responses: { '200': { description: 'Envelope<data: {provider, agent_type, launched, completed, failed, p50_duration_ms}[]>' } }
+  /errors:
+    get:
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }, { $ref: '#/components/parameters/provider' }]
+      responses: { '200': { description: 'Envelope<data: {recent: Error[], by_category}>' } }
+  /limits/current:
+    get:
+      responses:
+        '200': { description: '{claude: {five_hour: LimitSnapshot|Unavailable, seven_day: ..., spend_limit: ...}, grok: Unavailable, grok_limit_events: [...]}' }
+  /limits/history:
+    get:
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }]
+      responses: { '200': { description: 'Envelope<data: {window, points: {observed_at, used_pct, resets_at}[]}[]> (step chart, no interpolation)' } }
+  /productivity:
+    get:
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }, { $ref: '#/components/parameters/compare' }]
+      responses: { '200': { description: 'Envelope<data: commits by ai_trailer, test runs, verified tasks, active time>' } }
+  /compare:
+    get:
+      parameters: [{ $ref: '#/components/parameters/range' }, { $ref: '#/components/parameters/start' }, { $ref: '#/components/parameters/end' }]
+      responses: { '200': { description: 'Envelope<data: {rows: {metric, claude, grok, quality}[], ratios: {...}|Unavailable}>' } }
+  /health:
+    get:
+      responses: { '200': { description: 'Overall status and per-source status' } }
+  /sources:
+    get:
+      responses: { '200': { description: '{id, provider, kind, enabled, last_heartbeat, status, coverage_pct_24h}[]' } }
+  /admin/import/{source}:
+    post:
+      parameters: [{ name: source, in: path, required: true, schema: { type: string, enum: [claude.jsonl_import, grok.sessions_import] } }]
+      responses: { '202': { description: import started }, '403': { description: CSRF or auth failure } }
+  /admin/import-runs:
+    get:
+      responses: { '200': { description: 'import_runs rows' } }

@@ -1,0 +1,13 @@
+{
+  "_comment": "Synthetic, shaped per code.claude.com/docs/en/statusline. Replace with a real capture at M0.",
+  "session_id": "sess-claude-1",
+  "transcript_path": "C:/Users/example/.claude/projects/x/sess-claude-1.jsonl",
+  "cwd": "C:/Users/example/project",
+  "model": { "id": "claude-opus-5-5", "display_name": "Opus 5.5" },
+  "cost": { "total_cost_usd": 0.42 },
+  "context_window": { "used_percentage": 31 },
+  "rate_limits": {
+    "five_hour": { "used_percentage": 23.5, "resets_at": 1762560000 },
+    "seven_day": { "used_percentage": 41.0, "resets_at": 1762905600 }
+  }
+}
