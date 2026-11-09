@@ -1,0 +1,17 @@
+# The repository root ignores *.sql and package-lock.json for the Kanka app; Chronicle cloud
+# needs both committed (migrations and a pinned lockfile).
+!*.sql
+!package-lock.json
+
+node_modules/
+dist/
+.local/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+*.tsbuildinfo
+importer/out/

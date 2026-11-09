@@ -1,0 +1,54 @@
+{
+  "name": "chronicle-cloud",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chronicle: a private campaign wiki on Cloudflare Pages and Supabase.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "test": "vitest run --project unit",
+    "test:db": "vitest run --project db",
+    "test:e2e": "playwright test",
+    "stack:up": "bash scripts/local-stack.sh up",
+    "stack:seed": "bash scripts/local-stack.sh seed",
+    "stack:down": "bash scripts/local-stack.sh down",
+    "import:dry-run": "node --experimental-strip-types importer/kanka-import.ts --dry-run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0",
+    "leaflet": "1.9.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "react-router": "7.18.5",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261104.1",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@types/leaflet": "1.9.22",
+    "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "eslint": "10.12.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "16.5.0",
+    "pg": "8.23.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "7.3.7",
+    "vitest": "4.0.18",
+    "wrangler": "4.158.0"
+  }
+}
