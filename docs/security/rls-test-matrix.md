@@ -53,3 +53,32 @@ Legend: ✔ allowed and tested, ✘ refused and tested.
 `tests/db/privacy.test.ts`, `functions.test.ts`, `enroll-integration.test.ts`,
 `privileges.test.ts`, `importer.test.ts`; `functions/_lib/enroll.test.ts`;
 `tests/e2e/player.spec.ts`, `dm.spec.ts`, `z-mfa.spec.ts`.
+
+## Live check (hosted project)
+
+`chronicle-cloud/supabase/checks/live-rls-check.sql` runs the core cases against a hosted project
+inside one transaction that always rolls back (it ends with a deliberate error that carries the
+results). Paste it into the SQL Editor. Expected values in the error message:
+
+| Key | Expected |
+|---|---|
+| `anon_articles`, `anon_search`, `anon_settings` | `denied` |
+| `ou_rows_visible`, `rv_rows_visible` | `0` |
+| `p_articles` | `["public-article","public-three","public-two"]` |
+| `p_sections_A` / `p_sections_B` | `["Known history"]` / `0` |
+| `p_infobox` | `["Race"]` |
+| `p_dm_notes`, `p_revisions`, `p_codes` | `0` |
+| `p_categories` / `p_category_counts` | `["sailors"]` / `[{"sailors":1}]` |
+| `p_relations` | `["resides_in"]` |
+| `p_backlinks_D` / `p_backlinks_E` | `["public-article"]` / `0` |
+| `p_redirects` / `p_resolve_dm_redirect` | `["old-captain-name"]` / `0` |
+| `p_timeline`, `p_maps`, `p_markers`, `p_media` | `["Visible event"]`, `["world"]`, `["Harbour"]`, `["public/harbour.webp"]` |
+| `p_search_secret_hits`, `p_search_shared_snippet_leaks`, `p_suggest_hidden` | `0` |
+| `p_code_hash`, `p_insert`, `p_promote`, `p_enroll_fn`, `p_create_code`, `p_preview` | `denied` |
+| `p_update_rows`, `p_reveal_rows` | `0` |
+| `dm_articles`, `dm_notes`, `dm_markers` | `5`, `1`, `4` |
+| `dm_preview_sections` / `dm_preview_hidden` | only "Known history" / `false` |
+| `mfa_aal1_notes` / `mfa_aal1_articles` / `mfa_aal2_notes` | `0` / `3` / `1` |
+| `svc_wrong_code` / `svc_right_code` | `invalid` / `ok` |
+
+Verified on the local stack (all values as above, nothing left behind).

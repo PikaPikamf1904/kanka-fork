@@ -1,6 +1,9 @@
 # Setting up Chronicle on Supabase Free + Cloudflare Pages
 
-Nothing below has been done yet; it needs the owner's accounts. Everything is on free plans; do
+**Status (2026-11-09):** the free project `chronicle-wiki` (ref `cqrgdtnvmgnimzxyaiih`,
+us-east-1, org "Dnd" on the Free plan) has all five migrations applied (`functions` was run in the
+SQL Editor and recorded in the migration history). Steps 1.3 onwards and section 2 still need the
+owner's dashboards. Everything is on free plans; do
 not add a payment method. Use synthetic content until you are ready to import real data.
 
 ## 1. Supabase project (free)
@@ -8,7 +11,8 @@ not add a payment method. Use synthetic content until you are ready to import re
 1. Create a project on the Free plan (region near your players). Save the database password in
    your password manager.
 2. **SQL Editor:** run the files in `chronicle-cloud/supabase/migrations/` in order
-   (`…0100_core_schema`, `…0200_functions`, `…0300_storage`, `…0400_import_refs`). This is the
+   (`…0100_core_schema`, `…0200_functions`, `…0300_storage`, `…0400_import_refs`,
+   `…0500_hardening`). This is the
    tested route. (The Supabase CLI's `supabase db push` also works from `chronicle-cloud/`, but
    needs `supabase init` and `supabase link --project-ref <ref>` first; not tested here.)
 3. **Authentication → Sign In / Providers:**

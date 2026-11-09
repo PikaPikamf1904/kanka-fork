@@ -10,11 +10,19 @@ describe('API role privileges', () => {
       where table_schema = 'public' and grantee = 'anon'`);
     const columns = await admin(`select table_name, column_name from information_schema.role_column_grants
       where table_schema = 'public' and grantee = 'anon'`);
-    const functions = await admin(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')`);
+    const functions = await admin(`select n.nspname || '.' || p.proname as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname in ('public', 'private') and has_function_privilege('anon', p.oid, 'execute')`);
     expect(tables.rows).toEqual([]);
     expect(columns.rows).toEqual([]);
     expect(functions.rows).toEqual([]);
+  });
+
+  it('every foreign key in public is covered by an index', async () => {
+    const { rows } = await admin(`select c.conrelid::regclass::text as t, c.conname from pg_constraint c
+      join pg_namespace n on n.oid = c.connamespace
+      where c.contype = 'f' and n.nspname = 'public'
+        and not exists (select 1 from pg_index i where i.indrelid = c.conrelid and (i.indkey::int2[])[0:array_length(c.conkey, 1) - 1] = c.conkey)`);
+    expect(rows).toEqual([]);
   });
 
   it('every table in public has RLS enabled', async () => {
@@ -34,9 +42,9 @@ describe('API role privileges', () => {
     expect(hash.rows[0]!.ok).toBe(false);
   });
 
-  it('every SECURITY DEFINER function pins its search_path', async () => {
+  it('every function in public and private pins its search_path', async () => {
     const { rows } = await admin(`select n.nspname || '.' || p.proname as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname in ('public', 'private') and p.prosecdef
+      where n.nspname in ('public', 'private')
         and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')`);
     expect(rows).toEqual([]);
   });
