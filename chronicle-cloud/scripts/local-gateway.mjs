@@ -28,7 +28,9 @@ const cors = {
 
 http.createServer((req, res) => {
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, cors);
+    // Like the hosted gateway, accept whatever headers supabase-js asks to send.
+    const requested = req.headers['access-control-request-headers'];
+    res.writeHead(204, requested ? { ...cors, 'access-control-allow-headers': requested } : cors);
     res.end();
     return;
   }

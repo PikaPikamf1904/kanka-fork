@@ -23,6 +23,9 @@
     "import:dry-run": "node --experimental-strip-types importer/kanka-import.ts --dry-run"
   },
   "dependencies": {
+    "@fontsource/alegreya": "5.3.0",
+    "@fontsource/alegreya-sans": "5.3.0",
+    "@fontsource/cinzel": "5.3.0",
     "@supabase/supabase-js": "2.118.0",
     "leaflet": "1.9.4",
     "react": "19.3.1",

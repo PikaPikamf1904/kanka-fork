@@ -7,8 +7,14 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        // Keep the map library out of the first page load.
-        manualChunks: { leaflet: ['leaflet'] },
+        // Stable vendor chunks cache well across deploys; maps and Markdown load on demand.
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return undefined;
+          if (/\/node_modules\/(react|react-dom|scheduler|react-router)\//.test(id)) return 'react';
+          if (id.includes('/node_modules/@supabase/')) return 'supabase';
+          if (id.includes('/node_modules/leaflet/')) return 'leaflet';
+          return undefined;
+        },
       },
     },
   },
