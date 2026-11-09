@@ -20,3 +20,10 @@ grant all on schema auth to postgres;
 grant all on schema storage to postgres;
 grant create on database postgres to postgres;
 grant create, usage on schema public to postgres;
+
+-- Hosted projects grant everything new in public to the API roles by default (which is why RLS
+-- matters). Reproduce that for objects created by postgres, so local tests run against the same
+-- risky defaults and prove the migrations revoke what they must.
+alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public grant all on functions to anon, authenticated, service_role;

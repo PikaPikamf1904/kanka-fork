@@ -450,6 +450,10 @@ alter table public.revisions enable row level security;
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
 revoke all on all functions in schema public from anon, public;
+-- The server's secret key (service_role) bypasses RLS; grant it table access explicitly rather
+-- than relying on project defaults. It is used only by server code (enrollment, importer).
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
 
 grant select, insert, update, delete on
   public.campaign_settings, public.media, public.articles, public.article_sections,

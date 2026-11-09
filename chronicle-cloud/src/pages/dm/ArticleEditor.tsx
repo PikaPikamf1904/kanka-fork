@@ -123,6 +123,17 @@ export function ArticleEditor() {
     return [...targets].filter((t) => !known.has(t));
   }, [draft.sections, allArticles.data]);
 
+  // A link's text and address are visible wherever the section is, so warn when player-visible
+  // text points at a page players cannot see.
+  const hiddenLinks = useMemo(() => {
+    const hidden = new Set((allArticles.data ?? []).filter((a) => a.visibility !== 'players' || a.status !== 'published').map((a) => a.slug));
+    const fromPlayerText = draft.sections
+      .filter((s) => s.visibility === 'players' && s.status === 'published')
+      .flatMap((s) => wikiLinkTargets(s.body))
+      .concat(draft.infobox.filter((f) => f.visibility === 'players').flatMap((f) => wikiLinkTargets(f.value)));
+    return [...new Set(fromPlayerText.filter((t) => hidden.has(t)))];
+  }, [draft.sections, draft.infobox, allArticles.data]);
+
   async function save(e?: FormEvent) {
     e?.preventDefault();
     setError(null);
@@ -298,6 +309,11 @@ export function ArticleEditor() {
           </div>
         ))}
         {unknownLinks.length > 0 && <p className="fine-print">Links to pages that don’t exist yet: {unknownLinks.join(', ')}</p>}
+        {hiddenLinks.length > 0 && (
+          <p className="form-error" role="alert">
+            Player-visible text links to pages players cannot see: {hiddenLinks.join(', ')}. Players will see the link text and address.
+          </p>
+        )}
         <div className="row-wrap">
           <button type="button" className="button secondary small" onClick={() => { setDirty(true); setDraft((d) => ({ ...d, sections: [...d.sections, { position: d.sections.length + 1, heading: 'New section', body: '', visibility: 'players', status: 'draft' }] })); }}>
             Add player section

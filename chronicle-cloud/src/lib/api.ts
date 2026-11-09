@@ -37,8 +37,8 @@ export async function listArticles(opts: {
   return must(await q.limit(opts.limit ?? 100));
 }
 
-export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string })[]> {
-  return must(await supabase.from('articles').select('id, slug, title, type').order('title').limit(2000));
+export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; visibility: Article['visibility']; status: Article['status'] })[]> {
+  return must(await supabase.from('articles').select('id, slug, title, type, visibility, status').order('title').limit(2000));
 }
 
 export async function resolveSlug(slug: string): Promise<{ slug: string; redirected_from: string | null } | null> {
