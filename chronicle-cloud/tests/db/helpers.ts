@@ -105,6 +105,8 @@ export async function resetFixtures() {
   await admin(`delete from public.media`);
   await admin(`delete from auth.mfa_factors where user_id = any($1::uuid[])`, [Object.values(ids)]);
   await admin(`delete from auth.users where id = any($1::uuid[])`, [Object.values(ids)]);
+  // Devices created by enrollment tests.
+  await admin(`delete from auth.users where email like 'player-%@players.chronicle.invalid'`);
 
   for (const [name, id] of Object.entries(ids)) {
     await admin(

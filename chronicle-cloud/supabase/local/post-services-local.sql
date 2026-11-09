@@ -13,3 +13,5 @@ grant all on all routines in schema storage to postgres;
 grant usage on schema storage to anon, authenticated, service_role;
 grant all on all tables in schema storage to anon, authenticated, service_role;
 grant all on all sequences in schema storage to anon, authenticated, service_role;
+-- storage-api connects as supabase_storage_admin and switches to the caller's API role.
+grant anon, authenticated, service_role to supabase_storage_admin;
