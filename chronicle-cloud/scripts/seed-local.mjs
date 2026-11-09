@@ -17,11 +17,12 @@ if (!env.SUPABASE_URL.startsWith('http://127.0.0.1:')) throw new Error('Refusing
 
 const db = new pg.Client({ connectionString: env.DATABASE_URL });
 await db.connect();
-const already = await db.query("select count(*)::int as n from public.articles where id = 'a1000000-0000-4000-8000-000000000001'");
-if (already.rows[0].n > 0) {
-  console.log('Sample content is already loaded.');
-  process.exit(0);
-}
+// Local stack only: start from empty content (database tests leave their own fixtures behind).
+await db.query(`truncate public.revisions, public.map_markers, public.maps, public.timeline_events, public.relations,
+  public.redirects, public.article_links, public.article_categories, public.categories, public.dm_notes,
+  public.infobox_fields, public.article_sections, public.articles, public.enrollment_attempts,
+  public.campaign_members, public.access_codes cascade`);
+await db.query("delete from auth.users where email like '%@test.chronicle.invalid' or email like 'player-%@players.chronicle.invalid'");
 // Start clean: earlier local runs (or the database tests) may have left these behind.
 const dmEmail = 'dm@chronicle.local';
 const mapPath = 'media/sample-ember-coast-map.png';

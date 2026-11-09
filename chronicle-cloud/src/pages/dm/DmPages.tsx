@@ -15,6 +15,7 @@ import { TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
 import type { PublishStatus, TimelineEvent, Visibility, WikiMap } from '../../lib/types.ts';
 import { useLoad } from '../../lib/useLoad.ts';
 import { NotFound } from '../NotFound.tsx';
+import { supabase } from '../../lib/supabase.ts';
 
 export function DmDesk() {
   const drafts = useLoad(listDrafts, []);
@@ -183,6 +184,81 @@ export function AccessAdmin() {
   );
 }
 
+/** TOTP two-step sign-in for the DM account (free on Supabase). Once verified, the database
+ * refuses DM content to any session of this account that has not passed the second step. */
+function TwoStepPanel() {
+  const factors = useLoad(async () => (await supabase.auth.mfa.listFactors()).data?.totp ?? [], []);
+  const [pending, setPending] = useState<{ id: string; qr: string; secret: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const verified = (factors.data ?? []).filter((f) => f.status === 'verified');
+  return (
+    <section className="panel">
+      <h2>Two-step sign-in</h2>
+      <p className="fine-print">
+        Protects the DM account with an authenticator app. Once it is on, DM content is only available after entering a code, even
+        to someone who knows your password.
+      </p>
+      {verified.length > 0 ? (
+        <>
+          <p className="form-ok">Two-step sign-in is on.</p>
+          <button
+            type="button"
+            className="button secondary small"
+            onClick={async () => {
+              if (!window.confirm('Turn off two-step sign-in?')) return;
+              for (const f of verified) await supabase.auth.mfa.unenroll({ factorId: f.id });
+              factors.reload();
+            }}
+          >
+            Turn off
+          </button>
+        </>
+      ) : pending ? (
+        <form
+          className="form-grid"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError(null);
+            const { error: err } = await supabase.auth.mfa.challengeAndVerify({ factorId: pending.id, code });
+            if (err) setError('That code was not accepted.');
+            else {
+              setPending(null);
+              setCode('');
+              setMsg('Two-step sign-in is on.');
+              factors.reload();
+            }
+          }}
+        >
+          <img src={pending.qr} alt="QR code for your authenticator app" width={180} height={180} />
+          <p className="fine-print">Scan the code, or enter this key in your app: <code>{pending.secret}</code></p>
+          <label>Code from the app<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></label>
+          <button type="submit" className="button small">Verify and turn on</button>
+          {error && <p className="form-error">{error}</p>}
+        </form>
+      ) : (
+        <button
+          type="button"
+          className="button small"
+          onClick={async () => {
+            setError(null);
+            // Clear any half-finished setup first.
+            for (const f of factors.data ?? []) if (f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id });
+            const { data, error: err } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Chronicle ${new Date().toISOString().slice(0, 10)}` });
+            if (err || !data) setError(err?.message ?? 'Could not start setup.');
+            else setPending({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+          }}
+        >
+          Set up two-step sign-in
+        </button>
+      )}
+      {msg && <p className="form-ok">{msg}</p>}
+      {error && !pending && <p className="form-error">{error}</p>}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const settings = useLoad(getSettings, []);
   const [form, setForm] = useState({ title: '', tagline: '', overview: '', banner_media_id: null as string | null });
@@ -193,6 +269,7 @@ export function SettingsPage() {
     setForm(settings.data);
   }
   return (
+    <>
     <form
       className="panel form-grid"
       onSubmit={async (e) => {
@@ -227,6 +304,8 @@ export function SettingsPage() {
       <button type="submit" className="button">Save settings</button>
       {msg && <p className="form-ok">{msg}</p>}
     </form>
+    <TwoStepPanel />
+    </>
   );
 }
 

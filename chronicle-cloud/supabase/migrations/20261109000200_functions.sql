@@ -175,6 +175,12 @@ begin
   if v_id is null then
     raise exception 'Article not found' using errcode = 'P0002';
   end if;
+  -- Keep the 30 most recent snapshots per article (free-tier database is 500 MB).
+  delete from public.revisions r
+  where r.article_id = p_article
+    and r.id not in (
+      select k.id from public.revisions k where k.article_id = p_article order by k.created_at desc, k.id desc limit 30
+    );
   return v_id;
 end;
 $$;

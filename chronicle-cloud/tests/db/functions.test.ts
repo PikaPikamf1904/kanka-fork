@@ -180,6 +180,23 @@ describe('revisions', () => {
   });
 });
 
+describe('revision retention', () => {
+  it('keeps only the 30 most recent snapshots of an article', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local role authenticated');
+      await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: ids.dm, role: 'authenticated', aal: 'aal1' })]);
+      for (let i = 0; i < 35; i++) await client.query("select public.snapshot_article($1, $2)", [A, `save ${i}`]);
+      const { rows } = await client.query<{ n: string }>('select count(*) as n from public.revisions where article_id = $1', [A]);
+      expect(rows[0]!.n).toBe('30');
+      await client.query('rollback');
+    } finally {
+      client.release();
+    }
+  });
+});
+
 describe('wiki links', () => {
   it('extracts [[links]] with the same slug rules as the browser', async () => {
     const { rows } = await admin<{ target_slug: string }>(
