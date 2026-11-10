@@ -11,6 +11,23 @@ function must<T>(result: { data: T | null; error: { message: string } | null }):
   return result.data as T;
 }
 
+/**
+ * Read every row of a query in pages. The hosted Data API returns at most 1000 rows per request
+ * whatever limit is asked for, so a single request silently truncates a large wiki. The query
+ * must have a stable order. Capped so a runaway table cannot loop forever.
+ */
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 20;
+async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const rows: T[] = [];
+  for (let i = 0; i < MAX_PAGES; i++) {
+    const batch = must(await page(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1));
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 const ARTICLE_COLUMNS =
   'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at';
 
@@ -38,7 +55,9 @@ export async function listArticles(opts: {
 }
 
 export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; visibility: Article['visibility']; status: Article['status'] })[]> {
-  return must(await supabase.from('articles').select('id, slug, title, type, visibility, status').order('title').limit(2000));
+  return fetchAll((from, to) =>
+    supabase.from('articles').select('id, slug, title, type, visibility, status').order('title').order('id').range(from, to),
+  );
 }
 
 export async function resolveSlug(slug: string): Promise<{ slug: string; redirected_from: string | null } | null> {
@@ -152,12 +171,13 @@ export async function getMap(slug: string): Promise<{ map: WikiMap; markers: (Ma
 }
 
 export async function listRelations(): Promise<(Relation & { source: ArticleRef; target: ArticleRef })[]> {
-  return must(
-    await supabase
+  return (await fetchAll((from, to) =>
+    supabase
       .from('relations')
       .select('*, source:articles!relations_source_article_id_fkey(slug, title, type), target:articles!relations_target_article_id_fkey(slug, title, type)')
-      .limit(2000),
-  ) as (Relation & { source: ArticleRef; target: ArticleRef })[];
+      .order('id')
+      .range(from, to),
+  )) as (Relation & { source: ArticleRef; target: ArticleRef })[];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -208,9 +228,6 @@ export async function mediaUrlForPath(path: string): Promise<string | null> {
   return data.signedUrl;
 }
 
-export async function listMedia(): Promise<Media[]> {
-  return must(await supabase.from('media').select('id, path, alt, width, height, visibility').order('created_at', { ascending: false }).limit(500));
-}
 
 /** DM only. Upload an already-resized image and register it (private by default). */
 /** Uploads start DM-only (enforced by policy); the page that shows the image decides who sees it. */
@@ -307,9 +324,6 @@ export async function addRelation(r: Omit<Relation, 'id'>) {
   must(await supabase.from('relations').insert(r).select('id'));
 }
 
-export async function updateRelation(id: string, patch: Partial<Relation>) {
-  must(await supabase.from('relations').update(patch).eq('id', id).select('id'));
-}
 
 export async function deleteRelation(id: string) {
   must(await supabase.from('relations').delete().eq('id', id).select('id'));
