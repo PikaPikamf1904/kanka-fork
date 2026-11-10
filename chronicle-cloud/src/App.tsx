@@ -23,8 +23,18 @@ const TimelineEditor = dm('TimelineEditor');
 const MapEditor = dm('MapEditor');
 
 function Gate() {
-  const { state } = useSession();
+  const { state, refresh } = useSession();
   if (state.kind === 'loading') return <div className="boot">Opening the Chronicle…</div>;
+  if (state.kind === 'error') {
+    return (
+      <div className="boot" role="alert">
+        <div>
+          <p>Could not reach the wiki. Check your connection.</p>
+          <p><button type="button" className="button" onClick={() => void refresh()}>Try again</button></p>
+        </div>
+      </div>
+    );
+  }
   if (state.kind === 'needs-mfa') return <SignInPage />;
   if (state.kind !== 'member') return <AccessPage />;
   return <Layout />;

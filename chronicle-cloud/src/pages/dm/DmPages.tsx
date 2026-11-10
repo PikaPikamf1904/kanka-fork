@@ -440,7 +440,7 @@ export function MapEditor() {
               if (!file) return;
               try {
                 const p = await prepareImage(file, MAX_MAP_IMAGE, 0.85);
-                const media = await uploadMedia(p.blob, { alt: form.title, width: p.width, height: p.height });
+                const media = await uploadMedia(p.blob, { alt: '', width: p.width, height: p.height });
                 setForm({ ...form, media_id: media.id, width: p.width, height: p.height });
               } catch (err) {
                 setError(err instanceof Error ? err.message : 'Upload failed.');

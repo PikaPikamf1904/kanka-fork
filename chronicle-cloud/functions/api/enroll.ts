@@ -13,7 +13,12 @@ export const onRequest: PagesFunction<EnrollEnv> = async ({ request, env }) => {
       return new Response(JSON.stringify({ error: 'Enrollment is not configured.' }), { status: 503, headers });
     }
   }
-  const body = request.method === 'POST' ? await readJsonBody(request) : null;
+  // Cheap checks first: the body is only read for requests handleEnroll would not refuse anyway.
+  const readable =
+    request.method === 'POST' &&
+    request.headers.get('origin') === new URL(request.url).origin &&
+    (request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json');
+  const body = readable ? await readJsonBody(request) : null;
   try {
     const result = await handleEnroll(
       {

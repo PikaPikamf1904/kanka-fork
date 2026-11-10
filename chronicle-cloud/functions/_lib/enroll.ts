@@ -71,13 +71,38 @@ export const MAX_BODY_BYTES = 4096;
 export async function readJsonBody(request: Request): Promise<unknown> {
   const declared = Number(request.headers.get('content-length') ?? '0');
   if (!Number.isFinite(declared) || declared > MAX_BODY_BYTES) return null;
-  let text: string;
+  if (!request.body) return null;
+  // Read at most MAX_BODY_BYTES; stop and discard the rest as soon as the limit is passed, so a
+  // body with no (or a false) Content-Length is never buffered whole.
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
   try {
-    text = await request.text();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_BODY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
   } catch {
     return null;
   }
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return null;
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  let text: string;
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
   try {
     return JSON.parse(text);
   } catch {

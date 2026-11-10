@@ -165,7 +165,7 @@ export function ArticleEditor() {
     try {
       const prepared = await prepareImage(file);
       // Uploaded DM-only. The database shows it to players only while this article is published to them.
-      const media = await uploadMedia(prepared.blob, { alt: draft.article.title, width: prepared.width, height: prepared.height });
+      const media = await uploadMedia(prepared.blob, { alt: '', width: prepared.width, height: prepared.height });
       update({ hero_media_id: media.id });
       setMessage(`Image uploaded (${Math.round(prepared.blob.size / 1024)} KB). Players see it only while this article is published to them.`);
     } catch (err) {

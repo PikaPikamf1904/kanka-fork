@@ -172,4 +172,31 @@ describe('readJsonBody', () => {
     expect(await readJsonBody(post('{}', { 'content-length': String(MAX_BODY_BYTES + 1) }))).toBeNull();
     expect(await readJsonBody(post('{not json'))).toBeNull();
   });
+
+  it('stops reading a streamed body with no length as soon as it passes the limit', async () => {
+    let sent = 0;
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += 1024;
+        controller.enqueue(new Uint8Array(1024).fill(0x61));
+        if (sent >= 1024 * 1024) controller.close();
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const request = new Request('https://wiki.example/api/enroll', {
+      method: 'POST', body: stream, headers: { 'content-type': 'application/json' }, duplex: 'half',
+    } as RequestInit);
+    expect(request.headers.get('content-length')).toBeNull();
+    expect(await readJsonBody(request)).toBeNull();
+    expect(cancelled).toBe(true);
+    expect(sent).toBeLessThan(64 * 1024);
+  });
+
+  it('ignores a falsely small declared length', async () => {
+    const big = JSON.stringify({ code: 'x'.repeat(MAX_BODY_BYTES), displayName: 'b' });
+    expect(await readJsonBody(post(big, { 'content-length': '10' }))).toBeNull();
+  });
 });

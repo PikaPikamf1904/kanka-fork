@@ -6,6 +6,8 @@ import { supabase } from './supabase.ts';
 export type AccessState =
   | { kind: 'loading' }
   | { kind: 'signed-out' }
+  /** Access could not be checked (network or server error). Not the same as having no access. */
+  | { kind: 'error' }
   /** Signed in, but not (or no longer) an active member. */
   | { kind: 'no-access'; reason: 'revoked' | 'not-member' }
   /** DM account that has MFA and has not completed the second step this session. */
@@ -55,7 +57,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       setState(await loadAccess(data.session));
     } catch {
-      setState({ kind: 'no-access', reason: 'not-member' });
+      // A failed check says nothing about membership; offer a retry, never a sign-out.
+      setState({ kind: 'error' });
     }
   }, []);
 
