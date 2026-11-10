@@ -16,9 +16,24 @@ export function BrowsePage() {
   const valid = (TYPE_ORDER as string[]).includes(type);
   const list = useLoad(() => (valid ? listArticles({ type: type as ArticleType, order: type === 'session' ? 'session' : 'title', limit: 500 }) : Promise.resolve([])), [type, isDm]);
   const [filter, setFilter] = useState('');
+  const [characterCategory, setCharacterCategory] = useState<'all' | 'party' | 'others'>('all');
   if (!valid) return <NotFound />;
   const t = TEMPLATES[type as ArticleType];
-  const shown = (list.data ?? []).filter((a) => a.title.toLowerCase().includes(filter.toLowerCase()));
+  const isCharacter = type === 'character';
+  const matching = (list.data ?? []).filter((a) => a.title.toLowerCase().includes(filter.toLowerCase()));
+  const shown = isCharacter
+    ? matching.filter((a) => characterCategory === 'all' || (characterCategory === 'party' ? a.is_party_member : !a.is_party_member))
+    : matching;
+  const firstLetter = (name: string) => {
+    const first = name.trim().charAt(0).toUpperCase();
+    return /^[A-Z]$/.test(first) ? first : '#';
+  };
+  const characterGroups = isCharacter
+    ? [...new Set(shown.map((a) => firstLetter(a.title)))].sort().map((letter) => ({
+        letter,
+        entries: shown.filter((a) => firstLetter(a.title) === letter),
+      }))
+    : [];
   return (
     <div>
       <h1 className="page-title"><span aria-hidden="true">{t.glyph} </span>{t.plural}</h1>
@@ -31,7 +46,45 @@ export function BrowsePage() {
       </div>
       {list.error && <p className="form-error">{list.error}</p>}
       {list.data && shown.length === 0 && <p className="muted">Nothing here yet.</p>}
-      <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} />)}</div>
+      {isCharacter ? (
+        <div className="character-directory">
+          <div className="character-directory-toolbar">
+            <div className="character-directory-filters" role="group" aria-label="Character groups">
+              {([
+                ['all', 'All characters'],
+                ['party', 'Party members'],
+                ['others', 'Other characters'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={characterCategory === value ? 'character-filter active' : 'character-filter'}
+                  aria-pressed={characterCategory === value}
+                  onClick={() => setCharacterCategory(value)}
+                >{label}</button>
+              ))}
+            </div>
+            <p className="character-directory-count" aria-live="polite">{shown.length} {shown.length === 1 ? 'character' : 'characters'}</p>
+          </div>
+          {characterGroups.length > 1 && (
+            <nav className="character-alphabet" aria-label="Browse characters by first letter">
+              {characterGroups.map(({ letter }) => (
+                <a key={letter} href={`#character-letter-${letter === '#' ? 'other' : letter.toLowerCase()}`}>{letter}</a>
+              ))}
+            </nav>
+          )}
+          {characterGroups.map(({ letter, entries }) => (
+            <section className="character-letter-section" key={letter} aria-label={`Characters beginning with ${letter}`}>
+              <h2 id={`character-letter-${letter === '#' ? 'other' : letter.toLowerCase()}`}>{letter}</h2>
+              <div className="character-grid">
+                {entries.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} />)}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} />)}</div>
+      )}
     </div>
   );
 }
