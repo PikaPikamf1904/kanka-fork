@@ -1,0 +1,1268 @@
+{
+  "pack": "dragonlance",
+  "version": 1,
+  "title": "Dragonlance campaign: first lore pack",
+  "generated_from": "DM overnight brief, 2026-11-10 (not checked against source files)",
+  "note": "All entries are imported DM-only and as drafts. The loader ignores nothing and refuses any entry that asks to be player-visible or published.",
+  "articles": [
+    {
+      "ref": "campaign-overview",
+      "slug": "campaign-overview",
+      "type": "lore",
+      "title": "Campaign overview",
+      "summary": "A customised Dragonlance: Shadow of the Dragon Queen campaign.",
+      "group": "Campaign and setting",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "The campaign is a customised run of Dragonlance: Shadow of the Dragon Queen.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "dm-reported",
+          "text": "The early campaign includes [[vogler|Vogler]].",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "dm-reported",
+          "text": "A later Halloween adventure took place aboard the [[the-bone-pelican|Bone Pelican]].",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "planned",
+          "text": "[[operation-dragon-nest|Operation Dragon Nest]] is prepared but has not been played.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "This wiki records a customised Dragonlance: Shadow of the Dragon Queen campaign.\n\n- Early play centred on [[vogler|Vogler]].\n- A Halloween side adventure, the [[halloween-murder-mystery|murder mystery aboard the Bone Pelican]], introduced [[gears|Gears]].\n- See the [[campaign-timeline|campaign timeline]] for the order of events and [[the-party|the party]] for the characters."
+        },
+        {
+          "heading": "Upcoming (DM)",
+          "body": "[[operation-dragon-nest|Operation Dragon Nest]] is planned material. Keep this section and every linked planning page DM-only until it has been played."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Which house rules or changes make this run 'customised'?",
+        "What should the player-facing overview say, and when should it be published?"
+      ]
+    },
+    {
+      "ref": "vogler",
+      "slug": "vogler",
+      "type": "location",
+      "title": "Vogler",
+      "summary": "Village where the early campaign took place.",
+      "group": "Campaign and setting",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "The early campaign includes Vogler.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "dm-reported",
+          "text": "Historical character notes exist for Swift Claw, Frost, Orkus and Pubert from this period.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "What happened in Vogler in this campaign is not recorded in the available sources.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In this campaign",
+          "body": "The early sessions took place here. Character notes from this period exist for [[swift-claw|Swift Claw]], [[frost|Frost]], [[orkus|Orkus]] and [[pubert|Pubert]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        },
+        {
+          "heading": "Published setting (not campaign canon)",
+          "body": "In the published adventure, Vogler is a fishing village on the Vingaard River where the story opens. Treat this as background only; this campaign is customised."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Type",
+          "value": "Village"
+        }
+      ],
+      "questions": [
+        "Which Vogler events actually happened at the table?",
+        "Is Vogler still standing in this campaign?"
+      ]
+    },
+    {
+      "ref": "kalaman",
+      "slug": "kalaman",
+      "type": "location",
+      "title": "Kalaman",
+      "summary": "Port city; listed as the current operating region (unverified).",
+      "group": "Campaign and setting",
+      "facts": [
+        {
+          "level": "uncertain",
+          "text": "The brief lists 'Kalaman / current operating region' as a page to prepare; whether the party is currently based in Kalaman is not confirmed.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Some destination names differ across sources.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In this campaign",
+          "body": "Listed as the party's current operating region, but this is unverified. The brief also mentions a 'current port' without naming it.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        },
+        {
+          "heading": "Published setting (not campaign canon)",
+          "body": "In the published setting, Kalaman is a port city on the northern coast of Solamnia. Background only."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Type",
+          "value": "City"
+        }
+      ],
+      "questions": [
+        "Is the party currently based in Kalaman, or in another port?",
+        "What is the name of the current port?"
+      ]
+    },
+    {
+      "ref": "campaign-timeline",
+      "slug": "campaign-timeline",
+      "type": "lore",
+      "title": "Campaign timeline",
+      "summary": "Order of known events, with how sure we are of each.",
+      "group": "Campaign and setting",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Vogler came first; the Bone Pelican Halloween adventure came later.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "planned",
+          "text": "Operation Dragon Nest lies in the future.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "No in-world or real-world dates are recorded in the available sources.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Timeline",
+          "body": "| Order | Event | Status |\n|---|---|---|\n| 1 | Early campaign in [[vogler|Vogler]] | Reported by the DM; details not recorded |\n| 2 | [[halloween-murder-mystery|Halloween murder mystery]] aboard the [[the-bone-pelican|Bone Pelican]] | Reported; ending needs DM check |\n| 3 | [[operation-dragon-nest|Operation Dragon Nest]] | Planned, not played |\n\nNo dates are recorded. Add session dates here as they are confirmed."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "What are the real-world session dates?",
+        "Were there sessions between Vogler and the Bone Pelican?"
+      ]
+    },
+    {
+      "ref": "the-party",
+      "slug": "the-party",
+      "type": "faction",
+      "title": "The party",
+      "summary": "The player characters and their known history.",
+      "group": "Party",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Historical character notes exist for Swift Claw, Frost, Orkus and Pubert.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "dm-reported",
+          "text": "Gears, a mechanical adventurer, was introduced in the Bone Pelican adventure.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "After the Bone Pelican investigation the characters received 10 gold pieces each.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Which of these are current player characters, and who plays them, is not recorded.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Members",
+          "body": "- [[swift-claw|Swift Claw]]\n- [[frost|Frost]]\n- [[orkus|Orkus]]\n- [[pubert|Pubert]]\n- [[gears|Gears]] (joined in the [[halloween-murder-mystery|Bone Pelican adventure]])\n\nWhether each of these is a current player character is unverified."
+        },
+        {
+          "heading": "Known history",
+          "body": "Early play in [[vogler|Vogler]]; later the [[jennas-murder-investigation|investigation of Jenna's murder]]. Nothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Who are the verified current player characters?",
+        "Does the party have a name?",
+        "Player names must not be added here without each player's consent."
+      ]
+    },
+    {
+      "ref": "swift-claw",
+      "slug": "swift-claw",
+      "type": "character",
+      "title": "Swift Claw",
+      "summary": "Character from the early campaign.",
+      "group": "Party",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Historical character notes exist for Swift Claw from the early (Vogler) part of the campaign.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Swift Claw's ancestry, class, player and current status are not recorded in the available sources.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Some character names differ across sources; this spelling is from the brief.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Swift Claw appears in the notes from the early campaign in [[vogler|Vogler]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Unverified"
+        }
+      ],
+      "questions": [
+        "Is Swift Claw a current player character?",
+        "Ancestry, class and a one-line description?",
+        "Confirm the spelling of the name."
+      ]
+    },
+    {
+      "ref": "frost",
+      "slug": "frost",
+      "type": "character",
+      "title": "Frost",
+      "summary": "Character from the early campaign.",
+      "group": "Party",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Historical character notes exist for Frost from the early (Vogler) part of the campaign.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Frost's ancestry, class, player and current status are not recorded in the available sources.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Some character names differ across sources; this spelling is from the brief.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Frost appears in the notes from the early campaign in [[vogler|Vogler]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Unverified"
+        }
+      ],
+      "questions": [
+        "Is Frost a current player character?",
+        "Ancestry, class and a one-line description?",
+        "Confirm the spelling of the name."
+      ]
+    },
+    {
+      "ref": "orkus",
+      "slug": "orkus",
+      "type": "character",
+      "title": "Orkus",
+      "summary": "Character from the early campaign.",
+      "group": "Party",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Historical character notes exist for Orkus from the early (Vogler) part of the campaign.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Orkus's ancestry, class, player and current status are not recorded in the available sources.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Some character names differ across sources; this spelling is from the brief.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Orkus appears in the notes from the early campaign in [[vogler|Vogler]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Unverified"
+        }
+      ],
+      "questions": [
+        "Is Orkus a current player character?",
+        "Ancestry, class and a one-line description?",
+        "Confirm the spelling of the name."
+      ]
+    },
+    {
+      "ref": "pubert",
+      "slug": "pubert",
+      "type": "character",
+      "title": "Pubert",
+      "summary": "Character from the early campaign.",
+      "group": "Party",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Historical character notes exist for Pubert from the early (Vogler) part of the campaign.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Pubert's ancestry, class, player and current status are not recorded in the available sources.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Some character names differ across sources; this spelling is from the brief.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Pubert appears in the notes from the early campaign in [[vogler|Vogler]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Unverified"
+        }
+      ],
+      "questions": [
+        "Is Pubert a current player character?",
+        "Ancestry, class and a one-line description?",
+        "Confirm the spelling of the name."
+      ]
+    },
+    {
+      "ref": "gears",
+      "slug": "gears",
+      "type": "character",
+      "title": "Gears",
+      "summary": "A mechanical adventurer introduced aboard the Bone Pelican.",
+      "group": "Party",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Gears is a mechanical adventurer.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "dm-reported",
+          "text": "Gears was introduced in the Halloween adventure aboard the Bone Pelican.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "What kind of mechanical being Gears is, and whether Gears is a player character, is not recorded.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Gears is a mechanical adventurer who first appeared during the [[halloween-murder-mystery|Halloween adventure]] aboard the [[the-bone-pelican|Bone Pelican]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Nature",
+          "value": "Mechanical"
+        }
+      ],
+      "questions": [
+        "Is Gears a player character or an NPC?",
+        "What is Gears mechanically (ancestry, class)?",
+        "How did Gears come to be aboard?"
+      ]
+    },
+    {
+      "ref": "the-bone-pelican",
+      "slug": "the-bone-pelican",
+      "type": "location",
+      "title": "The Bone Pelican",
+      "summary": "Vessel where the Halloween murder mystery took place.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "A Halloween adventure took place aboard the Bone Pelican.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The brief mentions 'the Bone Pelican's travels', which suggests a ship, but the type of vessel, its captain and its route are not recorded.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Setting of the [[halloween-murder-mystery|Halloween murder mystery]]. The party was 'aboard' it and it travels, so it is presumably a ship; confirm.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Type",
+          "value": "Vessel (unverified)"
+        }
+      ],
+      "questions": [
+        "Is the Bone Pelican a ship? What kind?",
+        "Who commands it? (Is it [[captain-mac|Captain Mac]]?)",
+        "Where was it travelling from and to?"
+      ]
+    },
+    {
+      "ref": "halloween-murder-mystery",
+      "slug": "halloween-murder-mystery",
+      "type": "session",
+      "title": "Halloween murder mystery",
+      "summary": "Halloween adventure aboard the Bone Pelican: who killed Jenna?",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "The adventure took place aboard the Bone Pelican and involved the investigation of Jenna's murder.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "dm-reported",
+          "text": "It introduced Gears.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "It reportedly ended with Charlie's capture.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Jenna's spirit reportedly entered a silver pendant.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The characters reportedly received 10 gold pieces each.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Recap (needs DM check)",
+          "body": "A Halloween one-off aboard the [[the-bone-pelican|Bone Pelican]]. [[jenna|Jenna]] was murdered and the party investigated ([[jennas-murder-investigation|the investigation]]). [[gears|Gears]] joined the story here.\n\nReported ending, to be verified against the recording or notes:\n\n- [[charlie-jennings|Charlie]] was captured.\n- Jenna's spirit entered a [[jennas-silver-pendant|silver pendant]].\n- Each character received 10 gold pieces."
+        },
+        {
+          "heading": "Not recorded",
+          "body": "How the murder was committed, the motive, the clues found and who was present are not in the available sources."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Confirm the three reported outcomes.",
+        "Was Charlie the murderer, or only captured?",
+        "Who paid the 10 gold each, and why?",
+        "Real-world date of the session?"
+      ]
+    },
+    {
+      "ref": "jennas-murder-investigation",
+      "slug": "jennas-murder-investigation",
+      "type": "quest",
+      "title": "The investigation of Jenna's murder",
+      "summary": "The party's inquiry into Jenna's death aboard the Bone Pelican.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "The party investigated Jenna's murder aboard the Bone Pelican.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The investigation reportedly ended with Charlie's capture.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Suspects, clues and the solution are not recorded.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Summary",
+          "body": "The central thread of the [[halloween-murder-mystery|Halloween murder mystery]]: finding out who killed [[jenna|Jenna]]. It reportedly closed with the capture of [[charlie-jennings|Charlie]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        },
+        {
+          "heading": "Status",
+          "body": "Reported complete. Confirm before publishing."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Reported complete"
+        }
+      ],
+      "questions": [
+        "Who were the suspects?",
+        "What evidence led to Charlie?",
+        "Is anything left unresolved that should become a hook?"
+      ]
+    },
+    {
+      "ref": "jenna",
+      "slug": "jenna",
+      "type": "character",
+      "title": "Jenna",
+      "summary": "Murder victim aboard the Bone Pelican.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "dm-reported",
+          "text": "Jenna was murdered; the party investigated her death.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Her spirit reportedly entered a silver pendant.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Who Jenna was and why she was aboard are not recorded.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Jenna was killed aboard the [[the-bone-pelican|Bone Pelican]]; her death is the subject of [[jennas-murder-investigation|the investigation]]. Her spirit is reported to have entered a [[jennas-silver-pendant|silver pendant]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Dead; spirit reportedly in a pendant"
+        }
+      ],
+      "questions": [
+        "Who was Jenna, and what was her role aboard?",
+        "Is her spirit still present in the pendant?"
+      ]
+    },
+    {
+      "ref": "charlie-jennings",
+      "slug": "charlie-jennings",
+      "type": "character",
+      "title": "Charlie Jennings",
+      "summary": "Captured at the end of the Bone Pelican investigation (reported).",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "The investigation reportedly ended with 'Charlie's' capture.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The brief lists a 'Charlie Jennings' and separately says 'Charlie' was captured; that these are the same person is assumed, not confirmed.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Whether Charlie committed the murder is not stated.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Reportedly captured at the end of [[jennas-murder-investigation|the investigation of Jenna's murder]]. The sources say 'captured'; they do not say what Charlie did.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Captured (reported)"
+        }
+      ],
+      "questions": [
+        "Is the captured 'Charlie' this Charlie Jennings?",
+        "Was Charlie the murderer? Motive?",
+        "Where is Charlie now, and who holds them?"
+      ]
+    },
+    {
+      "ref": "jennas-silver-pendant",
+      "slug": "jennas-silver-pendant",
+      "type": "item",
+      "title": "Jenna's silver pendant",
+      "summary": "Silver pendant said to hold Jenna's spirit.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Jenna's spirit reportedly entered a silver pendant at the end of the Bone Pelican investigation.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Who carries the pendant, and what it does, is not recorded.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "A silver pendant. At the end of the [[halloween-murder-mystery|Halloween murder mystery]], [[jenna|Jenna]]'s spirit is reported to have entered it.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Type",
+          "value": "Pendant"
+        },
+        {
+          "label": "Material",
+          "value": "Silver"
+        }
+      ],
+      "questions": [
+        "Who holds the pendant now?",
+        "Can Jenna communicate through it?",
+        "Does it have any game effect?"
+      ]
+    },
+    {
+      "ref": "captain-mac",
+      "slug": "captain-mac",
+      "type": "character",
+      "title": "Captain Mac",
+      "summary": "Named figure; role not yet established.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "uncertain",
+          "text": "The brief lists Captain Mac among 'known or proposed figures'. It does not say whether Captain Mac has appeared in play or what their role is.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The list sits beside the Bone Pelican material, but a link between Captain Mac and that adventure is not stated.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Captain Mac is named in the campaign notes. Role, allegiance and whether they have appeared at the table are not established.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Not established"
+        }
+      ],
+      "questions": [
+        "Has Captain Mac appeared in play, or are they only proposed?",
+        "Which adventure do they belong to?",
+        "One-line description and role?"
+      ]
+    },
+    {
+      "ref": "serafina",
+      "slug": "serafina",
+      "type": "character",
+      "title": "Serafina",
+      "summary": "Named figure; role not yet established.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "uncertain",
+          "text": "The brief lists Serafina among 'known or proposed figures'. It does not say whether Serafina has appeared in play or what their role is.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The list sits beside the Bone Pelican material, but a link between Serafina and that adventure is not stated.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Serafina is named in the campaign notes. Role, allegiance and whether they have appeared at the table are not established.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Not established"
+        }
+      ],
+      "questions": [
+        "Has Serafina appeared in play, or are they only proposed?",
+        "Which adventure do they belong to?",
+        "One-line description and role?"
+      ]
+    },
+    {
+      "ref": "nicholas",
+      "slug": "nicholas",
+      "type": "character",
+      "title": "Nicholas",
+      "summary": "Named figure; role not yet established.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "uncertain",
+          "text": "The brief lists Nicholas among 'known or proposed figures'. It does not say whether Nicholas has appeared in play or what their role is.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The list sits beside the Bone Pelican material, but a link between Nicholas and that adventure is not stated.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Nicholas is named in the campaign notes. Role, allegiance and whether they have appeared at the table are not established.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Not established"
+        }
+      ],
+      "questions": [
+        "Has Nicholas appeared in play, or are they only proposed?",
+        "Which adventure do they belong to?",
+        "One-line description and role?"
+      ]
+    },
+    {
+      "ref": "inga",
+      "slug": "inga",
+      "type": "character",
+      "title": "Inga",
+      "summary": "Named figure; role not yet established.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "uncertain",
+          "text": "The brief lists Inga among 'known or proposed figures'. It does not say whether Inga has appeared in play or what their role is.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The list sits beside the Bone Pelican material, but a link between Inga and that adventure is not stated.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "Inga is named in the campaign notes. Role, allegiance and whether they have appeared at the table are not established.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Not established"
+        }
+      ],
+      "questions": [
+        "Has Inga appeared in play, or are they only proposed?",
+        "Which adventure do they belong to?",
+        "One-line description and role?"
+      ]
+    },
+    {
+      "ref": "george-evans",
+      "slug": "george-evans",
+      "type": "character",
+      "title": "George Evans",
+      "summary": "Named figure; role not yet established.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "uncertain",
+          "text": "The brief lists George Evans among 'known or proposed figures'. It does not say whether George Evans has appeared in play or what their role is.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The list sits beside the Bone Pelican material, but a link between George Evans and that adventure is not stated.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "George Evans is named in the campaign notes. Role, allegiance and whether they have appeared at the table are not established.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Not established"
+        }
+      ],
+      "questions": [
+        "Has George Evans appeared in play, or are they only proposed?",
+        "Which adventure do they belong to?",
+        "One-line description and role?"
+      ]
+    },
+    {
+      "ref": "william-mournhill",
+      "slug": "william-mournhill",
+      "type": "character",
+      "title": "William Mournhill",
+      "summary": "Named figure; role not yet established.",
+      "group": "Completed adventure history",
+      "facts": [
+        {
+          "level": "uncertain",
+          "text": "The brief lists William Mournhill among 'known or proposed figures'. It does not say whether William Mournhill has appeared in play or what their role is.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The list sits beside the Bone Pelican material, but a link between William Mournhill and that adventure is not stated.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Overview",
+          "body": "William Mournhill is named in the campaign notes. Role, allegiance and whether they have appeared at the table are not established.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Not established"
+        }
+      ],
+      "questions": [
+        "Has William Mournhill appeared in play, or are they only proposed?",
+        "Which adventure do they belong to?",
+        "One-line description and role?"
+      ]
+    },
+    {
+      "ref": "operation-dragon-nest",
+      "slug": "operation-dragon-nest",
+      "type": "quest",
+      "title": "Operation Dragon Nest",
+      "summary": "Planned intelligence heist against a Dragon Army installation.",
+      "group": "Upcoming material",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "Operation Dragon Nest involves a Dragon Army installation, intelligence gathering, a heist and four metallic dragon eggs.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "planned",
+          "text": "The mission materials are plans, not evidence the adventure has happened, and contain unrevealed plot information.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "The runbook and print packet were not available when this draft was written, so no scene detail is included.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Plan",
+          "body": "**Planned material. Not played.** Everything on this page is preparation and may change. Keep it DM-only.\n\nAn intelligence-gathering heist against a [[dragon-nest-facility|Dragon Army installation]]. The stakes include [[metallic-dragon-eggs|four metallic dragon eggs]]. See the [[dragon-nest-intelligence-briefing|intelligence briefing]] for what the party may be told."
+        },
+        {
+          "heading": "Source documents to merge",
+          "body": "- Operation_Dragon_Nest_Intelligence_Heist_COMPLETE.pdf\n- Dragon_Nest_Intelligence_Heist_DM_Runbook.pdf\n- DM_RUNBOOK.pdf\n\nNone were available to the drafting session; paste the relevant parts here."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Planned"
+        }
+      ],
+      "questions": [
+        "Who assigns the mission to the party?",
+        "What is the party's objective: intelligence, the eggs, or both?",
+        "What do the players already know?"
+      ]
+    },
+    {
+      "ref": "dragon-nest-facility",
+      "slug": "dragon-nest-facility",
+      "type": "location",
+      "title": "Dragon Nest facility",
+      "summary": "Proposed Dragon Army installation targeted by Operation Dragon Nest.",
+      "group": "Upcoming material",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "The target of Operation Dragon Nest is a Dragon Army installation.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "planned",
+          "text": "Facility personnel are proposed homebrew NPCs, including Mara Venn and Nera Sol.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Its location, layout and name in the fiction are not recorded here; do not place it on a map until decided.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Plan",
+          "body": "**Planned material. Not played.** Everything on this page is preparation and may change. Keep it DM-only.\n\nA Dragon Army installation. Proposed personnel include [[mara-venn|Mara Venn]] and [[nera-sol|Nera Sol]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Type",
+          "value": "Military installation"
+        },
+        {
+          "label": "Status",
+          "value": "Planned"
+        }
+      ],
+      "questions": [
+        "Where is the facility?",
+        "Is 'Dragon Nest' its in-world name or only the operation's code name?"
+      ]
+    },
+    {
+      "ref": "dragon-nest-intelligence-briefing",
+      "slug": "dragon-nest-intelligence-briefing",
+      "type": "dossier",
+      "title": "Dragon Nest intelligence briefing",
+      "summary": "What the party may be told before the operation (planned).",
+      "group": "Upcoming material",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "The operation involves intelligence gathering; a briefing for the players is expected.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "No briefing text was available to the drafting session.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Plan",
+          "body": "**Planned material. Not played.** Everything on this page is preparation and may change. Keep it DM-only.\n\nPlaceholder for the briefing the party receives before [[operation-dragon-nest|Operation Dragon Nest]]. Write the player-safe version in its own section and publish only that section when the session begins."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Planned"
+        }
+      ],
+      "questions": [
+        "Who gives the briefing?",
+        "Which facts are true, which are wrong or incomplete?"
+      ]
+    },
+    {
+      "ref": "mara-venn",
+      "slug": "mara-venn",
+      "type": "character",
+      "title": "Mara Venn",
+      "summary": "Proposed homebrew NPC for Operation Dragon Nest.",
+      "group": "Upcoming material",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "Mara Venn is a potential homebrew NPC connected with the Dragon Nest facility.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Mara Venn's role, allegiance and secrets are not recorded here.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Plan",
+          "body": "**Planned material. Not played.** Everything on this page is preparation and may change. Keep it DM-only.\n\nMara Venn is proposed as one of the personnel at the [[dragon-nest-facility|Dragon Nest facility]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Proposed"
+        }
+      ],
+      "questions": [
+        "What is Mara Venn's role at the facility?",
+        "Friend, foe or undecided?",
+        "What does this NPC know?"
+      ]
+    },
+    {
+      "ref": "nera-sol",
+      "slug": "nera-sol",
+      "type": "character",
+      "title": "Nera Sol",
+      "summary": "Proposed homebrew NPC for Operation Dragon Nest.",
+      "group": "Upcoming material",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "Nera Sol is a potential homebrew NPC connected with the Dragon Nest facility.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Nera Sol's role, allegiance and secrets are not recorded here.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Plan",
+          "body": "**Planned material. Not played.** Everything on this page is preparation and may change. Keep it DM-only.\n\nNera Sol is proposed as one of the personnel at the [[dragon-nest-facility|Dragon Nest facility]].\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Proposed"
+        }
+      ],
+      "questions": [
+        "What is Nera Sol's role at the facility?",
+        "Friend, foe or undecided?",
+        "What does this NPC know?"
+      ]
+    },
+    {
+      "ref": "metallic-dragon-eggs",
+      "slug": "metallic-dragon-eggs",
+      "type": "item",
+      "title": "The four metallic dragon eggs",
+      "summary": "Four metallic dragon eggs tied to Operation Dragon Nest (planned).",
+      "group": "Upcoming material",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "Operation Dragon Nest involves four metallic dragon eggs.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        },
+        {
+          "level": "uncertain",
+          "text": "Which kinds of metallic dragon, where the eggs are held and what the Dragon Army intends are not recorded here.",
+          "source": "DM overnight brief, 2026-11-10 (not checked against source files)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Plan",
+          "body": "**Planned material. Not played.** Everything on this page is preparation and may change. Keep it DM-only.\n\nFour metallic dragon eggs are part of [[operation-dragon-nest|Operation Dragon Nest]]. This is a major spoiler: the title of this page alone gives it away, so do not publish or link to it from player-visible text.\n\nNothing further is recorded in the sources available when this draft was written. Fill this in from the session notes."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Count",
+          "value": "Four"
+        },
+        {
+          "label": "Status",
+          "value": "Planned"
+        }
+      ],
+      "questions": [
+        "Which metals?",
+        "Are the eggs at the facility?",
+        "What happens to them if the party fails?"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "source": "swift-claw",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Listed with the party (membership unverified)",
+      "level": "uncertain"
+    },
+    {
+      "source": "frost",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Listed with the party (membership unverified)",
+      "level": "uncertain"
+    },
+    {
+      "source": "orkus",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Listed with the party (membership unverified)",
+      "level": "uncertain"
+    },
+    {
+      "source": "pubert",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Listed with the party (membership unverified)",
+      "level": "uncertain"
+    },
+    {
+      "source": "gears",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Listed with the party (membership unverified)",
+      "level": "uncertain"
+    },
+    {
+      "source": "gears",
+      "target": "halloween-murder-mystery",
+      "kind": "appears_in",
+      "label": "Introduced in this adventure",
+      "level": "dm-reported"
+    },
+    {
+      "source": "halloween-murder-mystery",
+      "target": "the-bone-pelican",
+      "kind": "located_in",
+      "label": "Took place aboard",
+      "level": "dm-reported"
+    },
+    {
+      "source": "jennas-murder-investigation",
+      "target": "halloween-murder-mystery",
+      "kind": "part_of",
+      "label": "Central thread of the adventure",
+      "level": "dm-reported"
+    },
+    {
+      "source": "jenna",
+      "target": "jennas-murder-investigation",
+      "kind": "subject_of",
+      "label": "Victim",
+      "level": "dm-reported"
+    },
+    {
+      "source": "charlie-jennings",
+      "target": "jennas-murder-investigation",
+      "kind": "involved_in",
+      "label": "Captured at the end (reported)",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "jennas-silver-pendant",
+      "target": "jenna",
+      "kind": "related_to",
+      "label": "Reportedly holds her spirit",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "dragon-nest-facility",
+      "target": "operation-dragon-nest",
+      "kind": "part_of",
+      "label": "Target (planned)",
+      "level": "planned"
+    },
+    {
+      "source": "metallic-dragon-eggs",
+      "target": "operation-dragon-nest",
+      "kind": "part_of",
+      "label": "Stakes (planned)",
+      "level": "planned"
+    },
+    {
+      "source": "dragon-nest-intelligence-briefing",
+      "target": "operation-dragon-nest",
+      "kind": "part_of",
+      "label": "Briefing (planned)",
+      "level": "planned"
+    },
+    {
+      "source": "mara-venn",
+      "target": "dragon-nest-facility",
+      "kind": "member_of",
+      "label": "Proposed personnel",
+      "level": "planned"
+    },
+    {
+      "source": "nera-sol",
+      "target": "dragon-nest-facility",
+      "kind": "member_of",
+      "label": "Proposed personnel",
+      "level": "planned"
+    }
+  ]
+}
