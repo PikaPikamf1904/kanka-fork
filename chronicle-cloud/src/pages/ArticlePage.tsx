@@ -85,12 +85,15 @@ export function ArticlePage() {
   if ('redirect' in data) return null;
 
   const v = data;
+  const isCharacter = v.type === 'character';
+  const journalMentions = isCharacter ? v.backlinks.filter((b) => b.type === 'session') : [];
+  const otherBacklinks = isCharacter ? v.backlinks.filter((b) => b.type !== 'session') : v.backlinks;
   const from = params.get('from');
   const relationsByKind = new Map<string, ViewModel['relations']>();
   for (const r of v.relations) relationsByKind.set(r.kind, [...(relationsByKind.get(r.kind) ?? []), r]);
 
   return (
-    <article className="article">
+    <article className={isCharacter ? 'article article-character' : 'article'}>
       <div className="article-meta-top">
         <Link to={`/browse/${v.type}`} className="article-kind">{TEMPLATES[v.type].plural}</Link>
         {isDm && (
@@ -104,12 +107,24 @@ export function ArticlePage() {
       <h1 className="article-title">{v.title}</h1>
       {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
       {from && <p className="redirect-note">(Redirected from {from})</p>}
+      {isCharacter && (
+        <nav className="character-page-nav" aria-label="On this character page">
+          <span className="character-page-nav-label">On this page</span>
+          {v.summary && <a href="#character-overview">Overview</a>}
+          {v.sections.map((section, i) => (
+            <a key={section.id} href={`#${sectionAnchor(section.heading, i)}`}>{section.heading || `Section ${i + 1}`}</a>
+          ))}
+          {relationsByKind.size > 0 && <a href="#connections">Connections</a>}
+          {journalMentions.length > 0 && <a href="#character-journals">Session journals</a>}
+          {otherBacklinks.length > 0 && <a href="#what-links-here">Other mentions</a>}
+        </nav>
+      )}
 
       <div className="article-layout">
         <Infobox title={v.title} type={v.type} heroMediaId={v.heroMediaId} fields={v.infobox} showVisibility={isDm} />
         <div className="article-body">
-          {v.summary && <p className="article-lead">{v.summary}</p>}
-          <Toc headings={v.sections.map((s) => s.heading)} />
+          {v.summary && <p className="article-lead" id={isCharacter ? 'character-overview' : undefined}>{v.summary}</p>}
+          {!isCharacter && <Toc headings={v.sections.map((s) => s.heading)} />}
           {v.sections.map((s, i) => {
             const hidden = isDm && (s.visibility === 'dm' || s.status === 'draft');
             return (
@@ -149,11 +164,22 @@ export function ArticlePage() {
             </section>
           )}
 
-          {v.backlinks.length > 0 && (
+          {journalMentions.length > 0 && (
+            <section className="article-section character-journals">
+              <h2 id="character-journals">In the session journals</h2>
+              <ul>
+                {journalMentions.map((b) => (
+                  <li key={b.slug}><Link to={`/wiki/${b.slug}`}>{b.title}</Link></li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {otherBacklinks.length > 0 && (
             <section className="article-section what-links-here">
               <h2 id="what-links-here">What links here</h2>
               <ul>
-                {v.backlinks.map((b) => (
+                {otherBacklinks.map((b) => (
                   <li key={b.slug}><Link to={`/wiki/${b.slug}`}>{b.title}</Link> <span className="muted">· {TEMPLATES[b.type].label}</span></li>
                 ))}
               </ul>
