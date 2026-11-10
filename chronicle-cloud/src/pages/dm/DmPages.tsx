@@ -12,7 +12,7 @@ import {
 import { MAX_MAP_IMAGE, prepareImage } from '../../lib/image.ts';
 import { slugify } from '../../lib/slug.ts';
 import { TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
-import type { PublishStatus, TimelineEvent, Visibility, WikiMap } from '../../lib/types.ts';
+import type { ArticleType, PublishStatus, TimelineEvent, Visibility, WikiMap } from '../../lib/types.ts';
 import { useLoad } from '../../lib/useLoad.ts';
 import { NotFound } from '../NotFound.tsx';
 import { supabase } from '../../lib/supabase.ts';
@@ -20,6 +20,10 @@ import { supabase } from '../../lib/supabase.ts';
 export function DmDesk() {
   const drafts = useLoad(listDrafts, []);
   const notes = useLoad(listNotes, []);
+  const [typeFilter, setTypeFilter] = useState<ArticleType | 'all'>('all');
+  const hidden = drafts.data ?? [];
+  const typesPresent = TYPE_ORDER.filter((t) => hidden.some((a) => a.type === t));
+  const shown = typeFilter === 'all' ? hidden : hidden.filter((a) => a.type === typeFilter);
   return (
     <div>
       <h1 className="page-title">DM desk</h1>
@@ -35,7 +39,25 @@ export function DmDesk() {
         <h2>Drafts and DM-only pages</h2>
         <p className="fine-print">Players cannot see anything in this list.</p>
         {drafts.data?.length === 0 && <p className="muted">Everything is published.</p>}
-        <div className="card-grid">{drafts.data?.map((a) => <ArticleCard key={a.id} article={a} showState />)}</div>
+        {hidden.length > 0 && (
+          <>
+            <p className="muted" data-testid="review-count">
+              {hidden.length} {hidden.length === 1 ? 'page' : 'pages'} to review
+              {typeFilter !== 'all' && <> · showing {shown.length} {TEMPLATES[typeFilter].label.toLowerCase()}</>}
+            </p>
+            {typesPresent.length > 1 && (
+              <div className="chip-cloud" role="group" aria-label="Filter by type">
+                <button type="button" className={typeFilter === 'all' ? 'chip chip-on' : 'chip'} aria-pressed={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>All ({hidden.length})</button>
+                {typesPresent.map((t) => (
+                  <button key={t} type="button" className={typeFilter === t ? 'chip chip-on' : 'chip'} aria-pressed={typeFilter === t} onClick={() => setTypeFilter(t)}>
+                    <span aria-hidden="true">{TEMPLATES[t].glyph} </span>{TEMPLATES[t].label} ({hidden.filter((a) => a.type === t).length})
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState />)}</div>
       </section>
       <section className="panel">
         <h2>Recent private notes</h2>
