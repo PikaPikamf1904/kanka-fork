@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "types": ["node", "@cloudflare/workers-types"]
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "functions", "tests", "importer"]
+  "include": ["vite.config.ts", "playwright.config.ts", "functions", "tests", "importer", "mcp"]
 }

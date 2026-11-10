@@ -19,6 +19,8 @@ export interface Article {
   session_date: string | null;
   updated_at: string;
   published_at: string | null;
+  /** Goes up by one on every change to the article or its parts. */
+  version: number;
 }
 
 export interface Section {

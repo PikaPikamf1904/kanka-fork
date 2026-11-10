@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
-import { categoryCounts, getCategory, listArticles, listRelations, search, timeline } from '../lib/api.ts';
+import { categoryCounts, getCategory, listArticles, listCharacterFacts, listRelations, search, timeline } from '../lib/api.ts';
 import { useIsDm } from '../lib/session.tsx';
 import { relationLabel, TEMPLATES, TYPE_ORDER } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
@@ -16,9 +16,28 @@ export function BrowsePage() {
   const valid = (TYPE_ORDER as string[]).includes(type);
   const list = useLoad(() => (valid ? listArticles({ type: type as ArticleType, order: type === 'session' ? 'session' : 'title', limit: 500 }) : Promise.resolve([])), [type, isDm]);
   const [filter, setFilter] = useState('');
+  const characterIds = type === 'character' ? (list.data ?? []).map((a) => a.id) : [];
+  const facts = useLoad(() => listCharacterFacts(characterIds), [characterIds.join(',')]);
+  const [characterCategory, setCharacterCategory] = useState<'all' | 'party' | 'others'>('all');
   if (!valid) return <NotFound />;
   const t = TEMPLATES[type as ArticleType];
-  const shown = (list.data ?? []).filter((a) => a.title.toLowerCase().includes(filter.toLowerCase()));
+  const isCharacter = type === 'character';
+  const matching = (list.data ?? []).filter((a) => a.title.toLowerCase().includes(filter.toLowerCase()));
+  const shown = isCharacter
+    ? matching.filter((a) => characterCategory === 'all' || (characterCategory === 'party' ? a.is_party_member : !a.is_party_member))
+    : matching;
+  const firstLetter = (name: string) => {
+    const first = name.trim().charAt(0).toUpperCase();
+    return /^[A-Z]$/.test(first) ? first : '#';
+  };
+  // Letter headings only earn their space in a long list; a short one is a single grid.
+  const byLetter = shown.length >= 12;
+  const characterGroups = isCharacter
+    ? (byLetter ? [...new Set(shown.map((a) => firstLetter(a.title)))].sort() : ['all']).map((letter) => ({
+        letter,
+        entries: byLetter ? shown.filter((a) => firstLetter(a.title) === letter) : shown,
+      }))
+    : [];
   return (
     <div>
       <h1 className="page-title"><span aria-hidden="true">{t.glyph} </span>{t.plural}</h1>
@@ -30,8 +49,49 @@ export function BrowsePage() {
         {isDm && <Link className="button" to={`/dm/new?type=${type}`}>New {t.label.toLowerCase()}</Link>}
       </div>
       {list.error && <p className="form-error">{list.error}</p>}
-      {list.data && shown.length === 0 && <p className="muted">Nothing here yet.</p>}
-      <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} />)}</div>
+      {list.data && shown.length === 0 && <p className="muted">{(list.data.length > 0) ? `No ${t.plural.toLowerCase()} match those filters.` : 'Nothing here yet.'}</p>}
+      {isCharacter ? (
+        <div className="character-directory">
+          <div className="character-directory-toolbar">
+            <div className="character-directory-filters" role="group" aria-label="Character groups">
+              {([
+                ['all', 'All characters'],
+                ['party', 'Party members'],
+                ['others', 'Other characters'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={characterCategory === value ? 'character-filter active' : 'character-filter'}
+                  aria-pressed={characterCategory === value}
+                  onClick={() => setCharacterCategory(value)}
+                >{label}</button>
+              ))}
+            </div>
+            <p className="character-directory-count" aria-live="polite">{shown.length} {shown.length === 1 ? 'character' : 'characters'}</p>
+          </div>
+          {characterGroups.length > 1 && (
+            <nav className="character-alphabet" aria-label="Browse characters by first letter">
+              {characterGroups.map(({ letter }) => (
+                <a key={letter} href={`#character-letter-${letter === '#' ? 'other' : letter.toLowerCase()}`}>{letter}</a>
+              ))}
+            </nav>
+          )}
+          {characterGroups.map(({ letter, entries }) => (
+            <section className="character-letter-section" key={letter} aria-label={byLetter ? `Characters beginning with ${letter}` : 'Characters'}>
+              {byLetter && <h2 id={`character-letter-${letter === '#' ? 'other' : letter.toLowerCase()}`}>{letter}</h2>}
+              <div className="character-grid">
+                {entries.map((a) => {
+                  const f = facts.data?.get(a.id);
+                  return <ArticleCard key={a.id} article={a} showState={isDm} portrait meta={[f?.race, f?.class].filter(Boolean).join(' · ')} badge={a.is_party_member ? 'Party' : undefined} />;
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} />)}</div>
+      )}
     </div>
   );
 }

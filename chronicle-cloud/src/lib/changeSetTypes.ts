@@ -57,3 +57,24 @@ export const ERROR_CODES = [
   'ALREADY_EXISTS', 'PREVIEW_EXPIRED', 'IDEMPOTENCY_MISMATCH', 'RATE_LIMITED', 'DEPENDENCY_UNAVAILABLE', 'INTERNAL_ERROR',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export class ChronicleError extends Error {
+  constructor(readonly code: ErrorCode, message: string, readonly detail: Record<string, unknown> = {}) {
+    super(message);
+    this.name = 'ChronicleError';
+  }
+}
+
+/** Turn a PostgREST error from the engine into a ChronicleError. Never exposes SQL text. */
+export function toChronicleError(error: { message?: string; details?: string | null; code?: string } | null | undefined): ChronicleError {
+  const code = (ERROR_CODES as readonly string[]).includes(error?.message ?? '') ? (error!.message as ErrorCode) : null;
+  let detail: Record<string, unknown>;
+  try {
+    detail = error?.details ? (JSON.parse(error.details) as Record<string, unknown>) : {};
+  } catch {
+    detail = {};
+  }
+  if (code) return new ChronicleError(code, typeof detail.message === 'string' ? detail.message : code, detail);
+  if (error?.code === '42501') return new ChronicleError('FORBIDDEN', 'Not allowed.');
+  return new ChronicleError('INTERNAL_ERROR', 'Chronicle could not complete the request.');
+}

@@ -606,7 +606,7 @@ begin
         if not found then
           perform private.fail('VALIDATION_FAILED', format('Change %s: that section is not part of "%s".', v_i, v_slug));
         end if;
-        if v_mcp and v_sec.visibility = 'players' and v_sec.status = 'published' then
+        if v_mcp and v_sec.visibility = 'players' and v_sec.status = 'published' and exists (select 1 from public.articles x where x.id = v_id and x.visibility = 'players' and x.status = 'published') then
           perform private.fail('VALIDATION_FAILED', format('Change %s: that section is visible to players; edit it on the website.', v_i));
         end if;
         if v_sec.heading is distinct from coalesce(v_op ->> 'heading', v_sec.heading) then
@@ -661,7 +661,7 @@ begin
         if not found then
           perform private.fail('VALIDATION_FAILED', format('Change %s: that field is not part of "%s".', v_i, v_slug));
         end if;
-        if v_mcp and v_fld.visibility = 'players' and v_art.visibility = 'players' and v_art.status = 'published' then
+        if v_mcp and v_fld.visibility = 'players' and exists (select 1 from public.articles x where x.id = v_id and x.visibility = 'players' and x.status = 'published') then
           perform private.fail('VALIDATION_FAILED', format('Change %s: that field is visible to players; edit it on the website.', v_i));
         end if;
         v_diffs := v_diffs || jsonb_build_object('target', v_slug, 'field_id', v_fld.id, 'field', v_fld.label,

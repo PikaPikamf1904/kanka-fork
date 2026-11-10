@@ -21,16 +21,16 @@ export function Infobox({ title, type, heroMediaId, fields, showVisibility }: In
         {heroMediaId ? <MediaImage id={heroMediaId} alt={title} /> : <Crest type={type} title={title} size={110} />}
       </div>
       <div className="infobox-kind">{TEMPLATES[type].label}</div>
-      {fields.length > 0 && (
+      {fields.some((f) => f.value.trim()) && (
         <dl>
-          {fields.map((f, i) => (
+          {fields.filter((f) => f.value.trim()).map((f, i) => (
             <div key={`${f.label}-${i}`} className={f.visibility === 'dm' ? 'infobox-row dm-only' : 'infobox-row'}>
               <dt>
                 {f.label}
                 {showVisibility && f.visibility === 'dm' && <VisibilityBadge visibility="dm" />}
               </dt>
               <dd>
-                <Markdown text={f.value || '—'} />
+                <Markdown text={f.value} />
               </dd>
             </div>
           ))}

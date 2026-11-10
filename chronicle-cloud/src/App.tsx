@@ -16,6 +16,8 @@ const ArticleEditor = lazy(() => import('./pages/dm/ArticleEditor.tsx').then((m)
 const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'TimelineEditor' | 'MapEditor') =>
   lazy(() => import('./pages/dm/DmPages.tsx').then((m) => ({ default: m[name] })));
 const DmDesk = dm('DmDesk');
+const ChangeReviewPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.ChangeReviewPage })));
+const OAuthConsentPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.OAuthConsentPage })));
 const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
 const NotesPage = dm('NotesPage');
 const AccessAdmin = dm('AccessAdmin');
@@ -70,6 +72,8 @@ const router = createBrowserRouter([
           { index: true, element: page(<DmDesk />) },
           { path: 'new', element: page(<ArticleEditor />) },
           { path: 'import', element: page(<BulkLoreImport />) },
+          { path: 'review/:previewId', element: page(<ChangeReviewPage />) },
+          { path: 'connect', element: page(<OAuthConsentPage />) },
           { path: 'edit/:slug', element: page(<ArticleEditor />) },
           { path: 'notes', element: page(<NotesPage />) },
           { path: 'access', element: page(<AccessAdmin />) },
