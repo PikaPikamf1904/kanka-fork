@@ -118,6 +118,7 @@ export function Layout() {
               <div className="nav-heading">Dungeon Master</div>
               <NavLink to="/dm" end>DM desk</NavLink>
               <NavLink to="/dm/new">New article</NavLink>
+              <NavLink to="/dm/import">Import lore</NavLink>
               <NavLink to="/browse/dossier">Dossiers</NavLink>
               <NavLink to="/dm/notes">Private notes</NavLink>
               <NavLink to="/dm/access">Player access</NavLink>
