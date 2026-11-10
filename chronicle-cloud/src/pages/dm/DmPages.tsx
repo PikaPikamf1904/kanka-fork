@@ -25,6 +25,7 @@ export function DmDesk() {
       <h1 className="page-title">DM desk</h1>
       <section className="panel">
         <h2>Create</h2>
+        <p><Link className="button secondary small" to="/dm/import">Import a lore package</Link></p>
         <div className="chip-cloud">
           {TYPE_ORDER.map((t) => (
             <Link key={t} className="chip" to={`/dm/new?type=${t}`}><span aria-hidden="true">{TEMPLATES[t].glyph} </span>New {TEMPLATES[t].label.toLowerCase()}</Link>

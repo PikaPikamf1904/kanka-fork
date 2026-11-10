@@ -16,6 +16,7 @@ const ArticleEditor = lazy(() => import('./pages/dm/ArticleEditor.tsx').then((m)
 const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'TimelineEditor' | 'MapEditor') =>
   lazy(() => import('./pages/dm/DmPages.tsx').then((m) => ({ default: m[name] })));
 const DmDesk = dm('DmDesk');
+const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
 const NotesPage = dm('NotesPage');
 const AccessAdmin = dm('AccessAdmin');
 const SettingsPage = dm('SettingsPage');
@@ -68,6 +69,7 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: page(<DmDesk />) },
           { path: 'new', element: page(<ArticleEditor />) },
+          { path: 'import', element: page(<BulkLoreImport />) },
           { path: 'edit/:slug', element: page(<ArticleEditor />) },
           { path: 'notes', element: page(<NotesPage />) },
           { path: 'access', element: page(<AccessAdmin />) },
