@@ -154,4 +154,3 @@ describe('packageToChangeSet', () => {
     expect(parsePackage({ articles: [article({ sections: big })] }).errors[0]!.message).toContain('limit per page');
   });
 });
-
