@@ -67,6 +67,22 @@ Legend: ✔ allowed and tested, ✘ refused and tested.
 - Restoring a revision always gives a draft. Enrollment attempts are serialised; at most 20
   successful enrollments per address per hour and 200 per day for the whole wiki.
 
+## Policy performance (migration `…0800_rls_performance`)
+
+The policies were rewritten for speed, not meaning: role checks run once per statement and the
+parent-page checks are inline. Checked three ways on the local stack: the whole database suite,
+the live check below (all 47 values unchanged), and a direct comparison on 4,000 synthetic
+articles (a player saw exactly the rows a plain "players and published, with a visible parent"
+query returns; an outsider saw none). Median of five runs, milliseconds:
+
+| Query (4,000 articles, 16,000 sections) | Player before | Player after | DM before | DM after |
+|---|---|---|---|---|
+| Count all sections | 2044 | 61 | 267 | 36 |
+| List 500 articles by title | 109 | 4 | 63 | 3 |
+| Count all infobox fields | 2301 | 33 | 175 | 28 |
+| Search "dragon harbour" | 3175 | 140 | 3390 | 183 |
+| One article's sections | 3.2 | 2.3 | 2.6 | 1.7 |
+
 ## Files
 
 `tests/db/privacy.test.ts`, `audit.test.ts`, `media-sync.test.ts`, `functions.test.ts`, `enroll-integration.test.ts`,

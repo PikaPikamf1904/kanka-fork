@@ -2,8 +2,9 @@
 
 **Status (2026-11-09):** the free project `chronicle-wiki` (ref `cqrgdtnvmgnimzxyaiih`,
 us-east-1, org "Dnd" on the Free plan) has migrations 1–5 applied (`functions` was run in the
-SQL Editor and recorded in the migration history). **Migrations 6 and 7 (`…0600_audit_fixes`, `…0700_media_sync_lock`) are
-tested locally only and are NOT applied to the hosted project yet**; apply both and re-run the live check
+SQL Editor and recorded in the migration history). **Migrations 6, 7 and 8 (`…0600_audit_fixes`, `…0700_media_sync_lock`,
+`…0800_rls_performance`) are tested locally only and are NOT applied to the hosted project yet**;
+apply all three in order and re-run the live check
 before any deployment. Steps 1.3 onwards and section 2 still need the
 owner's dashboards. Everything is on free plans; do
 not add a payment method. Use synthetic content until you are ready to import real data.
@@ -14,7 +15,8 @@ not add a payment method. Use synthetic content until you are ready to import re
    your password manager.
 2. **SQL Editor:** run the files in `chronicle-cloud/supabase/migrations/` in order
    (`…0100_core_schema`, `…0200_functions`, `…0300_storage`, `…0400_import_refs`,
-   `…0500_hardening`, `…0600_audit_fixes`, `…0700_media_sync_lock`). This is the
+   `…0500_hardening`, `…0600_audit_fixes`, `…0700_media_sync_lock`,
+   `…0800_rls_performance`). This is the
    tested route. (The Supabase CLI's `supabase db push` also works from `chronicle-cloud/`, but
    needs `supabase init` and `supabase link --project-ref <ref>` first; not tested here.)
 3. **Authentication → Sign In / Providers:**
