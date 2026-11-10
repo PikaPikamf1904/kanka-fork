@@ -163,7 +163,14 @@ export async function listRelations(): Promise<(Relation & { source: ArticleRef;
 // ---------------------------------------------------------------------------------------------
 // Media: private bucket, short-lived signed URLs, cached per page load.
 // ---------------------------------------------------------------------------------------------
+// Signed URLs cannot be revoked, so keep them short: a file hidden after a player loaded it stays
+// reachable through that URL for at most SIGNED_URL_SECONDS. Cleared on every sign-in/out.
+const SIGNED_URL_SECONDS = 600;
 const signedCache = new Map<string, { url: string; expires: number }>();
+
+export function clearMediaUrlCache() {
+  signedCache.clear();
+}
 
 export async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
@@ -180,11 +187,11 @@ export async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
     return true;
   });
   if (missing.length > 0) {
-    const signed = must(await supabase.storage.from(MEDIA_BUCKET).createSignedUrls(missing.map((r) => r.path), 3600));
+    const signed = must(await supabase.storage.from(MEDIA_BUCKET).createSignedUrls(missing.map((r) => r.path), SIGNED_URL_SECONDS));
     for (const row of missing) {
       const s = signed.find((x) => x.path === row.path);
       if (s?.signedUrl) {
-        signedCache.set(row.path, { url: s.signedUrl, expires: now + 3600_000 });
+        signedCache.set(row.path, { url: s.signedUrl, expires: now + SIGNED_URL_SECONDS * 1000 });
         out.set(row.id, s.signedUrl);
       }
     }
@@ -195,9 +202,9 @@ export async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
 export async function mediaUrlForPath(path: string): Promise<string | null> {
   const hit = signedCache.get(path);
   if (hit && hit.expires > Date.now() + 60_000) return hit.url;
-  const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, 3600);
+  const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, SIGNED_URL_SECONDS);
   if (error || !data) return null;
-  signedCache.set(path, { url: data.signedUrl, expires: Date.now() + 3600_000 });
+  signedCache.set(path, { url: data.signedUrl, expires: Date.now() + SIGNED_URL_SECONDS * 1000 });
   return data.signedUrl;
 }
 
@@ -206,21 +213,19 @@ export async function listMedia(): Promise<Media[]> {
 }
 
 /** DM only. Upload an already-resized image and register it (private by default). */
-export async function uploadMedia(blob: Blob, info: { alt: string; width: number; height: number; visibility?: 'players' | 'dm' }): Promise<Media> {
+/** Uploads start DM-only (enforced by policy); the page that shows the image decides who sees it. */
+export async function uploadMedia(blob: Blob, info: { alt: string; width: number; height: number }): Promise<Media> {
   const path = `media/${crypto.randomUUID()}.webp`;
   must(await supabase.storage.from(MEDIA_BUCKET).upload(path, blob, { contentType: 'image/webp', upsert: false }));
   return must(
     await supabase
       .from('media')
-      .insert({ path, alt: info.alt, width: info.width, height: info.height, bytes: blob.size, content_type: 'image/webp', visibility: info.visibility ?? 'dm' })
+      .insert({ path, alt: info.alt, width: info.width, height: info.height, bytes: blob.size, content_type: 'image/webp' })
       .select('id, path, alt, width, height, visibility')
       .single(),
   );
 }
 
-export async function setMediaVisibility(id: string, visibility: 'players' | 'dm') {
-  must(await supabase.from('media').update({ visibility }).eq('id', id).select('id'));
-}
 
 // ---------------------------------------------------------------------------------------------
 // DM writes. RLS refuses all of these for players; the UI only offers them to the DM.

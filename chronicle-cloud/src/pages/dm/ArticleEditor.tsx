@@ -164,10 +164,10 @@ export function ArticleEditor() {
     setError(null);
     try {
       const prepared = await prepareImage(file);
-      const visibility = draft.article.visibility === 'players' ? 'players' : 'dm';
-      const media = await uploadMedia(prepared.blob, { alt: draft.article.title, width: prepared.width, height: prepared.height, visibility });
+      // Uploaded DM-only. The database shows it to players only while this article is published to them.
+      const media = await uploadMedia(prepared.blob, { alt: draft.article.title, width: prepared.width, height: prepared.height });
       update({ hero_media_id: media.id });
-      setMessage(`Image uploaded (${Math.round(prepared.blob.size / 1024)} KB, visible to ${visibility === 'players' ? 'players' : 'the DM only'}).`);
+      setMessage(`Image uploaded (${Math.round(prepared.blob.size / 1024)} KB). Players see it only while this article is published to them.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed.');
     }
@@ -357,10 +357,15 @@ export function ArticleEditor() {
                     type="button"
                     className="link-button"
                     onClick={async () => {
-                      if (window.confirm('Restore this version? The current version is kept in history first.')) {
-                        await restoreRevision(r.id);
-                        existing.reload();
-                        setMessage('Restored.');
+                      if (window.confirm('Restore this version? It comes back as a draft that players cannot see until you publish it. The current version is kept in history first.')) {
+                        setError(null);
+                        try {
+                          await restoreRevision(r.id);
+                          existing.reload();
+                          setMessage('Restored as a draft. Review it, then publish.');
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : 'Could not restore this version.');
+                        }
                       }
                     }}
                   >

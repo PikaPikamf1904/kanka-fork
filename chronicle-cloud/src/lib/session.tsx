@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { clearMediaUrlCache } from './api.ts';
 import { supabase } from './supabase.ts';
 
 export type AccessState =
@@ -65,6 +66,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void refresh();
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'MFA_CHALLENGE_VERIFIED' || event === 'USER_UPDATED') {
+        // Signed media URLs belong to the previous identity; never reuse them.
+        clearMediaUrlCache();
         // Defer: calling Supabase inside the callback can deadlock the auth lock.
         setTimeout(() => void refresh(), 0);
       }

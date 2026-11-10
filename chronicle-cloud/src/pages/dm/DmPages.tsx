@@ -7,7 +7,7 @@ import { MediaImage } from '../../components/MediaImage.tsx';
 import {
   createAccessCode, deleteNote, deleteTimelineEvent, getMap, getSettings, listAccessCodes, listAllArticleRefs, listDrafts,
   listMaps, listMembers, listNotes, renameMember, revokeAccessCode, revokeAllPlayers, revokeMember, saveMap, saveNote,
-  saveTimelineEvent, setMediaVisibility, timeline, updateSettings, uploadMedia,
+  saveTimelineEvent, timeline, updateSettings, uploadMedia,
 } from '../../lib/api.ts';
 import { MAX_MAP_IMAGE, prepareImage } from '../../lib/image.ts';
 import { slugify } from '../../lib/slug.ts';
@@ -294,7 +294,7 @@ export function SettingsPage() {
               const file = e.target.files?.[0];
               if (!file) return;
               const p = await prepareImage(file, 2400);
-              const media = await uploadMedia(p.blob, { alt: 'Banner', width: p.width, height: p.height, visibility: 'players' });
+              const media = await uploadMedia(p.blob, { alt: 'Banner', width: p.width, height: p.height });
               setForm({ ...form, banner_media_id: media.id });
             }}
           />
@@ -394,7 +394,6 @@ export function MapEditor() {
         setError(null);
         try {
           const saved = await saveMap({ ...form, slug: form.slug || slugify(form.title) });
-          if (saved.media_id) await setMediaVisibility(saved.media_id, saved.visibility === 'players' && saved.status === 'published' ? 'players' : 'dm');
           navigate(`/maps/${saved.slug}`);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Could not save the map.');
@@ -441,7 +440,7 @@ export function MapEditor() {
               if (!file) return;
               try {
                 const p = await prepareImage(file, MAX_MAP_IMAGE, 0.85);
-                const media = await uploadMedia(p.blob, { alt: form.title, width: p.width, height: p.height, visibility: 'dm' });
+                const media = await uploadMedia(p.blob, { alt: form.title, width: p.width, height: p.height });
                 setForm({ ...form, media_id: media.id, width: p.width, height: p.height });
               } catch (err) {
                 setError(err instanceof Error ? err.message : 'Upload failed.');

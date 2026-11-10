@@ -1,4 +1,4 @@
-import { handleEnroll, supabaseDeps, type EnrollEnv } from '../_lib/enroll.ts';
+import { handleEnroll, readJsonBody, supabaseDeps, type EnrollEnv } from '../_lib/enroll.ts';
 
 const headers = {
   'content-type': 'application/json; charset=utf-8',
@@ -13,14 +13,7 @@ export const onRequest: PagesFunction<EnrollEnv> = async ({ request, env }) => {
       return new Response(JSON.stringify({ error: 'Enrollment is not configured.' }), { status: 503, headers });
     }
   }
-  let body: unknown = null;
-  if (request.method === 'POST') {
-    try {
-      body = await request.json();
-    } catch {
-      body = null;
-    }
-  }
+  const body = request.method === 'POST' ? await readJsonBody(request) : null;
   try {
     const result = await handleEnroll(
       {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { handleEnroll, supabaseDeps, type EnrollDeps, type EnrollEnv, type EnrollRequest } from './enroll.ts';
+import { MAX_BODY_BYTES, handleEnroll, readJsonBody, supabaseDeps, type EnrollDeps, type EnrollEnv, type EnrollRequest } from './enroll.ts';
 
 const env: EnrollEnv = {
   SUPABASE_URL: 'https://project.supabase.example',
@@ -155,5 +155,21 @@ describe('supabaseDeps', () => {
   it('throws on a failed upstream call', async () => {
     const fetchImpl = (async () => new Response('no', { status: 500 })) as unknown as typeof fetch;
     await expect(supabaseDeps(env, fetchImpl).beginEnrollment('c', 'h')).rejects.toThrow('begin_enrollment failed with 500');
+  });
+});
+
+describe('readJsonBody', () => {
+  const post = (body: string, headers: Record<string, string> = {}) =>
+    new Request('https://wiki.example/api/enroll', { method: 'POST', body, headers: { 'content-type': 'application/json', ...headers } });
+
+  it('parses a normal body', async () => {
+    expect(await readJsonBody(post(JSON.stringify({ code: 'a', displayName: 'b' })))).toEqual({ code: 'a', displayName: 'b' });
+  });
+
+  it('refuses oversized, falsely declared and malformed bodies', async () => {
+    const big = JSON.stringify({ code: 'x'.repeat(MAX_BODY_BYTES), displayName: 'b' });
+    expect(await readJsonBody(post(big))).toBeNull();
+    expect(await readJsonBody(post('{}', { 'content-length': String(MAX_BODY_BYTES + 1) }))).toBeNull();
+    expect(await readJsonBody(post('{not json'))).toBeNull();
   });
 });

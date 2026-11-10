@@ -61,6 +61,30 @@ const MESSAGES = {
 
 const fail = (status: number, message: string): EnrollResponse => ({ status, body: { error: message } });
 
+/** Largest enrollment request body accepted (a code, a name and an optional Turnstile token). */
+export const MAX_BODY_BYTES = 4096;
+
+/**
+ * Read a JSON body without trusting its size: refuse anything over MAX_BODY_BYTES before parsing.
+ * Returns null for a missing, oversized or malformed body; handleEnroll then answers 400.
+ */
+export async function readJsonBody(request: Request): Promise<unknown> {
+  const declared = Number(request.headers.get('content-length') ?? '0');
+  if (!Number.isFinite(declared) || declared > MAX_BODY_BYTES) return null;
+  let text: string;
+  try {
+    text = await request.text();
+  } catch {
+    return null;
+  }
+  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 export async function handleEnroll(req: EnrollRequest, env: EnrollEnv, deps: EnrollDeps): Promise<EnrollResponse> {
   if (req.method !== 'POST') return fail(405, MESSAGES.bad);
 
