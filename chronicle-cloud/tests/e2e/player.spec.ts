@@ -49,11 +49,12 @@ test.describe('player', () => {
     const infobox = page.getByRole('complementary', { name: /at a glance/ });
     await expect(infobox).toContainText('Harbourmaster');
     await expect(infobox).not.toContainText('True identity');
-    await expect(page.getByRole('navigation', { name: 'Contents' })).toBeVisible();
+    // Character pages show their own section bar in place of the contents box.
+    await expect(page.getByRole('navigation', { name: 'On this character page' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Secrets' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Next session' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Connections' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'What links here' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'In the session journals' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Edit' })).toHaveCount(0);
     await screenshot(page, '03-article-player');
 

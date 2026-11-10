@@ -20,13 +20,16 @@ export interface Template {
 export const TEMPLATES: Record<ArticleType, Template> = {
   character: {
     type: 'character', label: 'Character', plural: 'Characters', glyph: '♞',
+    // Empty fields are not shown to readers, so a long list here costs nothing on the page.
     infobox: [
-      { label: 'Race' }, { label: 'Affiliation' }, { label: 'Occupation' }, { label: 'Status' },
-      { label: 'Location' }, { label: 'True identity', visibility: 'dm' }, { label: 'Hidden motivation', visibility: 'dm' },
+      { label: 'Race' }, { label: 'Class' }, { label: 'Level' }, { label: 'Status' }, { label: 'Pronouns' },
+      { label: 'Occupation' }, { label: 'Affiliation' }, { label: 'Home' }, { label: 'Location' },
+      { label: 'First appearance' }, { label: 'Portrait credit' },
+      { label: 'True identity', visibility: 'dm' }, { label: 'Hidden motivation', visibility: 'dm' },
     ],
     sections: [
-      { heading: 'Appearance' }, { heading: 'Personality' }, { heading: 'Known history' },
-      { heading: 'Notable appearances' }, { heading: 'Secrets', visibility: 'dm' },
+      { heading: 'Appearance' }, { heading: 'Personality' }, { heading: 'History' }, { heading: 'Goals' },
+      { heading: 'Abilities' }, { heading: 'Equipment' }, { heading: 'Trivia' }, { heading: 'Secrets', visibility: 'dm' },
     ],
     defaultVisibility: 'players',
   },

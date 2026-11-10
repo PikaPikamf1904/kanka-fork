@@ -132,3 +132,23 @@ insert into public.timeline_events (title, date_label, sort_key, body, article_i
 insert into public.dm_notes (article_id, title, body) values
   ('a1000000-0000-4000-8000-00000000000b', 'Pacing', 'Give the party two sessions of reconnaissance before the break-in.'),
   (null, 'Campaign arc', 'The Broker is the long-term villain. Reveal them no earlier than session 8.');
+
+-- More synthetic characters, so the character directory has something to show. All invented.
+insert into public.articles (id, slug, type, title, subtitle, summary, visibility, status, is_party_member, importance) values
+  ('a1000000-0000-4000-8000-0000000000c1', 'aella-test-smith', 'character', 'Aella Test-Smith', 'Inventor', 'A cautious inventor whose machines keep a town running.', 'players', 'published', false, 20),
+  ('a1000000-0000-4000-8000-0000000000c2', 'brann-oakhollow', 'character', 'Brann Oakhollow', 'Ferryman', 'Knows every sandbar on the river and charges by the question.', 'players', 'published', false, 10),
+  ('a1000000-0000-4000-8000-0000000000c3', 'sister-ilse-marrow', 'character', 'Sister Ilse Marrow', 'Healer of the harbour chapel', 'Patches up sailors and remembers everything they say under the needle.', 'players', 'published', false, 15),
+  ('a1000000-0000-4000-8000-0000000000c4', 'tobin-quickwater', 'character', 'Tobin Quickwater', 'Sample player character', 'A halfling scout who counts exits before he counts coins.', 'players', 'published', true, 40);
+insert into public.infobox_fields (article_id, position, label, value, visibility) values
+  ('a1000000-0000-4000-8000-0000000000c1', 1, 'Race', 'Gnome', 'players'),
+  ('a1000000-0000-4000-8000-0000000000c1', 2, 'Occupation', 'Inventor', 'players'),
+  ('a1000000-0000-4000-8000-0000000000c1', 3, 'Status', '', 'players'),
+  ('a1000000-0000-4000-8000-0000000000c2', 1, 'Race', 'Human', 'players'),
+  ('a1000000-0000-4000-8000-0000000000c3', 1, 'Race', 'Half-orc', 'players'),
+  ('a1000000-0000-4000-8000-0000000000c3', 2, 'Class', 'Cleric', 'players'),
+  ('a1000000-0000-4000-8000-0000000000c4', 1, 'Race', 'Halfling', 'players'),
+  ('a1000000-0000-4000-8000-0000000000c4', 2, 'Class', 'Rogue', 'players');
+insert into public.article_sections (article_id, position, heading, body, visibility, status) values
+  ('a1000000-0000-4000-8000-0000000000c1', 1, 'Appearance', 'Small brass-rimmed goggles and an oversized tool satchel.', 'players', 'published'),
+  ('a1000000-0000-4000-8000-0000000000c1', 2, 'Personality', 'Talks quickly, but listens carefully when a machine fails.', 'players', 'published'),
+  ('a1000000-0000-4000-8000-0000000000c1', 3, 'History', '', 'players', 'published');

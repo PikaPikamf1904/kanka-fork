@@ -61,6 +61,21 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
   );
 }
 
+/** Race, class and status of the given characters, as far as the reader may see them (one request). */
+export async function listCharacterFacts(ids: string[]): Promise<Map<string, { race?: string; class?: string; status?: string }>> {
+  const out = new Map<string, { race?: string; class?: string; status?: string }>();
+  for (let i = 0; i < ids.length; i += 150) {
+    const rows = must(await supabase.from('infobox_fields').select('article_id, label, value').in('article_id', ids.slice(i, i + 150)).in('label', ['Race', 'Class', 'Status'])) as { article_id: string; label: string; value: string }[];
+    for (const r of rows) {
+      if (!r.value.trim()) continue;
+      const entry = out.get(r.article_id) ?? {};
+      entry[r.label.toLowerCase() as 'race' | 'class' | 'status'] = r.value.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1');
+      out.set(r.article_id, entry);
+    }
+  }
+  return out;
+}
+
 export async function resolveSlug(slug: string): Promise<{ slug: string; redirected_from: string | null } | null> {
   const rows = must(await supabase.rpc('resolve_slug', { p_slug: slug }));
   return (rows as { slug: string; redirected_from: string | null }[])[0] ?? null;

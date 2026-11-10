@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ChronicleError, toChronicleError } from './changeSets.ts';
+import { ChronicleError, toChronicleError } from './changeSetTypes.ts';
 
 describe('toChronicleError', () => {
   it('maps engine errors to their stable code and message', () => {

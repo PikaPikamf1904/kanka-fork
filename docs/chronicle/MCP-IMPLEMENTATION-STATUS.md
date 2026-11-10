@@ -51,11 +51,40 @@ Remaining legacy risk: the article **editor** still saves through the old multi-
 
 The migration header lists the statements that remove everything it adds. Content is untouched.
 
+## Phase B addition: atomic editor save (local_verified)
+
+Migration `…1000_atomic_save_and_mcp.sql`: `save_article` performs the editor's whole save in one
+transaction with a version check. The editor uses it, so the old multi-request save path and its
+partial-write risk are gone. A second tab with a stale copy gets a conflict message and nothing is
+written.
+
+## Phase C: MCP server (local_verified, not deployed, no real client yet)
+
+`chronicle-cloud/mcp/` (see `CONNECT-CHRONICLE-MCP.md`). 14 tools. Tokens from the project's
+Supabase Auth OAuth server; caller's own token for all database calls; fresh identity check per
+call. Website pages: `/dm/review/:id` (approve a proposal) and `/dm/connect` (OAuth consent).
+
+## Phase D: character encyclopedia (local_verified)
+
+PR #20 merged in. Added: portrait cards with race and class, party badge, letter headings only for
+long lists, fuller character template, no empty infobox rows or empty section headings, dates
+written out. Screenshots from the running app with synthetic characters:
+`docs/chronicle/screenshots-characters/`.
+
+## Acceptance matrix coverage
+
+| Section | Covered by | Not covered |
+|---|---|---|
+| 1 Protocol | `tests/db/mcp.test.ts` (401 challenge, metadata, tool list, calls) | Real OAuth flow, real clients |
+| 2 AUTH-01..10, 12, 13, 15, 16, 17 | `mcp.test.ts`, `mcp/src/auth.test.ts`, `characters.spec.ts` | AUTH-11 (grant revocation: needs hosted OAuth), AUTH-14 (covered for storage by `media-sync.test.ts`, not through MCP), AUTH-18 |
+| 3 DATA-01..19 | `change-sets.test.ts`, `save-article.test.ts`, `mcp.test.ts` | DATA-20 (transcript import: not built) |
+| 4 Browser | `characters.spec.ts`, `import.spec.ts`, existing suite | Image crop/credit workflow, screen-reader audit |
+| 5 Import | `import.spec.ts`, `lorePackage.test.ts` | Transcript candidate extraction (not built) |
+| 6 Rollout | Docs only | Everything live |
+
 ## Not started
 
-- Phase C: remote MCP Worker and OAuth. Design decision recorded: MCP clients should receive tokens
-  issued by Supabase Auth's own OAuth 2.1 server, so identity, RLS and the DM/MFA check apply
-  natively, and the engine recognises them by the token's `client_id` claim. **Must be verified
-  against current Supabase and Cloudflare documentation before any code is written.**
-- Website review page for approving an MCP preview (needed before MCP writes are useful).
-- Phase D (characters), Phase E (transcript candidates), Phase F (adversarial pass, connection docs).
+- Transcript-to-suggestions workflow (Phase E). Needs a speech-to-text or document pipeline that
+  does not exist here.
+- Artwork credit and focal-point fields; gallery.
+- Live verification of anything.

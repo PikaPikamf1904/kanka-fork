@@ -475,3 +475,20 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
   .character-grid .card-title { font-size: 1rem; }
   .character-grid .card-summary { -webkit-line-clamp: 2; line-clamp: 2; }
 }
+
+/* Review of proposed changes: long text wraps instead of stretching the table. */
+.review-table td { white-space: normal; vertical-align: top; }
+.review-cell { max-width: 38ch; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* Character directory: portrait cards (3:4 picture on top), two across on phones. */
+.character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.9rem; }
+.character-grid .card.card-portrait { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.card-portrait .card-art { width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: center; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.card-portrait .card-art img { width: 100%; height: 100%; object-fit: cover; border: 0; border-radius: 0; }
+.card-portrait .card-body { padding: 0.6rem 0.7rem 0.75rem; }
+.card-portrait .card-title { overflow-wrap: anywhere; }
+.card-portrait .card-summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--muted); margin-top: 0.1rem; }
+.badge-party { background: var(--gold); color: #20180a; border-color: #8a6a26; }
+@media (max-width: 480px) { .character-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; } }
+@media (prefers-reduced-motion: reduce) { .card, .card-portrait { transition: none; } }

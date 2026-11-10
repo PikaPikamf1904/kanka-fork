@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { longDate } from '../lib/dates.ts';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../components/Badges.tsx';
 import { Infobox } from '../components/Infobox.tsx';
@@ -84,7 +85,8 @@ export function ArticlePage() {
   if (!data) return <NotFound what="article" />;
   if ('redirect' in data) return null;
 
-  const v = data;
+  // A heading with nothing under it is noise for readers; the editor still shows it.
+  const v = { ...data, sections: data.sections.filter((x) => x.body.trim()) };
   const isCharacter = v.type === 'character';
   const journalMentions = isCharacter ? v.backlinks.filter((b) => b.type === 'session') : [];
   const otherBacklinks = isCharacter ? v.backlinks.filter((b) => b.type !== 'session') : v.backlinks;
@@ -198,7 +200,7 @@ export function ArticlePage() {
                 ))}
               </div>
             )}
-            <p className="muted">Last updated {new Date(v.updatedAt).toLocaleString()}</p>
+            <p className="muted">Last updated {longDate(v.updatedAt)}</p>
           </footer>
         </div>
       </div>
