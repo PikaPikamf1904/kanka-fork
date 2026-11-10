@@ -50,7 +50,7 @@ describe('lore pack against the local stack', () => {
       `select
          (select count(*) from public.search_wiki('dragon OR eggs OR Jenna OR pendant OR Gears OR Vogler OR Pelican')) as search,
          (select count(*) from public.suggest_articles('Operation')) + (select count(*) from public.suggest_articles('The four')) as suggest,
-         (select count(*) from public.article_sections where body ilike '%Planned material%') as sections,
+         (select count(*) from public.article_sections where body ilike '%Not played.%') as sections,
          (select count(*) from public.relations where kind in ('member_of', 'part_of', 'subject_of')) as relations,
          (select count(*) from public.article_links where target_slug in ('metallic-dragon-eggs', 'operation-dragon-nest', 'jenna')) as links,
          (select count(*) from public.dm_notes) as notes,

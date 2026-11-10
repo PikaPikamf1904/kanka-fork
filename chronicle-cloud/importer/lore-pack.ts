@@ -18,7 +18,10 @@ import fs from 'node:fs';
 import { api, checkTarget, getAll } from './kanka-import.ts';
 import type { ArticleType } from './lib.ts';
 
-export const FACT_LEVELS = ['confirmed', 'dm-reported', 'transcript-derived', 'planned', 'uncertain'] as const;
+// confirmed: checked against actual play.  transcript-derived: from notes or a recording, not fully
+// checked.  player-known: already revealed at the table.  dm-secret: unrevealed.  planned: not yet
+// played.  speculative: assumed or proposed.  disputed: sources disagree.
+export const FACT_LEVELS = ['confirmed', 'transcript-derived', 'player-known', 'dm-secret', 'planned', 'speculative', 'disputed'] as const;
 export type FactLevel = (typeof FACT_LEVELS)[number];
 
 const ARTICLE_TYPES: ArticleType[] = ['lore', 'character', 'location', 'faction', 'item', 'quest', 'session', 'event', 'dossier'];
@@ -32,6 +35,7 @@ export interface PackArticle {
   slug: string;
   type: ArticleType;
   title: string;
+  subtitle?: string;
   summary: string;
   group: string;
   facts: PackFact[];
@@ -180,19 +184,21 @@ export function reviewMarkdown(pack: LorePack): string {
   const lines = [
     `# Lore review: ${pack.title}`,
     '',
-    `Pack \`${pack.pack}\` version ${pack.version}. Source: ${pack.generated_from}.`,
+    `Pack \`${pack.pack}\` version ${pack.version}. Source: ${pack.generated_from}.${pack.note ? ` ${pack.note}` : ''}`,
     '',
     'Every page below is staged **DM-only** and as a **draft**. Nothing here is in the live wiki until the DM runs the import, and nothing is visible to players until the DM publishes it page by page.',
     '',
     '## How sure are we',
     '',
-    '| Level | Facts | Meaning |',
+    '| Level | Statements | Meaning |',
     '|---|---|---|',
-    `| confirmed | ${counts.confirmed} | Checked against a recording, notes or the DM's explicit confirmation |`,
-    `| dm-reported | ${counts['dm-reported']} | Stated by the DM in the brief; not checked against source files |`,
-    `| transcript-derived | ${counts['transcript-derived']} | Reported outcome that still needs the DM's check |`,
-    `| planned | ${counts.planned} | Preparation for a future session; has not happened |`,
-    `| uncertain | ${counts.uncertain} | Unknown, assumed or conflicting |`,
+    `| confirmed | ${counts.confirmed} | Checked against actual play |`,
+    `| transcript-derived | ${counts['transcript-derived']} | From notes or a recording; not fully checked |`,
+    `| player-known | ${counts['player-known']} | Already revealed at the table |`,
+    `| dm-secret | ${counts['dm-secret']} | Unrevealed; must not reach players |`,
+    `| planned | ${counts.planned} | Prepared for a future session; has not happened |`,
+    `| speculative | ${counts.speculative} | Assumed or proposed, not established |`,
+    `| disputed | ${counts.disputed} | The sources disagree |`,
     '',
     `## Pages (${pack.articles.length})`,
     '',
@@ -243,7 +249,7 @@ export async function applyPack(pack: LorePack, base: string, key: string) {
       continue;
     }
     const [row] = await call<{ id: string }[]>('POST', 'articles', {
-      slug: a.slug, type: a.type, title: a.title, summary: a.summary, visibility: 'dm', status: 'draft', source_ref: ref,
+      slug: a.slug, type: a.type, title: a.title, subtitle: a.subtitle ?? '', summary: a.summary, visibility: 'dm', status: 'draft', source_ref: ref,
     }, 'return=representation');
     const id = row!.id;
     idByRef.set(a.ref, id);

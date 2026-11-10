@@ -11,13 +11,13 @@ function tiny(): LorePack {
     pack: 'test-pack', version: 1, title: 'Test', generated_from: 'synthetic',
     articles: [
       { ref: 'alpha', slug: 'alpha', type: 'character', title: 'Alpha', summary: 'A.', group: 'G',
-        facts: [{ level: 'dm-reported', text: 'Alpha knows [[beta|Beta]].', source: 'synthetic' }],
+        facts: [{ level: 'transcript-derived', text: 'Alpha knows [[beta|Beta]].', source: 'synthetic' }],
         sections: [{ heading: 'Overview', body: 'See [[beta]].' }], infobox: [{ label: 'Role', value: 'x' }], questions: [] },
       { ref: 'beta', slug: 'beta', type: 'location', title: 'Beta', summary: 'B.', group: 'G',
         facts: [{ level: 'planned', text: 'Planned.', source: 'synthetic' }],
         sections: [{ heading: 'Overview', body: 'Text.' }], infobox: [], questions: ['Why?'] },
     ],
-    relations: [{ source: 'alpha', target: 'beta', kind: 'located_in', label: 'Lives here', level: 'uncertain' }],
+    relations: [{ source: 'alpha', target: 'beta', kind: 'located_in', label: 'Lives here', level: 'speculative' }],
   };
 }
 
@@ -33,13 +33,31 @@ describe('the committed Dragonlance pack', () => {
     expect(factCounts(pack).confirmed).toBe(0);
   });
 
-  it('marks every Operation Dragon Nest page as planned, never as something that happened', () => {
-    const upcoming = pack.articles.filter((a) => a.group === 'Upcoming material');
+  it('marks every Operation Dragon Nest page as not played, and never as something that happened', () => {
+    const upcoming = pack.articles.filter((a) => a.group.startsWith('Operation Dragon Nest'));
     expect(upcoming.length).toBeGreaterThanOrEqual(5);
     for (const a of upcoming) {
-      expect(a.facts.every((f) => f.level === 'planned' || f.level === 'uncertain'), a.ref).toBe(true);
-      expect(a.sections[0]!.body, a.ref).toContain('Planned material. Not played.');
+      expect(a.sections[0]!.body, a.ref).toContain('**Not played.**');
+      expect(a.facts.some((f) => f.level === 'planned' || f.level === 'dm-secret'), a.ref).toBe(true);
+      expect(a.facts.some((f) => f.level === 'confirmed' || f.level === 'player-known'), a.ref).toBe(false);
     }
+  });
+
+  it('keeps the dragon eggs out of every page that is not planning material', () => {
+    const played = pack.articles.filter((a) => !a.group.startsWith('Operation Dragon Nest'));
+    for (const a of played) {
+      const text = JSON.stringify([a.title, a.summary, a.sections, a.infobox]).toLowerCase();
+      expect(text, a.ref).not.toMatch(/\begg|bonding|experimental/);
+      expect(text, a.ref).not.toContain('metallic-dragon-eggs');
+      expect(text, a.ref).not.toContain('dragon-nest-dm-dossier');
+    }
+  });
+
+  it('avoids the stock phrases the DM asked to keep out', () => {
+    const banned = ['nestled', 'steeped in', 'testament to', 'tapestry', 'delve', 'little did they know', 'only time will tell', 'haunting reminder', 'pivotal', 'in the heart of', 'more than just', 'shrouded in', 'realm of'];
+    const prose = pack.articles.flatMap((a) => [a.summary, ...a.sections.map((s) => s.body)]).join('\n').toLowerCase();
+    for (const phrase of banned) expect(prose, phrase).not.toContain(phrase);
+    expect(prose).not.toContain('—');
   });
 
   it('contains no visibility or status fields at all', () => {
@@ -81,8 +99,8 @@ describe('validatePack', () => {
     p.articles[0]!.facts = [];
     p.articles[1]!.facts[0]!.level = 'canon' as never;
     p.articles[1]!.sections[0]!.body = 'See [[gamma]].';
-    p.articles.push({ ...p.articles[0]!, facts: [{ level: 'uncertain', text: 'x', source: 's' }] });
-    p.relations.push({ source: 'alpha', target: 'missing', kind: 'Bad Kind', label: '', level: 'uncertain' });
+    p.articles.push({ ...p.articles[0]!, facts: [{ level: 'speculative', text: 'x', source: 's' }] });
+    p.relations.push({ source: 'alpha', target: 'missing', kind: 'Bad Kind', label: '', level: 'speculative' });
     const errors = validatePack(p).join('\n');
     expect(errors).toContain('must say what supports it');
     expect(errors).toContain(`must be one of ${FACT_LEVELS.join(', ')}`);
