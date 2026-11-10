@@ -8,6 +8,7 @@ import {
   getArticleForEdit, listAllArticleRefs, listCategories, restoreRevision, saveArticle, saveNote, uploadMedia,
   type ArticleDraft,
 } from '../../lib/api.ts';
+import { ChronicleError } from '../../lib/changeSets.ts';
 import { prepareImage } from '../../lib/image.ts';
 import { slugify, wikiLinkTargets } from '../../lib/slug.ts';
 import { RELATION_KINDS, relationLabel, TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
@@ -147,13 +148,15 @@ export function ArticleEditor() {
     if (wasPublic && !nowPublic && !window.confirm('This hides the article from players. Continue?')) return;
     setSaving(true);
     try {
-      const saved = await saveArticle(draft, 'Before save');
+      const saved = await saveArticle(draft, 'Before save', existing.data?.article.version);
       setDirty(false);
       setMessage('Saved.');
       if (!slug || saved.slug !== slug) navigate(`/dm/edit/${saved.slug}`, { replace: true });
       else existing.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save.');
+      setError(err instanceof ChronicleError && err.code === 'CONFLICT'
+        ? 'This article was changed somewhere else (another tab, or an import) since you opened it. Nothing was saved. Copy your text, reload the page, and apply your changes again.'
+        : err instanceof Error ? err.message : 'Could not save.');
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,6 @@
 // Data access. Every read goes through Row Level Security: the browser receives only rows the
 // signed-in user may see, so nothing here filters secrets client-side.
+import { toChronicleError } from './changeSets.ts';
 import { MEDIA_BUCKET, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
@@ -29,7 +30,7 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
 }
 
 const ARTICLE_COLUMNS =
-  'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at';
+  'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at, version';
 
 export async function getSettings(): Promise<CampaignSettings | null> {
   return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id').maybeSingle());
@@ -248,7 +249,7 @@ export async function uploadMedia(blob: Blob, info: { alt: string; width: number
 // DM writes. RLS refuses all of these for players; the UI only offers them to the DM.
 // ---------------------------------------------------------------------------------------------
 export interface ArticleDraft {
-  article: Omit<Article, 'id' | 'updated_at' | 'published_at'> & { id?: string };
+  article: Omit<Article, 'id' | 'updated_at' | 'published_at' | 'version'> & { id?: string };
   sections: (Omit<Section, 'id' | 'article_id'> & { id?: string })[];
   infobox: (Omit<InfoboxField, 'id' | 'article_id'> & { id?: string })[];
   categoryIds: string[];
@@ -270,42 +271,25 @@ export async function getArticleForEdit(slug: string) {
   };
 }
 
-/** Save an article and its parts. Existing articles are snapshotted first, so every save can be undone. */
-export async function saveArticle(draft: ArticleDraft, note: string): Promise<Article> {
-  const { id, ...fields } = draft.article;
-  if (id) {
-    must(await supabase.rpc('snapshot_article', { p_article: id, p_note: note || 'Before save' }));
-  }
-  const article = must(
-    id
-      ? await supabase.from('articles').update(fields).eq('id', id).select(ARTICLE_COLUMNS).single()
-      : await supabase.from('articles').insert(fields).select(ARTICLE_COLUMNS).single(),
-  ) as Article;
-
-  // Sections: delete removed ones, then upsert in order.
-  const keepSections = draft.sections.map((s) => s.id).filter(Boolean) as string[];
-  let del = supabase.from('article_sections').delete().eq('article_id', article.id);
-  if (keepSections.length > 0) del = del.not('id', 'in', `(${keepSections.join(',')})`);
-  must(await del.select('id'));
-  for (const [index, s] of draft.sections.entries()) {
-    const row = { article_id: article.id, position: index + 1, heading: s.heading, body: s.body, visibility: s.visibility, status: s.status };
-    must(s.id ? await supabase.from('article_sections').update(row).eq('id', s.id).select('id') : await supabase.from('article_sections').insert(row).select('id'));
-  }
-
-  const keepFields = draft.infobox.map((f) => f.id).filter(Boolean) as string[];
-  let delF = supabase.from('infobox_fields').delete().eq('article_id', article.id);
-  if (keepFields.length > 0) delF = delF.not('id', 'in', `(${keepFields.join(',')})`);
-  must(await delF.select('id'));
-  for (const [index, f] of draft.infobox.entries()) {
-    const row = { article_id: article.id, position: index + 1, label: f.label, value: f.value, visibility: f.visibility };
-    must(f.id ? await supabase.from('infobox_fields').update(row).eq('id', f.id).select('id') : await supabase.from('infobox_fields').insert(row).select('id'));
-  }
-
-  must(await supabase.from('article_categories').delete().eq('article_id', article.id).select('article_id'));
-  if (draft.categoryIds.length > 0) {
-    must(await supabase.from('article_categories').insert(draft.categoryIds.map((category_id) => ({ article_id: article.id, category_id }))).select('article_id'));
-  }
-  return article;
+/**
+ * Save an article and all its parts in one database transaction (snapshot first, so every save can
+ * be undone). If the article changed elsewhere since `expectedVersion`, nothing is written and a
+ * ChronicleError with code CONFLICT is thrown.
+ */
+export async function saveArticle(draft: ArticleDraft, note: string, expectedVersion?: number): Promise<Article> {
+  const { data, error } = await supabase.rpc('save_article', {
+    p_draft: {
+      article: draft.article,
+      sections: draft.sections.map((s) => ({ id: s.id ?? null, heading: s.heading, body: s.body, visibility: s.visibility, status: s.status })),
+      infobox: draft.infobox.map((f) => ({ id: f.id ?? null, label: f.label, value: f.value, visibility: f.visibility })),
+      categoryIds: draft.categoryIds,
+    },
+    p_expected_version: expectedVersion === undefined ? null : `v${expectedVersion}`,
+    p_note: note || 'Before save',
+  });
+  if (error) throw toChronicleError(error);
+  const row = data as Omit<Article, 'version'> & { version: string };
+  return { ...row, version: Number(String(row.version).replace(/^v/, '')) };
 }
 
 export async function deleteArticle(id: string) {

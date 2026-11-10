@@ -24,7 +24,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          include: ['src/**/*.test.ts', 'functions/**/*.test.ts', 'importer/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'functions/**/*.test.ts', 'importer/**/*.test.ts', 'mcp/**/*.test.ts'],
           environment: 'node',
         },
       },
