@@ -1,5 +1,6 @@
 // Data access. Every read goes through Row Level Security: the browser receives only rows the
 // signed-in user may see, so nothing here filters secrets client-side.
+import type { PackageArticle, PackageRelation } from './lorePackage.ts';
 import { MEDIA_BUCKET, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
@@ -306,6 +307,69 @@ export async function saveArticle(draft: ArticleDraft, note: string): Promise<Ar
     must(await supabase.from('article_categories').insert(draft.categoryIds.map((category_id) => ({ article_id: article.id, category_id }))).select('article_id'));
   }
   return article;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lore package import (DM only; the signed-in DM's own session and RLS, never a server key).
+// A page is created with source_ref "import:pending:<slug>" and only marked "import:<slug>" once
+// every part is saved. If the browser dies in between, the next import sees the pending mark,
+// removes the half-made page and creates it again, so a retry can never leave a broken page
+// behind or mistake one for finished work.
+// ---------------------------------------------------------------------------------------------
+export type ImportState = 'absent' | 'present' | 'incomplete';
+
+export async function listImportStates(): Promise<Map<string, { id: string; state: ImportState }>> {
+  const rows = await fetchAll<{ id: string; slug: string; source_ref: string | null }>((from, to) =>
+    supabase.from('articles').select('id, slug, source_ref').order('id').range(from, to),
+  );
+  return new Map(rows.map((r) => [r.slug, { id: r.id, state: r.source_ref?.startsWith('import:pending:') ? 'incomplete' : 'present' }]));
+}
+
+/** Create one page of a package as a DM-only draft. Throws if anything could not be saved. */
+export async function importDraftArticle(a: PackageArticle, replaceIncompleteId?: string): Promise<{ id: string; slug: string }> {
+  if (replaceIncompleteId) {
+    // Only ever removes a page that this importer left unfinished.
+    must(await supabase.from('articles').delete().eq('id', replaceIncompleteId).like('source_ref', 'import:pending:%').select('id'));
+  }
+  const row = must(
+    await supabase.from('articles')
+      .insert({ slug: a.slug, title: a.title, type: a.type, subtitle: a.subtitle, summary: a.summary, visibility: 'dm', status: 'draft', source_ref: `import:pending:${a.slug}` })
+      .select('id, slug').single(),
+  ) as { id: string; slug: string };
+  try {
+    must(await supabase.from('article_sections').insert(
+      a.sections.map((s, i) => ({ article_id: row.id, position: i + 1, heading: s.heading, body: s.body, visibility: 'dm', status: 'draft' })),
+    ).select('id'));
+    if (a.infobox.length > 0) {
+      must(await supabase.from('infobox_fields').insert(
+        a.infobox.map((f, i) => ({ article_id: row.id, position: i + 1, label: f.label, value: f.value, visibility: 'dm' })),
+      ).select('id'));
+    }
+    if (a.notes.length > 0) {
+      must(await supabase.from('dm_notes').insert(a.notes.map((n) => ({ article_id: row.id, title: n.title, body: n.body }))).select('id'));
+    }
+    must(await supabase.from('articles').update({ source_ref: `import:${a.slug}` }).eq('id', row.id).select('id'));
+  } catch (error) {
+    // Best effort: take the half-made page away now. If this fails too, the pending mark makes
+    // the next import replace it.
+    await supabase.from('articles').delete().eq('id', row.id).select('id');
+    throw error;
+  }
+  return row;
+}
+
+/** Create a DM-only connection between two imported pages; an existing one is left alone. */
+export async function importRelation(r: PackageRelation, ids: ReadonlyMap<string, string>): Promise<'created' | 'skipped'> {
+  const source = ids.get(r.source);
+  const target = ids.get(r.target);
+  if (!source || !target) return 'skipped';
+  const { error } = await supabase.from('relations').insert({
+    source_article_id: source, target_article_id: target, kind: r.kind, label: r.label, visibility: 'dm',
+    source_ref: `import:rel:${r.source}:${r.kind}:${r.target}`,
+  });
+  if (!error) return 'created';
+  if (error.code === '23505') return 'skipped';
+  throw new Error(error.message);
 }
 
 export async function deleteArticle(id: string) {

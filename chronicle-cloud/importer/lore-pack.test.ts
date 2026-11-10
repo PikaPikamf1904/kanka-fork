@@ -1,5 +1,7 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parsePackageText } from '../src/lib/lorePackage.ts';
 import { FACT_LEVELS, factCounts, readPack, reviewMarkdown, validatePack, wikiLinkTargets, type LorePack } from './lore-pack.ts';
 
 const packFile = path.resolve(import.meta.dirname, '../lore/dragonlance/pack.json');
@@ -42,6 +44,15 @@ describe('the committed Dragonlance pack', () => {
 
   it('contains no visibility or status fields at all', () => {
     expect(JSON.stringify(pack)).not.toMatch(/"(visibility|status)"\s*:/);
+  });
+
+  it('is accepted by the browser importer, with facts and questions as private notes', () => {
+    const p = parsePackageText(fs.readFileSync(packFile, 'utf8'));
+    expect(p.errors).toEqual([]);
+    expect(p.warnings).toEqual([]);
+    expect(p.articles).toHaveLength(pack.articles.length);
+    expect(p.articles.every((a) => a.notes.some((n) => n.title === 'Provenance'))).toBe(true);
+    expect(p.relations).toHaveLength(pack.relations.length);
   });
 
   it('produces a review that lists every page as a DM-only draft', () => {
