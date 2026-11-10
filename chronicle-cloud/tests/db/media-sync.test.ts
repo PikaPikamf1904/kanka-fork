@@ -123,6 +123,31 @@ describe('trigger behaviour', () => {
     expect(rows[0]!.hero_media_id).toBeNull();
   });
 
+  it('two transactions unpublishing two pages that share an image leave it hidden', async () => {
+    const m = await newMedia('media/race.webp');
+    await asDm('update public.articles set hero_media_id = $1 where id = any($2::uuid[])', [m, [A, TWO]]);
+    expect(await visibility(m)).toBe('players');
+    const open = async (article: string) => {
+      const c = await pool.connect();
+      await c.query('begin');
+      await c.query('set local role authenticated');
+      await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: ids.dm, role: 'authenticated', aal: 'aal1' })]);
+      // Not awaited to completion here: the second one waits on the first one's row lock.
+      const done = c.query("update public.articles set status = 'draft' where id = $1", [article]);
+      return { c, done };
+    };
+    const first = await open(A);
+    await first.done;
+    const second = await open(TWO);
+    await new Promise((r) => setTimeout(r, 300));
+    await first.c.query('commit');
+    first.c.release();
+    await second.done;
+    await second.c.query('commit');
+    second.c.release();
+    expect(await visibility(m)).toBe('dm');
+  });
+
   it('the API cannot create a media row that starts player-visible', async () => {
     const r = await as('dm', "insert into public.media (path, visibility) values ('media/x.webp', 'players') returning id");
     expect(r.error?.code).toBe('42501');
