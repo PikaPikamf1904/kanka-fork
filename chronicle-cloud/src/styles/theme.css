@@ -227,7 +227,9 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .article-subtitle { font-style: italic; color: var(--muted); margin: 0.35rem 0 0; font-size: 1.15rem; }
 .redirect-note { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0 0; }
 .article-layout { display: flow-root; margin-top: 1rem; }
-.article-lead { font-size: 1.15rem; }
+.article-lead { font-size: 1.2rem; line-height: 1.55; max-width: 62ch; }
+/* A comfortable reading measure: long lines are the main thing that makes a wiki tiring to read. */
+.article-section > .prose > p, .article-section > .prose > ul, .article-section > .prose > ol, .article-section > .prose > blockquote { max-width: 70ch; }
 .article-section { margin: 1.5rem 0; }
 .article-section h2 { font-size: 1.45rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; scroll-margin-top: 90px; }
 .article-section.dm-only { padding: 0.5rem 1rem; }
