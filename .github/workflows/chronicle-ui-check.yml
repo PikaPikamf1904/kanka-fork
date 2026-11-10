@@ -1,0 +1,29 @@
+name: Chronicle UI checks
+on:
+  push:
+    branches:
+      - codex/chronicle-character-wiki-20261110
+  pull_request:
+    paths:
+      - "chronicle-cloud/**"
+      - ".github/workflows/chronicle-ui-check.yml"
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chronicle-cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: chronicle-cloud/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
