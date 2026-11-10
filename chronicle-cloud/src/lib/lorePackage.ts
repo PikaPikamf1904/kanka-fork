@@ -7,11 +7,13 @@
 //
 // Whatever the file says, an import creates DM-only drafts. Visibility and status fields in a
 // package are never honoured; they are reported so the DM knows the file asked for them.
+import type { ChangeSet, ChangeOp } from './changeSetTypes.ts';
 import type { ArticleType } from './types.ts';
 
 export const PACKAGE_LIMITS = {
-  fileBytes: 2_000_000,
-  articles: 200,
+  fileBytes: 1_000_000,
+  articles: 100,
+  articleBytes: 100_000,
   sections: 30,
   infobox: 30,
   notes: 10,
@@ -141,6 +143,8 @@ function parseArticle(raw: unknown): PackageArticle {
     if (lines.length) notes.push({ title: 'Questions for the DM', body: checkText(lines.join('\n'), PACKAGE_LIMITS.body, 'questions', true) });
   }
   if (notes.length > PACKAGE_LIMITS.notes) throw new Error(`too many notes (limit ${PACKAGE_LIMITS.notes})`);
+  const bodyBytes = sections.reduce((n, s) => n + new TextEncoder().encode(s.body).length, 0);
+  if (bodyBytes > PACKAGE_LIMITS.articleBytes) throw new Error(`the sections hold ${bodyBytes} bytes of text; the limit per page is ${PACKAGE_LIMITS.articleBytes}`);
   return { slug, title, type: raw.type as ArticleType, subtitle, summary, sections, infobox, notes };
 }
 
@@ -208,7 +212,7 @@ export function parsePackage(data: unknown): ParsedPackage {
 /** Parse the text of an uploaded file. */
 export function parsePackageText(text: string): ParsedPackage {
   if (new TextEncoder().encode(text).length > PACKAGE_LIMITS.fileBytes) {
-    return { articles: [], relations: [], total: 0, warnings: [], errors: [{ index: 0, name: 'File', message: 'The file is too large (limit 2 MB).' }] };
+    return { articles: [], relations: [], total: 0, warnings: [], errors: [{ index: 0, name: 'File', message: 'The file is too large (limit 1 MB).' }] };
   }
   let data: unknown;
   try {
@@ -229,4 +233,27 @@ export function danglingLinks(articles: PackageArticle[], existingSlugs: Readonl
         .filter((t) => t && !inPack.has(t) && !existingSlugs.has(t)),
     }))
     .filter((x) => x.targets.length > 0);
+}
+
+/**
+ * Turn the chosen pages of a package into one change set for the editing engine. Every page is
+ * created only if its address is free (otherwise it and everything attached to it is skipped),
+ * and the engine stores all of it as DM-only drafts in a single transaction.
+ */
+export function packageToChangeSet(pack: Pick<ParsedPackage, 'articles' | 'relations'>, chosen: ReadonlySet<string>, label: string): ChangeSet {
+  const changes: ChangeOp[] = [];
+  const picked = pack.articles.filter((a) => chosen.has(a.slug));
+  for (const a of picked) {
+    changes.push({ operation: 'create_article', slug: a.slug, title: a.title, type: a.type, subtitle: a.subtitle, summary: a.summary, on_exists: 'skip' });
+    for (const s of a.sections) changes.push({ operation: 'upsert_section', article_slug: a.slug, heading: s.heading, body: s.body });
+    for (const f of a.infobox) changes.push({ operation: 'upsert_infobox_field', article_slug: a.slug, label: f.label, value: f.value });
+    for (const n of a.notes) changes.push({ operation: 'add_dm_note', article_slug: a.slug, title: n.title, body: n.body });
+  }
+  const inSet = new Set(picked.map((a) => a.slug));
+  for (const r of pack.relations) {
+    if (inSet.has(r.source) && inSet.has(r.target)) {
+      changes.push({ operation: 'add_relation', source_slug: r.source, target_slug: r.target, kind: r.kind, label: r.label });
+    }
+  }
+  return { label: label.slice(0, 200), changes };
 }

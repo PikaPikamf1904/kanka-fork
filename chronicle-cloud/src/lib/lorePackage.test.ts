@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { danglingLinks, PACKAGE_LIMITS, parsePackage, parsePackageText } from './lorePackage.ts';
+import { danglingLinks, PACKAGE_LIMITS, packageToChangeSet, parsePackage, parsePackageText } from './lorePackage.ts';
 
 const article = (over: Record<string, unknown> = {}) => ({
   slug: 'gears', title: 'Gears', type: 'character', summary: 'A mechanical adventurer.',
@@ -35,7 +35,7 @@ describe('parsePackage: what gets through', () => {
     expect(parsePackage(many(PACKAGE_LIMITS.articles)).articles).toHaveLength(PACKAGE_LIMITS.articles);
     const over = parsePackage(many(PACKAGE_LIMITS.articles + 1));
     expect(over.articles).toHaveLength(0);
-    expect(messages(over)).toContain('the limit is 200');
+    expect(messages(over)).toContain('the limit is 100');
   });
 });
 
@@ -131,3 +131,27 @@ describe('connections and links', () => {
     expect(danglingLinks(p.articles, new Set(['vogler', 'the-bone-pelican', 'jenna']))).toEqual([]);
   });
 });
+
+describe('packageToChangeSet', () => {
+  it('builds one change set of skip-if-exists creates with their parts, for the chosen pages only', () => {
+    const p = parsePackage({
+      articles: [article({ notes: [{ title: 'Provenance', body: 'Synthetic.' }] }), article({ slug: 'the-bone-pelican', title: 'The Bone Pelican', type: 'location' }), article({ slug: 'left-out', title: 'Left out' })],
+      relations: [{ source: 'gears', target: 'the-bone-pelican', kind: 'appears_in', label: 'Joined' }, { source: 'gears', target: 'left-out', kind: 'knows' }],
+    });
+    const cs = packageToChangeSet(p, new Set(['gears', 'the-bone-pelican']), 'Import test');
+    expect(cs.label).toBe('Import test');
+    expect(cs.changes.map((c) => c.operation)).toEqual([
+      'create_article', 'upsert_section', 'upsert_infobox_field', 'add_dm_note',
+      'create_article', 'upsert_section', 'upsert_infobox_field',
+      'add_relation',
+    ]);
+    expect(cs.changes.filter((c) => c.operation === 'create_article').every((c) => 'on_exists' in c && c.on_exists === 'skip')).toBe(true);
+    expect(JSON.stringify(cs)).not.toMatch(/visibility|status|published/);
+  });
+
+  it('refuses a page whose sections exceed 100 KB of text', () => {
+    const big = Array.from({ length: 4 }, (_, i) => ({ heading: `h${i}`, body: 'x'.repeat(29_000) }));
+    expect(parsePackage({ articles: [article({ sections: big })] }).errors[0]!.message).toContain('limit per page');
+  });
+});
+

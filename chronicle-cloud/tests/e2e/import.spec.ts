@@ -25,10 +25,10 @@ async function choosePack(page: Page) {
   await expect(page.getByTestId('import-summary')).toBeVisible();
 }
 
-async function importNow(page: Page) {
-  page.once('dialog', (d) => void d.accept());
-  await page.getByRole('button', { name: /^Import \d+ private drafts?$/ }).click();
-  await expect(page.getByTestId('import-result')).toBeVisible();
+async function checkAndImport(page: Page) {
+  await page.getByRole('button', { name: /^Check \d+ pages? with Chronicle$/ }).click();
+  await expect(page.getByTestId('import-preview')).toBeVisible();
+  await page.getByRole('button', { name: /^(Import \d+ private drafts?|Retry import)$/ }).click();
 }
 
 test.describe('Lore import', () => {
@@ -39,69 +39,41 @@ test.describe('Lore import', () => {
     await page.goto('/dm/import');
     await page.getByLabel('Package (.json)').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{not json') });
     await expect(page.getByText('This file is not valid JSON.')).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Import/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Check/ })).toHaveCount(0);
     await page.getByLabel('Package (.json)').setInputFiles({ name: 'empty.json', mimeType: 'application/json', buffer: Buffer.from('{"articles":[]}') });
     await expect(page.getByText('The package has no articles.')).toBeVisible();
   });
 
-  test('previews, reports bad entries, and a failed page leaves nothing behind', async ({ page }) => {
+  test('previews, reports bad entries, and an import whose answer is lost is saved exactly once', async ({ page }) => {
     await signInAsDm(page);
     await choosePack(page);
-    await expect(page.getByTestId('import-summary')).toContainText('3 readable pages · 3 to import · 0 already in the wiki · 1 connections');
+    await expect(page.getByTestId('import-summary')).toContainText('3 readable pages · 3 selected · 1 connections');
     await expect(page.getByRole('heading', { name: '2 entries will not be imported' })).toBeVisible();
     await expect(page.getByText('imported as a DM-only draft')).toBeVisible();
     await noHorizontalOverflow(page);
 
-    // Deselect Gamma; make saving Beta's sections fail.
-    await page.getByLabel(`Import Import Gamma ${run}`).uncheck();
-    let failed = 0;
-    await page.route('**/rest/v1/article_sections*', async (route) => {
-      const body = route.request().postData() ?? '';
-      if (route.request().method() === 'POST' && body.includes('A place.') && failed === 0) {
-        failed++;
-        await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'synthetic failure' }) });
+    // The first apply reaches Chronicle and is saved, but the browser never hears back.
+    let dropped = 0;
+    await page.route('**/rest/v1/rpc/apply_change_set', async (route) => {
+      if (dropped === 0) {
+        dropped++;
+        await route.fetch();
+        await route.abort();
       } else await route.continue();
     });
-    await importNow(page);
-    await expect(page.getByTestId('import-result')).toContainText('1 created · 0 skipped · 1 failed');
-    await expect(page.getByRole('heading', { name: 'Import finished with problems' })).toBeVisible();
-    await expect(page.getByText('synthetic failure')).toBeVisible();
-    await page.unroute('**/rest/v1/article_sections*');
+    await checkAndImport(page);
+    await expect(page.getByText('The connection was lost')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry import' })).toBeVisible();
+    await page.getByRole('button', { name: 'Retry import' }).click();
+    await expect(page.getByTestId('import-result')).toContainText('3 created · 0 left alone (this import had already been saved)');
+    await page.unroute('**/rest/v1/rpc/apply_change_set');
 
-    // The failed page was cleaned up: the preview offers it again, and Alpha is now left alone.
+    // A second run finds everything already there and creates nothing.
     await choosePack(page);
-    await expect(page.getByTestId('import-summary')).toContainText('2 to import · 1 already in the wiki');
-    await expect(page.getByRole('row', { name: new RegExp(`Import Beta ${run}`) })).toContainText('Create private draft');
-    await expect(page.getByRole('row', { name: new RegExp(`Import Alpha ${run}`) })).toContainText('Already in the wiki');
-  });
-
-  test('a page left unfinished by a crash is replaced, and a repeat import creates nothing', async ({ page }) => {
-    await signInAsDm(page);
-    await choosePack(page);
-    // Simulate the browser dying after the page row was created: sections fail AND cleanup fails.
-    await page.route('**/rest/v1/article_sections*', async (route) => {
-      if (route.request().method() === 'POST' && (route.request().postData() ?? '').includes('A place.')) await route.abort();
-      else await route.continue();
-    });
-    await page.route('**/rest/v1/articles*', async (route) => {
-      if (route.request().method() === 'DELETE') await route.abort();
-      else await route.continue();
-    });
-    await page.getByLabel(`Import Import Gamma ${run}`).uncheck();
-    await importNow(page);
-    await expect(page.getByTestId('import-result')).toContainText('0 created · 0 skipped · 1 failed');
-    await page.unroute('**/rest/v1/article_sections*');
-    await page.unroute('**/rest/v1/articles*');
-
-    await choosePack(page);
-    await expect(page.getByRole('row', { name: new RegExp(`Import Beta ${run}`) })).toContainText('Unfinished from an earlier import (replace)');
-    await importNow(page);
-    await expect(page.getByTestId('import-result')).toContainText('2 created · 0 skipped · 0 failed · 1 connections added');
-    await expect(page.getByRole('heading', { name: 'Import finished', exact: true })).toBeVisible();
-
-    // Third run: everything exists, nothing to do.
-    await choosePack(page);
-    await expect(page.getByTestId('import-summary')).toContainText('0 to import · 3 already in the wiki');
+    await expect(page.getByTestId('import-summary')).toContainText('0 selected');
+    await page.getByLabel(`Import Import Alpha ${run}`).check();
+    await page.getByRole('button', { name: 'Check 1 page with Chronicle' }).click();
+    await expect(page.getByTestId('import-preview')).toContainText('0 pages will be created');
     await expect(page.getByRole('button', { name: 'Import 0 private drafts' })).toBeDisabled();
 
     // The imported page opens in the editor as a DM-only draft with its private note.
