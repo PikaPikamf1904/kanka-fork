@@ -142,6 +142,28 @@ begin
   r := r || jsonb_build_object('mfa_aal2_notes', (select count(*) from public.dm_notes));
   execute 'reset role';
 
+  -- Audit fixes (migration 20261109000600): DM cannot revoke a DM row, uploads start DM-only,
+  -- and an image is visible to players only while its article is published to them.
+  perform set_config('request.jwt.claims', json_build_object('sub', dm, 'role', 'authenticated', 'aal', 'aal1')::text, true);
+  execute 'set local role authenticated';
+  begin update public.campaign_members set revoked_at = now() where user_id = dm; r := r || '{"dm_self_revoke":"ALLOWED"}'; exception when insufficient_privilege then r := r || '{"dm_self_revoke":"denied"}'; end;
+  begin insert into public.media (path, visibility) values ('media/live-check-public.webp', 'players'); r := r || '{"dm_media_insert_players":"ALLOWED"}'; exception when insufficient_privilege then r := r || '{"dm_media_insert_players":"denied"}'; end;
+  insert into public.media (path) values ('media/live-check.webp');
+  update public.articles set hero_media_id = (select id from public.media where path = 'media/live-check.webp') where id = A;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', pl, 'role', 'authenticated', 'aal', 'aal1')::text, true);
+  execute 'set local role authenticated';
+  r := r || jsonb_build_object('p_media_published_hero', (select count(*) from public.media where path = 'media/live-check.webp'));
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', dm, 'role', 'authenticated', 'aal', 'aal1')::text, true);
+  execute 'set local role authenticated';
+  update public.articles set status = 'draft' where id = A;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', pl, 'role', 'authenticated', 'aal', 'aal1')::text, true);
+  execute 'set local role authenticated';
+  r := r || jsonb_build_object('p_media_unpublished_hero', (select count(*) from public.media where path = 'media/live-check.webp'));
+  execute 'reset role';
+
   -- Server key (service_role): enrollment checks
   perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
   execute 'set local role service_role';

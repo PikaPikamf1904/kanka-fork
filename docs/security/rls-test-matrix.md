@@ -32,6 +32,10 @@ Legend: ✔ allowed and tested, ✘ refused and tested.
 | Enrollment functions (server only) | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ |
 | Preview as player | ✘ | — | — | ✘ | ✔ | — | ✔ |
 | Public sign-up, anonymous sign-in | ✘ | | | | | | |
+| Image of a draft / hidden / deleted article or map (row and download) | ✘ | — | ✘ | ✘ | ✔ | — | ✔ |
+| API upload that starts player-visible | ✘ | — | — | ✘ | ✘ | — | ✘ |
+| Revoke a DM row (own or another) through the API | ✘ | — | — | ✘ | ✘ | — | ✘ |
+| Restore a revision that publishes content | ✘ | — | — | ✘ | ✘ | — | ✘ |
 
 "—" means not separately tested for that role; the row's rule follows from the same policy.
 
@@ -48,9 +52,24 @@ Legend: ✔ allowed and tested, ✘ refused and tested.
   secret phrases from the sample campaign.
 - Preview-as-player output equals what a real player session receives.
 
+## Media visibility (migration `…0600_audit_fixes`)
+
+- `media.visibility` is derived by triggers: `players` only while the image is the main image of a
+  published player article, the image of a published player map, or the cover banner. Publishing,
+  unpublishing, hiding, replacing or deleting the page updates it in the same transaction. An image
+  shared by several pages stays visible while any visible page uses it.
+- API uploads must start `dm`. Downloads were tested through the local Storage API
+  (`tests/db/media-sync.test.ts`).
+- Signed URLs cannot be revoked. They are issued for 10 minutes and the browser cache is cleared on
+  every sign-in and sign-out, so a file hidden after a player loaded it stays reachable through an
+  already issued URL for at most 10 minutes.
+- An image used only inline in text (`![](media:path)`) is not tracked and stays DM-only.
+- Restoring a revision always gives a draft. Enrollment attempts are serialised; at most 20
+  successful enrollments per address per hour and 200 per day for the whole wiki.
+
 ## Files
 
-`tests/db/privacy.test.ts`, `functions.test.ts`, `enroll-integration.test.ts`,
+`tests/db/privacy.test.ts`, `audit.test.ts`, `media-sync.test.ts`, `functions.test.ts`, `enroll-integration.test.ts`,
 `privileges.test.ts`, `importer.test.ts`; `functions/_lib/enroll.test.ts`;
 `tests/e2e/player.spec.ts`, `dm.spec.ts`, `z-mfa.spec.ts`.
 
@@ -80,5 +99,7 @@ results). Paste it into the SQL Editor. Expected values in the error message:
 | `dm_preview_sections` / `dm_preview_hidden` | only "Known history" / `false` |
 | `mfa_aal1_notes` / `mfa_aal1_articles` / `mfa_aal2_notes` | `0` / `3` / `1` |
 | `svc_wrong_code` / `svc_right_code` | `invalid` / `ok` |
+| `dm_self_revoke`, `dm_media_insert_players` | `denied` (needs migration 6) |
+| `p_media_published_hero` / `p_media_unpublished_hero` | `1` / `0` (needs migration 6) |
 
 Verified on the local stack (all values as above, nothing left behind).
