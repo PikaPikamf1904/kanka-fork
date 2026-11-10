@@ -351,7 +351,11 @@ export async function listNotes(): Promise<(DmNote & { article: ArticleRef | nul
 }
 
 export async function listDrafts(): Promise<Article[]> {
-  return must(await supabase.from('articles').select(ARTICLE_COLUMNS).or('status.eq.draft,visibility.eq.dm').order('updated_at', { ascending: false }).limit(50));
+  // Every hidden page, not just the newest 50: after an import the review queue can be long.
+  return fetchAll((from, to) =>
+    supabase.from('articles').select(ARTICLE_COLUMNS).or('status.eq.draft,visibility.eq.dm')
+      .order('updated_at', { ascending: false }).order('id').range(from, to),
+  );
 }
 
 export async function saveTimelineEvent(e: Omit<TimelineEvent, 'id'> & { id?: string }) {

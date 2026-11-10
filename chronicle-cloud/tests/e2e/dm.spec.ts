@@ -20,6 +20,18 @@ test.describe('DM', () => {
     await page.goto('/dm');
     await expect(page.getByRole('heading', { name: 'Drafts and DM-only pages' })).toBeVisible();
     await expect(page.getByText('The Masked Broker')).toBeVisible();
+    // Review queue: a count of everything players cannot see, and a filter by type.
+    await expect(page.getByTestId('review-count')).toContainText(/\d+ pages? to review/);
+    const filters = page.getByRole('group', { name: 'Filter by type' });
+    if (await filters.count()) {
+      const cards = page.locator('.panel', { hasText: 'Drafts and DM-only pages' }).locator('.card-grid > *');
+      const all = await cards.count();
+      await filters.getByRole('button').nth(1).click();
+      expect(await cards.count()).toBeLessThanOrEqual(all);
+      await expect(page.getByTestId('review-count')).toContainText('showing');
+      await filters.getByRole('button', { name: /^All/ }).click();
+      expect(await cards.count()).toBe(all);
+    }
   });
 
   test('draft, publish and unpublish control exactly what players see', async ({ browser }) => {
