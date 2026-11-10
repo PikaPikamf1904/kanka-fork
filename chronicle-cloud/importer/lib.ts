@@ -92,6 +92,10 @@ const INFOBOX_FIELDS: Record<string, [string, string][]> = {
 };
 
 const truthy = (v: unknown) => v === true || v === 1 || v === '1';
+/** Only these mean "not private". Anything unrecognised ('yes', 2, an object) is treated as private. */
+const explicitlyFalse = (v: unknown) => v === false || v === 0 || v === '0';
+/** A privacy flag that is absent is not set; one that is present must be explicitly false to count as public. */
+const flagSet = (v: unknown) => v !== undefined && v !== null && !explicitlyFalse(v);
 
 export interface Decision {
   visibility: Visibility;
@@ -105,6 +109,7 @@ export interface Options {
 export function entityVisibility(entity: KankaEntity, opts: Options): Decision {
   if (entity.is_private === undefined || entity.is_private === null) return { visibility: 'dm', reason: 'privacy unknown' };
   if (truthy(entity.is_private)) return { visibility: 'dm', reason: 'private (admin only) in Kanka' };
+  if (!explicitlyFalse(entity.is_private)) return { visibility: 'dm', reason: 'privacy value not recognised' };
   if (!opts.trustPublicEntities) return { visibility: 'dm', reason: 'Kanka role permissions are not in the export' };
   return { visibility: 'players', reason: 'not private in Kanka (trusted by --trust-public-entities)' };
 }
@@ -112,7 +117,7 @@ export function entityVisibility(entity: KankaEntity, opts: Options): Decision {
 const KANKA_VISIBILITY: Record<number, string> = { 1: 'All', 2: 'Admin', 3: 'Admin and self', 4: 'Self', 5: 'Members' };
 
 export function postVisibility(post: KankaPost, parent: Decision): Decision {
-  if (truthy(post.is_private)) return { visibility: 'dm', reason: 'post is private' };
+  if (flagSet(post.is_private)) return { visibility: 'dm', reason: 'post is private' };
   if (post.visibility_id !== 1) {
     const name = post.visibility_id ? KANKA_VISIBILITY[post.visibility_id] ?? `unknown (${post.visibility_id})` : 'unknown';
     return { visibility: 'dm', reason: `post visibility: ${name}` };
@@ -121,9 +126,9 @@ export function postVisibility(post: KankaPost, parent: Decision): Decision {
 }
 
 export function attributeVisibility(attr: KankaAttribute, entity: KankaEntity, parent: Decision): Decision {
-  if (truthy(entity.is_attributes_private)) return { visibility: 'dm', reason: 'entity attributes are private' };
-  if (truthy(attr.is_private)) return { visibility: 'dm', reason: 'attribute is private' };
-  if (truthy(attr.is_hidden)) return { visibility: 'dm', reason: 'attribute is hidden' };
+  if (flagSet(entity.is_attributes_private)) return { visibility: 'dm', reason: 'entity attributes are private' };
+  if (flagSet(attr.is_private)) return { visibility: 'dm', reason: 'attribute is private' };
+  if (flagSet(attr.is_hidden)) return { visibility: 'dm', reason: 'attribute is hidden' };
   return parent.visibility === 'players' ? { visibility: 'players', reason: 'attribute visible' } : { visibility: 'dm', reason: 'parent is DM-only' };
 }
 
@@ -264,10 +269,106 @@ export interface Plan {
     relationsDmOnly: number;
     relationsMissingEnd: number;
     reasons: Record<string, number>;
+    /** Files skipped because their content is not a usable Kanka record. */
+    malformedFiles: string[];
+    /** Files skipped because an earlier file already supplied the same entity id. */
+    duplicateEntityFiles: string[];
+    /** Posts, attributes or relations dropped because they were not usable. */
+    droppedParts: number;
   };
 }
 
-export function buildPlan(records: KankaRecord[], opts: Options): Plan {
+// ---------------------------------------------------------------------------------------------
+// Input hardening. A real export can contain truncated or hand-edited files; one bad file must
+// never abort the run or, worse, half-apply it. Anything unusable is skipped and reported.
+// ---------------------------------------------------------------------------------------------
+export interface Sanitized {
+  records: KankaRecord[];
+  malformedFiles: string[];
+  duplicateEntityFiles: string[];
+  droppedParts: number;
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const asText = (v: unknown): string | null => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : null);
+const asId = (v: unknown): number | null => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : NaN;
+  return Number.isSafeInteger(n) ? n : null;
+};
+
+export function sanitizeRecords(input: KankaRecord[]): Sanitized {
+  const out: Sanitized = { records: [], malformedFiles: [], duplicateEntityFiles: [], droppedParts: 0 };
+  const seen = new Set<number>();
+  const objects = (value: unknown): Record<string, unknown>[] => {
+    if (value === null || value === undefined) return [];
+    if (!Array.isArray(value)) {
+      out.droppedParts++;
+      return [];
+    }
+    const kept = value.filter(isObject);
+    out.droppedParts += value.length - kept.length;
+    return kept;
+  };
+
+  for (const r of input) {
+    const where = `${r.module}/${r.file}`;
+    if (!isObject(r.model)) {
+      out.malformedFiles.push(where);
+      continue;
+    }
+    const raw = r.model.entity as unknown;
+    if (raw === undefined || raw === null) {
+      // Tags and some modules carry no nested entity; pass them through untouched.
+      out.records.push(r);
+      continue;
+    }
+    const id = isObject(raw) ? asId(raw.id) : null;
+    if (!isObject(raw) || id === null) {
+      out.malformedFiles.push(where);
+      continue;
+    }
+    if (r.module !== 'tags') {
+      if (seen.has(id)) {
+        out.duplicateEntityFiles.push(where);
+        continue;
+      }
+      seen.add(id);
+    }
+    const attributes = (list: unknown) =>
+      objects(list).map((a) => ({ ...a, id: asId(a.id) ?? 0, name: asText(a.name) ?? '', value: asText(a.value) })) as KankaAttribute[];
+    const relationships = objects(raw.relationships).flatMap((x) => {
+      const relId = asId(x.id);
+      const owner = asId(x.owner_id);
+      const target = asId(x.target_id);
+      if (relId === null || owner === null || target === null) {
+        out.droppedParts++;
+        return [];
+      }
+      return [{ ...x, id: relId, owner_id: owner, target_id: target, relation: asText(x.relation) } as KankaRelation];
+    });
+    const entity: KankaEntity = {
+      ...raw,
+      id,
+      name: asText(raw.name) ?? '',
+      entry: asText(raw.entry),
+      image_path: typeof raw.image_path === 'string' ? raw.image_path : null,
+      header_image: typeof raw.header_image === 'string' ? raw.header_image : null,
+      posts: objects(raw.posts).map((x) => ({ ...x, id: asId(x.id) ?? 0, name: asText(x.name), entry: asText(x.entry) })) as KankaPost[],
+      relationships,
+      entityTags: objects(raw.entityTags) as KankaEntity['entityTags'],
+    };
+    if (raw.entityAttributes !== undefined && raw.entityAttributes !== null) entity.entityAttributes = attributes(raw.entityAttributes);
+    else delete entity.entityAttributes;
+    if (raw.attributes !== undefined && raw.attributes !== null) entity.attributes = attributes(raw.attributes);
+    else delete entity.attributes;
+    out.records.push({ ...r, model: { ...r.model, entity } });
+  }
+  return out;
+}
+
+export function buildPlan(input: KankaRecord[], opts: Options): Plan {
+  const sanitized = sanitizeRecords(input);
+  const records = sanitized.records;
   const tagRecords = records.filter((r) => r.module === 'tags');
   const entityRecords = records.filter((r) => r.module !== 'tags' && r.model.entity);
   const skippedModules: Record<string, number> = {};
@@ -318,7 +419,7 @@ export function buildPlan(records: KankaRecord[], opts: Options): Plan {
     const meta = byEntity.get(e.id)!;
     const decision = meta.decision;
     count(decision.reason);
-    if (!truthy(e.is_private) && e.is_private !== null && e.is_private !== undefined) trusted++;
+    if (explicitlyFalse(e.is_private)) trusted++;
 
     const sections: PlannedArticle['sections'] = [];
     const entry = text(e.entry, decision.visibility);
@@ -415,6 +516,9 @@ export function buildPlan(records: KankaRecord[], opts: Options): Plan {
       relationsDmOnly,
       relationsMissingEnd,
       reasons,
+      malformedFiles: sanitized.malformedFiles,
+      duplicateEntityFiles: sanitized.duplicateEntityFiles,
+      droppedParts: sanitized.droppedParts,
     },
   };
 }

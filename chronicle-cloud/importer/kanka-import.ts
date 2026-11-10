@@ -100,6 +100,9 @@ export function reportMarkdown(plan: Plan, meta: { source: string; checksum: str
     '## Needs attention',
     '',
     `- Unreadable files: ${meta.unreadable.length ? meta.unreadable.join(', ') : 'none'}`,
+    `- Files skipped as malformed (not a usable Kanka record): ${r.malformedFiles.length ? r.malformedFiles.join(', ') : 'none'}`,
+    `- Files skipped because the same entity id was already read: ${r.duplicateEntityFiles.length ? r.duplicateEntityFiles.join(', ') : 'none'}`,
+    `- Posts, attributes or relations dropped as unusable: ${r.droppedParts}`,
     `- Modules not imported: ${Object.keys(r.skippedModules).length ? Object.entries(r.skippedModules).map(([m, n]) => `${m} (${n})`).join(', ') : 'none'}`,
     `- Same name, same type (possible duplicates): ${r.duplicateNames.length ? r.duplicateNames.map((d) => `${d.name} [${d.ids.join(', ')}]`).join('; ') : 'none'}`,
     `- Mentions of entities not in the export: ${r.unknownMentions.length ? r.unknownMentions.join(', ') : 'none'}`,
@@ -121,7 +124,7 @@ export function reportMarkdown(plan: Plan, meta: { source: string; checksum: str
 // ---------------------------------------------------------------------------------------------
 // Apply / rollback through the Supabase Data API with the secret key (server-side only).
 // ---------------------------------------------------------------------------------------------
-function api(base: string, key: string) {
+export function api(base: string, key: string) {
   const headers = { apikey: key, 'content-type': 'application/json' };
   return async function call<T>(method: string, pathAndQuery: string, body?: unknown, prefer?: string): Promise<T> {
     const res = await fetch(`${base}/rest/v1/${pathAndQuery}`, {
@@ -135,7 +138,22 @@ function api(base: string, key: string) {
   };
 }
 
-function checkTarget(args: Args): { base: string; key: string } {
+/**
+ * Read every row of a table. The hosted Data API returns at most 1000 rows per request, so one
+ * GET silently truncates a large wiki and a re-run would then try to create rows that exist.
+ * `pathAndQuery` must already contain a query string and a stable order.
+ */
+export async function getAll<T>(call: ReturnType<typeof api>, pathAndQuery: string, pageSize = 1000): Promise<T[]> {
+  const rows: T[] = [];
+  for (let offset = 0; offset < 200_000; offset += pageSize) {
+    const page = await call<T[]>('GET', `${pathAndQuery}&limit=${pageSize}&offset=${offset}`);
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return rows;
+}
+
+export function checkTarget(args: { target?: string }): { base: string; key: string } {
   const base = (process.env.SUPABASE_URL ?? '').replace(/\/+$/, '');
   const key = process.env.SUPABASE_SECRET_KEY ?? '';
   if (!args.target || !base || args.target.replace(/\/+$/, '') !== base) {
@@ -150,7 +168,7 @@ export async function applyPlan(plan: Plan, base: string, key: string) {
   const summary = { articlesCreated: 0, articlesSkipped: 0, categories: 0, relations: 0 };
 
   // Categories (skip existing by source_ref or slug).
-  const existingCats = await call<{ id: string; slug: string; source_ref: string | null }[]>('GET', 'categories?select=id,slug,source_ref');
+  const existingCats = await getAll<{ id: string; slug: string; source_ref: string | null }>(call, 'categories?select=id,slug,source_ref&order=id');
   const catBySource = new Map(existingCats.filter((c) => c.source_ref).map((c) => [c.source_ref!, c.id]));
   const catSlugs = new Set(existingCats.map((c) => c.slug));
   for (const c of plan.categories) {
@@ -162,7 +180,7 @@ export async function applyPlan(plan: Plan, base: string, key: string) {
     summary.categories++;
   }
 
-  const existing = await call<{ id: string; slug: string; source_ref: string | null }[]>('GET', 'articles?select=id,slug,source_ref');
+  const existing = await getAll<{ id: string; slug: string; source_ref: string | null }>(call, 'articles?select=id,slug,source_ref&order=id');
   const bySource = new Map(existing.filter((a) => a.source_ref).map((a) => [a.source_ref!, a.id]));
   const slugs = new Set(existing.map((a) => a.slug));
   const slugToId = new Map(existing.map((a) => [a.slug, a.id]));
@@ -194,7 +212,7 @@ export async function applyPlan(plan: Plan, base: string, key: string) {
     summary.articlesCreated++;
   }
 
-  const existingRels = await call<{ source_ref: string | null }[]>('GET', 'relations?select=source_ref&source_ref=not.is.null');
+  const existingRels = await getAll<{ source_ref: string | null }>(call, 'relations?select=source_ref&source_ref=not.is.null&order=id');
   const relRefs = new Set(existingRels.map((r) => r.source_ref));
   for (const r of plan.relations) {
     if (relRefs.has(r.sourceRef)) continue;
