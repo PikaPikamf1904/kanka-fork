@@ -326,7 +326,7 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .danger-zone { border-color: var(--crimson); }
 .note { border-bottom: 1px dotted var(--line); padding: 0.4rem 0; }
 .revision-list { font-family: var(--font-ui); }
-.dialog { position: fixed; inset: 0; margin: auto; z-index: 80; width: min(560px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto; border: 2px solid var(--gold); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 20px 60px rgb(0 0 0 / 0.5); padding: 1rem 1.25rem; }
+.dialog { position: fixed; inset: 0; margin: auto; z-index: 1100; width: min(560px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto; border: 2px solid var(--gold); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 20px 60px rgb(0 0 0 / 0.5); padding: 1rem 1.25rem; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; grid-column: 1 / -1; }
 .table { width: 100%; border-collapse: collapse; font-family: var(--font-ui); margin: 0.75rem 0; display: block; overflow-x: auto; }
 .table th, .table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -493,3 +493,12 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 @media (max-width: 480px) { .character-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; } }
 @media (prefers-reduced-motion: reduce) { .card, .card-portrait { transition: none; } }
 .leaflet-popup-content a { display: block; margin-top: 0.3rem; }
+
+/* Fog of war: players see solid fog; the DM sees through it, with every area outlined. */
+.map-fog .map-fog-cover { fill: #15141a; opacity: 1; }
+.map-fog-dm .map-fog-cover { opacity: 0.45; }
+.map-fog-area { fill: none; stroke-width: 3; vector-effect: non-scaling-stroke; }
+.map-fog-area.revealed { stroke: #6fbf73; }
+.map-fog-area.fogged { stroke: #e0b64d; stroke-dasharray: 6 4; }
+.fog-list { list-style: none; padding: 0; }
+.fog-list li { margin: 0.3rem 0; }

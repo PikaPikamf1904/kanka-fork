@@ -4,7 +4,7 @@ import { toChronicleError } from './changeSets.ts';
 import { MEDIA_BUCKET, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
-  InfoboxField, MapMarker, Media, Member, Relation, Revision, SearchHit, Section, TimelineEvent, WikiMap,
+  InfoboxField, MapFogArea, MapMarker, Media, Member, Relation, Revision, SearchHit, Section, TimelineEvent, WikiMap,
 } from './types.ts';
 
 function must<T>(result: { data: T | null; error: { message: string } | null }): T {
@@ -172,13 +172,15 @@ export async function listMaps(): Promise<WikiMap[]> {
 
 export type MapMarkerView = MapMarker & { article: ArticleRef | null; submap: { slug: string; title: string } | null };
 
-export async function getMap(slug: string): Promise<{ map: WikiMap; markers: MapMarkerView[]; children: WikiMap[]; parent: WikiMap | null } | null> {
+export async function getMap(slug: string): Promise<{ map: WikiMap; markers: MapMarkerView[]; children: WikiMap[]; parent: WikiMap | null; fog: MapFogArea[] } | null> {
   const map = must(await supabase.from('maps').select('*').eq('slug', slug).maybeSingle()) as WikiMap | null;
   if (!map) return null;
-  const [markers, children, parent] = await Promise.all([
+  const [markers, children, parent, fog] = await Promise.all([
     supabase.from('map_markers').select('*, article:articles(slug, title, type)').eq('map_id', map.id).order('label'),
     supabase.from('maps').select('*').eq('parent_map_id', map.id).order('title'),
     map.parent_map_id ? supabase.from('maps').select('*').eq('id', map.parent_map_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    // Players receive only revealed areas (Row Level Security); the DM receives all of them.
+    supabase.from('map_fog_areas').select('id, map_id, label, points, visibility').eq('map_id', map.id).order('created_at'),
   ]);
   const markerRows = must(markers) as (MapMarker & { article: ArticleRef | null })[];
   const childMaps = must(children) as WikiMap[];
@@ -197,6 +199,7 @@ export async function getMap(slug: string): Promise<{ map: WikiMap; markers: Map
     markers: markerRows.map((m) => ({ ...m, submap: submapFor(m.article_id) })),
     children: childMaps,
     parent: must(parent) as WikiMap | null,
+    fog: must(fog) as MapFogArea[],
   };
 }
 
@@ -392,6 +395,19 @@ export async function saveMarker(m: Omit<MapMarker, 'id'> & { id?: string }) {
 
 export async function deleteMarker(id: string) {
   must(await supabase.from('map_markers').delete().eq('id', id).select('id'));
+}
+
+export async function setMapFog(mapId: string, enabled: boolean) {
+  must(await supabase.from('maps').update({ fog_enabled: enabled }).eq('id', mapId).select('id'));
+}
+
+export async function saveFogArea(a: Omit<MapFogArea, 'id'> & { id?: string }) {
+  const { id, ...row } = a;
+  must(id ? await supabase.from('map_fog_areas').update(row).eq('id', id).select('id') : await supabase.from('map_fog_areas').insert(row).select('id'));
+}
+
+export async function deleteFogArea(id: string) {
+  must(await supabase.from('map_fog_areas').delete().eq('id', id).select('id'));
 }
 
 export async function listMembers(): Promise<Member[]> {

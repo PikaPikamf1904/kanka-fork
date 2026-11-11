@@ -16,7 +16,8 @@ not add a payment method. Use synthetic content until you are ready to import re
 2. **SQL Editor:** run the files in `chronicle-cloud/supabase/migrations/` in order
    (`…0100_core_schema`, `…0200_functions`, `…0300_storage`, `…0400_import_refs`,
    `…0500_hardening`, `…0600_audit_fixes`, `…0700_media_sync_lock`,
-   `…0800_rls_performance`, `…0900_change_sets`, `…1000_atomic_save_and_mcp`). Migrations 9 and 10 are local only so far. This is the
+   `…0800_rls_performance`, `…0900_change_sets`, `…1000_atomic_save_and_mcp`, `…1100_map_fog`).
+   On the hosted project 1–10 are applied (2026-11-11); `…1100_map_fog` is local only so far. This is the
    tested route. (The Supabase CLI's `supabase db push` also works from `chronicle-cloud/`, but
    needs `supabase init` and `supabase link --project-ref <ref>` first; not tested here.)
 3. **Authentication → Sign In / Providers:**

@@ -92,7 +92,7 @@ export async function asService<T extends pg.QueryResultRow = pg.QueryResultRow>
 }
 
 const contentTables = [
-  'revisions', 'map_markers', 'maps', 'timeline_events', 'relations', 'redirects', 'article_links',
+  'revisions', 'map_fog_areas', 'map_markers', 'maps', 'timeline_events', 'relations', 'redirects', 'article_links',
   'article_categories', 'categories', 'dm_notes', 'infobox_fields', 'article_sections', 'articles',
   'enrollment_attempts', 'campaign_members', 'access_codes',
 ];
@@ -180,6 +180,11 @@ export async function resetFixtures() {
     insert into public.maps (id, slug, title, visibility, status) values
       ('d0000000-0000-4000-8000-000000000001', 'world', 'World', 'players', 'published'),
       ('d0000000-0000-4000-8000-000000000002', 'dragon-nest', 'Dragon Nest', 'dm', 'published');
+    update public.maps set fog_enabled = true where id in ('d0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002');
+    insert into public.map_fog_areas (map_id, label, points, visibility) values
+      ('d0000000-0000-4000-8000-000000000001', 'Harbour district', '[[0,0],[40,0],[40,40]]', 'players'),
+      ('d0000000-0000-4000-8000-000000000001', 'FOGSECRET cove', '[[50,50],[90,50],[90,90]]', 'dm'),
+      ('d0000000-0000-4000-8000-000000000002', 'FOGNEST entrance', '[[1,1],[9,1],[9,9]]', 'players');
     insert into public.map_markers (map_id, x, y, label, visibility, article_id) values
       ('d0000000-0000-4000-8000-000000000001', 10, 10, 'Harbour', 'players', null),
       ('d0000000-0000-4000-8000-000000000001', 20, 20, 'MARKERSECRET cave', 'dm', null),

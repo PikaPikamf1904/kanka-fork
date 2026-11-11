@@ -15,7 +15,7 @@ afterAll(() => pool.end());
 const secretWords = [
   'SECRETWORD', 'DRAFTWORD', 'SPYMASTERWORD', 'HIDDENARTICLEWORD', 'INFOBOXSECRET', 'NOTEWORD',
   'TIMELINESECRET', 'MARKERSECRET', 'Traitors', 'traitor-captain', 'Hidden Spymaster',
-  'Secretly serves', 'Dragon Nest', 'Unfinished Keep', 'nest-plan',
+  'Secretly serves', 'Dragon Nest', 'Unfinished Keep', 'nest-plan', 'FOGSECRET', 'FOGNEST',
 ];
 
 /** Everything a player could pull through the API, as one string, to scan for secrets. */
@@ -32,6 +32,7 @@ async function everythingVisibleTo(who: Who) {
     'select * from public.timeline_events',
     'select * from public.maps',
     'select * from public.map_markers',
+    'select * from public.map_fog_areas',
     'select * from public.media',
     "select name from storage.objects where bucket_id = 'chronicle-media'",
     'select * from public.campaign_settings',
@@ -225,7 +226,7 @@ describe('everyone without active membership sees nothing', () => {
   for (const who of ['outsider', 'revoked'] as const) {
     it(`${who}: every table and function returns nothing`, async () => {
       const all = await everythingVisibleTo(who);
-      expect(all).toBe(JSON.stringify(Array.from({ length: 23 }, () => [])));
+      expect(all).toBe(JSON.stringify(Array.from({ length: 24 }, () => [])));
     });
   }
 
