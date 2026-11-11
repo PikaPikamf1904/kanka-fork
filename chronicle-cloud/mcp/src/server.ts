@@ -20,10 +20,25 @@ export interface Env extends AuthEnv {
   MCP_CLIENT_SCOPES?: string;
 }
 
-export const SERVER = { name: 'chronicle-mcp', version: '0.1.0' };
-const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+export const SERVER = { name: 'chronicle-mcp', version: '0.2.0' };
+const INSTRUCTIONS = [
+  'Chronicle is a private Dragonlance campaign wiki. Every tool answers only with what the signed-in person may see; a missing page may simply be hidden from them.',
+  'Read: chronicle_search, then chronicle_get_article (slug or id) or chronicle_get_character; chronicle_list_sessions and chronicle_get_timeline for recaps and story order.',
+  'Write (DM only): never save directly. 1) chronicle_find_duplicates for new names; 2) a chronicle_preview_* or chronicle_create_character_draft tool; 3) show the diff and give the DM the review_url; 4) after the DM approves in Chronicle, chronicle_apply_changes with the preview_id, digest and a new idempotency_key.',
+  'Everything saved is a private, unpublished draft. Never invent campaign facts; mark uncertain or planned material with source_kind.',
+].join('\n');
+const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY = 1_100_000;
-const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
+// Bearer tokens are sent in a header, never cookies, so any origin may call (needed by browser-based
+// MCP clients such as MCP Inspector). Nothing is readable without a valid token.
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version, mcp-session-id, last-event-id',
+  'access-control-expose-headers': 'www-authenticate, mcp-session-id',
+  'access-control-max-age': '86400',
+};
+const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...CORS };
 
 const json = (body: unknown, status = 200, extra: Record<string, string> = {}) => new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...extra } });
 const rpcError = (id: unknown, code: number, message: string, status = 200) => json({ jsonrpc: '2.0', id: id ?? null, error: { code, message } }, status);
@@ -68,18 +83,21 @@ export async function handleRequest(request: Request, env: Env, fetchImpl: typeo
   const url = new URL(request.url);
   const metadataUrl = `${url.origin}/.well-known/oauth-protected-resource`;
 
-  if (url.pathname === '/health') return json({ ok: true, ...SERVER, protocol: PROTOCOLS[0] });
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  if (url.pathname === '/health' || url.pathname === '/') return json({ ok: true, ...SERVER, protocol: PROTOCOLS[0] });
   if (url.pathname === '/.well-known/oauth-protected-resource' || url.pathname === '/.well-known/oauth-protected-resource/mcp') {
     return json({
       resource: `${url.origin}/mcp`,
       authorization_servers: [`${env.SUPABASE_URL.replace(/\/+$/, '')}/auth/v1`],
       bearer_methods_supported: ['header'],
-      scopes_supported: SCOPES,
+      // No scopes_supported: Supabase's OAuth server only issues standard OpenID scopes, and a client
+      // that asked for chronicle:* scopes would be refused. Chronicle scopes are a Worker setting.
       resource_name: 'Chronicle campaign wiki',
     });
   }
   if (url.pathname !== '/mcp') return json({ error: 'Not found' }, 404);
-  if (request.method !== 'POST') return json({ error: 'Use POST.' }, 405, { allow: 'POST' });
+  // Stateless server: no server-to-client stream, so GET (and DELETE of a session) is not offered.
+  if (request.method !== 'POST') return json({ error: 'Use POST.' }, 405, { allow: 'POST, OPTIONS' });
 
   const challenge = { 'www-authenticate': `Bearer resource_metadata="${metadataUrl}"` };
   const header = request.headers.get('authorization') ?? '';
@@ -104,7 +122,7 @@ export async function handleRequest(request: Request, env: Env, fetchImpl: typeo
     const asked = typeof params?.protocolVersion === 'string' ? params.protocolVersion : '';
     return json({ jsonrpc: '2.0', id, result: {
       protocolVersion: PROTOCOLS.includes(asked) ? asked : PROTOCOLS[0], capabilities: { tools: { listChanged: false } }, serverInfo: SERVER,
-      instructions: 'Chronicle is a private campaign wiki. Read tools return only what the signed-in person may see. Changes are proposed as previews; the DM approves each preview in Chronicle before it can be applied. Never invent campaign facts.',
+      instructions: INSTRUCTIONS,
     } });
   }
   if (method === 'tools/list') {

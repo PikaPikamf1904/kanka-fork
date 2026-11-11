@@ -1,8 +1,19 @@
 # Connecting an assistant to Chronicle (MCP)
 
 **Status: `local_verified`.** The server passes its tests against the local stack with locally
-signed tokens. It has **not** been deployed, and no real MCP client (Claude, ChatGPT, MCP
-Inspector) has connected to it yet. Nothing below has been done on the hosted project.
+signed tokens. Check the pull request for whether the Worker has been deployed; a real ChatGPT or
+Codex connection is verified only when a real tool call has succeeded.
+
+Endpoint once deployed: `https://chronicle-mcp.life-line-gaming-solutions.workers.dev/mcp`
+
+There are three separate pieces:
+
+1. **The Chronicle website** (Cloudflare Pages). It hosts the sign-in consent page `/dm/connect`
+   and the approval page `/dm/review/<id>`.
+2. **The MCP server** (`chronicle-cloud/mcp/`, Cloudflare Worker `chronicle-mcp`). It exposes the
+   tools. Only this gives ChatGPT access to Chronicle.
+3. **The Chronicle skill** (`plugins/chronicle/`). It teaches ChatGPT and Codex how to use the tools
+   (preview before write, provenance, no invented facts). It grants no access by itself.
 
 ## What it is
 
@@ -35,13 +46,16 @@ replayed through the MCP endpoint to approve its own changes.
 ## Tools
 
 Read (any member, limited to what they may see): `chronicle_whoami`, `chronicle_search`,
-`chronicle_get_article`, `chronicle_list_characters`, `chronicle_get_character`.
-Read (DM): `chronicle_get_revisions`, `chronicle_audit_links`, `chronicle_suggest_connections`.
-Propose (DM, saves nothing): `chronicle_preview_changes`, `chronicle_preview_import`,
+`chronicle_get_article` (by slug or stable id), `chronicle_list_characters`,
+`chronicle_get_character`, `chronicle_list_sessions`, `chronicle_get_timeline`.
+Read (DM): `chronicle_list_drafts`, `chronicle_get_provenance`, `chronicle_find_duplicates`,
+`chronicle_get_revisions`, `chronicle_audit_links`, `chronicle_suggest_connections`.
+Propose (DM, saves no content): `chronicle_preview_changes`, `chronicle_preview_import`,
 `chronicle_create_character_draft`, `chronicle_add_dm_note`, `chronicle_restore_revision`.
-Save (DM): `chronicle_apply_changes`.
+Save (DM, after approval in Chronicle): `chronicle_apply_changes`.
 
-There is no publish, delete, member, access-code, SQL or URL-fetch tool.
+All tools except `chronicle_apply_changes` carry `readOnlyHint`, so ChatGPT asks for confirmation
+only before a save. There is no publish, delete, member, access-code, SQL or URL-fetch tool.
 
 ## How a change gets saved
 
@@ -60,19 +74,51 @@ per client by the Worker setting `MCP_CLIENT_SCOPES`, for example
 receives all four (`chronicle:read`, `chronicle:preview`, `chronicle:draft_write`,
 `chronicle:revision_restore`); the database still requires the DM for everything but reading.
 
-## To go live (each step needs the DM's approval; none has been done)
+## To go live
 
-1. Apply migrations `…0900_change_sets` and `…1000_atomic_save_and_mcp` to the hosted project.
-2. Deploy this branch of the website (it contains the consent and review pages).
-3. In the Supabase dashboard: Authentication → OAuth Server → enable; set the authorization path to
-   `/dm/connect`; decide whether to allow dynamic client registration.
-4. Copy `mcp/wrangler.example.jsonc` to `wrangler.jsonc`, fill in the three public values, and
-   deploy the Worker (`npx wrangler deploy` from `chronicle-cloud/mcp/`). It needs no secrets.
-5. Connect a client to `https://<worker>/mcp`. Claude Code: `claude mcp add --transport http
-   chronicle https://<worker>/mcp`. ChatGPT custom connectors depend on the account's plan and
-   workspace settings; check that at connection time.
-6. Test with a real client before trusting it: sign-in, `chronicle_whoami`, a search, one proposal
-   approved and applied.
+Owner steps, in order:
+
+1. Apply migrations `…0900_change_sets` and `…1000_atomic_save_and_mcp` to the hosted project
+   (additive: new tables, functions and a version column; no data is changed).
+2. Deploy this branch of the website, which contains the consent and review pages.
+3. Supabase dashboard → Authentication → URL Configuration: set **Site URL** to
+   `https://chronicle-wiki-preview.pages.dev` (it was `http://localhost:3000`, and the consent
+   path is relative to it).
+4. Supabase dashboard → Authentication → OAuth Server: **enable**, set the authorization path to
+   `/dm/connect`. Leave dynamic client registration **off** unless you choose DCR in step 6.
+5. Deploy the Worker from `chronicle-cloud/mcp/` with `npx wrangler deploy`. It needs no secrets;
+   its three settings are public and committed in `mcp/wrangler.jsonc`.
+
+### ChatGPT (web)
+
+6. In ChatGPT: **Plugins → + → Add custom MCP server**. Name `Chronicle`, Server URL
+   `https://chronicle-mcp.life-line-gaming-solutions.workers.dev/mcp`, authentication **OAuth**.
+   - Recommended: create an OAuth client in Supabase (Authentication → OAuth Apps → Add), type
+     *confidential*, with the redirect URI ChatGPT shows in the form, and paste its client id and
+     secret into ChatGPT.
+   - Alternative: turn on dynamic client registration in Supabase (step 4) and choose DCR in
+     ChatGPT. Anyone could then register a client, though each still needs a Chronicle sign-in
+     and your consent.
+7. Accept the risk notice, **Create as a plugin**, install it, and connect: ChatGPT opens
+   Supabase, which sends you to Chronicle's `/dm/connect` page; sign in as the DM and click Allow.
+8. In a new chat, type `@Chronicle` and ask, for example: "Use Chronicle's chronicle_whoami tool",
+   then "Get Swift Claw's character profile from Chronicle".
+
+### Codex
+
+```
+codex mcp add chronicle --url https://chronicle-mcp.life-line-gaming-solutions.workers.dev/mcp --oauth-client-id <client id>
+codex mcp login chronicle
+```
+
+Register the callback `codex mcp add` prints (for example `http://127.0.0.1/callback`) as a
+redirect URI of a *public* OAuth client in Supabase. The skill is offered through the repository
+marketplace `.agents/plugins/marketplace.json` (plugin `chronicle`), or copy
+`plugins/chronicle/skills/chronicle` to `~/.agents/skills/chronicle`.
+
+### Test before trusting it
+
+Sign in, `chronicle_whoami`, a search, then one proposal approved in Chronicle and applied.
 
 To disconnect: revoke the client's grant in the Supabase dashboard (takes effect when its current
 token expires, about an hour), or revoke at once by removing the Worker or its route.
@@ -80,7 +126,10 @@ token expires, about an hour), or revoke at once by removing the Worker or its r
 ## Not verified
 
 - A real OAuth round trip (the local Auth service predates the OAuth server feature).
-- Interoperability with MCP Inspector, Claude or ChatGPT.
+- Interoperability with MCP Inspector, Codex or ChatGPT.
+- Token audience: Supabase issues `aud: authenticated` and does not copy ChatGPT's `resource`
+  parameter into the token. The Worker therefore checks issuer, signature, expiry, subject and
+  OAuth client id instead of a Worker-specific audience.
 - Whether Supabase OAuth tokens carry the `aal` claim the two-step check reads; if they do not, a
   DM with two-step enabled will be refused DM tools (fails closed) until this is resolved.
 - Rate limiting: none in the Worker; use a Cloudflare rate-limiting rule on `/mcp`.

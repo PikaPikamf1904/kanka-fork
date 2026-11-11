@@ -74,6 +74,20 @@ describe('protocol and discovery', () => {
     expect(await meta.json()).toMatchObject({ resource: 'https://mcp.example/mcp', authorization_servers: [`${env.SUPABASE_URL}/auth/v1`], bearer_methods_supported: ['header'] });
   });
 
+  it('answers CORS preflight and refuses GET without leaking anything', async () => {
+    const pre = await handleRequest(new Request('https://mcp.example/mcp', { method: 'OPTIONS', headers: { origin: 'https://inspector.example', 'access-control-request-method': 'POST' } }), env);
+    expect(pre.status).toBe(204);
+    expect(pre.headers.get('access-control-allow-headers')).toContain('authorization');
+    expect(pre.headers.get('access-control-expose-headers')).toContain('www-authenticate');
+    const get = await handleRequest(new Request('https://mcp.example/mcp'), env);
+    expect(get.status).toBe(405);
+    const meta = await (await handleRequest(new Request('https://mcp.example/.well-known/oauth-protected-resource/mcp'), env)).json() as Record<string, unknown>;
+    expect(meta.scopes_supported).toBeUndefined();
+    const init = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25' } }, dm());
+    expect(init.json!.result.protocolVersion).toBe('2025-11-25');
+    expect(init.json!.result.instructions.slice(0, 512)).toContain('preview');
+  });
+
   it('health shows a version and nothing else', async () => {
     const res = await handleRequest(new Request('https://mcp.example/health'), env);
     const body = JSON.stringify(await res.json());
@@ -88,8 +102,9 @@ describe('protocol and discovery', () => {
     expect((await post({ jsonrpc: '2.0', id: 2, method: 'ping' }, dm())).json!.result).toEqual({});
     const tools = (await post({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, dm())).json!.result.tools as { name: string; annotations: { readOnlyHint: boolean }; inputSchema: { type: string } }[];
     expect(tools.map((t) => t.name).sort()).toEqual([
-      'chronicle_add_dm_note', 'chronicle_apply_changes', 'chronicle_audit_links', 'chronicle_create_character_draft', 'chronicle_get_article',
-      'chronicle_get_character', 'chronicle_get_revisions', 'chronicle_list_characters', 'chronicle_preview_changes', 'chronicle_preview_import',
+      'chronicle_add_dm_note', 'chronicle_apply_changes', 'chronicle_audit_links', 'chronicle_create_character_draft', 'chronicle_find_duplicates',
+      'chronicle_get_article', 'chronicle_get_character', 'chronicle_get_provenance', 'chronicle_get_revisions', 'chronicle_get_timeline',
+      'chronicle_list_characters', 'chronicle_list_drafts', 'chronicle_list_sessions', 'chronicle_preview_changes', 'chronicle_preview_import',
       'chronicle_restore_revision', 'chronicle_search', 'chronicle_suggest_connections', 'chronicle_whoami']);
     expect(tools.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name)).toEqual(['chronicle_apply_changes']);
     expect(tools.every((t) => t.inputSchema.type === 'object')).toBe(true);
@@ -300,5 +315,72 @@ describe('errors never carry database text or tokens (AUTH-17)', () => {
     expect(r.isError).toBe(true);
     expect(r.raw).not.toContain(t);
     expect(r.raw).not.toMatch(/JWS|PGRST|select |relation|postgres/i);
+  });
+});
+
+describe('recaps, timeline, drafts, provenance and duplicates', () => {
+  it('reads a page by stable id, with the same not-found answer for a hidden one', async () => {
+    const r = await call('chronicle_get_article', { id: 'a0000000-0000-4000-8000-00000000000a' }, player());
+    expect(r.data.article.slug).toBe('public-article');
+    const hidden = await call('chronicle_get_article', { id: 'a0000000-0000-4000-8000-00000000000b' }, player());
+    const missing = await call('chronicle_get_article', { id: 'a0000000-0000-4000-8000-0000000000ff' }, player());
+    expect(hidden.error).toEqual(missing.error);
+    expect(hidden.raw).not.toContain('Spymaster');
+    expect((await call('chronicle_get_article', { id: 'not-an-id' }, player())).error.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('session recaps and the timeline show players only what they may read', async () => {
+    await admin(`insert into public.articles (slug, type, title, summary, visibility, status, session_date) values
+      ('session-1', 'session', 'Session 1', 'The party met.', 'players', 'published', '2026-01-05'),
+      ('session-2', 'session', 'Session 2', 'SESSIONSECRET', 'dm', 'draft', '2026-01-12')`);
+    const p = await call('chronicle_list_sessions', {}, player());
+    expect(p.data.items.map((x: any) => x.slug)).toEqual(['session-1']);
+    expect(p.raw).not.toContain('SESSIONSECRET');
+    const d = await call('chronicle_list_sessions', {}, dm());
+    expect(d.data.items.map((x: any) => x.slug)).toEqual(['session-2', 'session-1']);
+
+    const t = await call('chronicle_get_timeline', {}, player());
+    // An event attached to a page players cannot read is hidden with it (database policy).
+    expect(t.data.items.map((x: any) => x.title)).toEqual(['Visible event']);
+    expect(t.raw).not.toMatch(/TIMELINESECRET|Draft event|Spymaster|secret-article/);
+    expect((await call('chronicle_get_timeline', {}, dm())).data.items).toHaveLength(4);
+  });
+
+  it('drafts, provenance and duplicate checks are DM-only', async () => {
+    for (const [name, args] of [['chronicle_list_drafts', {}], ['chronicle_get_provenance', { slug: 'public-article' }], ['chronicle_find_duplicates', { names: ['Visible Captain'] }]] as const) {
+      const r = await call(name, args, player());
+      expect(r.error.code, name).toBe('FORBIDDEN');
+    }
+    const drafts = await call('chronicle_list_drafts', {}, dm());
+    expect(drafts.data.drafts.items.map((x: any) => x.slug)).toContain('draft-article');
+    expect(drafts.data.drafts.items.every((x: any) => x.slug !== 'public-article')).toBe(true);
+    expect(drafts.data.previews_awaiting_approval).toEqual([]);
+    const pv = await call('chronicle_create_character_draft', { draft: { title: 'Synthetic Tinker' } }, dm());
+    const pending = await call('chronicle_list_drafts', {}, dm());
+    expect(pending.data.previews_awaiting_approval).toEqual([expect.objectContaining({ preview_id: pv.data.preview_id, review_url: `https://wiki.example/dm/review/${pv.data.preview_id}` })]);
+  });
+
+  it('provenance lists the source of each recorded fact', async () => {
+    const pv = await call('chronicle_create_character_draft', { source_kind: 'transcript_uncertain', draft: { title: 'Synthetic Tinker', fields: [{ label: 'Race', value: 'Gnome' }], sections: [{ heading: 'Seen', body: 'Met the party once.' }] } }, dm());
+    await approveOnWebsite(pv.data.preview_id);
+    const applied = await call('chronicle_apply_changes', { preview_id: pv.data.preview_id, digest: pv.data.digest, idempotency_key: 'prov-test-0001' }, dm());
+    expect(applied.isError).toBe(false);
+    const prov = await call('chronicle_get_provenance', { slug: 'synthetic-tinker' }, dm());
+    const kinds = prov.data.records.map((r: any) => r.kind);
+    expect(kinds.length).toBeGreaterThan(0);
+    expect(new Set(kinds)).toEqual(new Set(['transcript_uncertain']));
+    expect(prov.data.records.map((r: any) => r.applies_to)).toEqual(expect.arrayContaining([{ field: 'Race' }, { section: 'Seen' }]));
+  });
+
+  it('finds duplicates by address, redirect and title before a page is proposed', async () => {
+    const r = await call('chronicle_find_duplicates', { names: ['Visible Captain', 'Old Captain Name', 'Harbour', 'Completely New Person'] }, dm());
+    const [captain, redirect, harbour, fresh] = r.data.results;
+    expect(captain).toMatchObject({ proposed_slug: 'visible-captain', likely_duplicate: true });
+    expect(captain.candidates[0]).toMatchObject({ slug: 'public-article', strength: 'exact' });
+    expect(redirect.candidates[0]).toMatchObject({ slug: 'public-article', strength: 'exact' });
+    expect(harbour).toMatchObject({ likely_duplicate: true });
+    expect(harbour.candidates[0]).toMatchObject({ slug: 'public-two', strength: 'strong' });
+    expect(fresh).toMatchObject({ likely_duplicate: false });
+    expect((await call('chronicle_find_duplicates', { names: [] }, dm())).error.code).toBe('VALIDATION_FAILED');
   });
 });
