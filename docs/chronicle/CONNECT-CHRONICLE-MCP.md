@@ -1,10 +1,19 @@
 # Connecting an assistant to Chronicle (MCP)
 
-**Status: `local_verified`.** The server passes its tests against the local stack with locally
-signed tokens. Check the pull request for whether the Worker has been deployed; a real ChatGPT or
-Codex connection is verified only when a real tool call has succeeded.
+**Status (2026-11-11): deployed, not yet connected.**
+- The Worker is live at the endpoint below.
+- Hosted migrations `…0900` and `…1000` are applied.
+- Supabase's OAuth server is on, with authorization path `/dm/connect` and Site URL `https://chronicle-wiki-preview.pages.dev`.
+- The website is deployed to production from `claude/chronicle-chatgpt-mcp` (`e24cac649`).
 
-Endpoint once deployed: `https://chronicle-mcp.life-line-gaming-solutions.workers.dev/mcp`
+A ChatGPT or Codex connection counts as verified only once a real tool call has succeeded.
+
+Rollback, if needed:
+- **Website:** roll production back to Pages deployment `46b201b0` (`f94f85066`).
+- **Database:** run the statements in each migration's header.
+- **OAuth:** turn the OAuth server off in Supabase.
+
+Endpoint: `https://chronicle-mcp.life-line-gaming-solutions.workers.dev/mcp`
 
 There are three separate pieces:
 
