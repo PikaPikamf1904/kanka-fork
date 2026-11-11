@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { enrollAsPlayer, noHorizontalOverflow, signInAsDm } from './support.ts';
+import { enrollAsPlayer, localCredentials, noHorizontalOverflow, signInAsDm } from './support.ts';
 
 // Synthetic sample characters only. Screenshots go to docs/chronicle/screenshots-characters/.
 const shots = path.resolve(import.meta.dirname, '../../../docs/chronicle/screenshots-characters');
@@ -143,5 +143,29 @@ test.describe('Character encyclopedia', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Aella Test-Smith' })).toHaveCount(0); // approval alone saves nothing
     await page.goto('/dm/review/00000000-0000-4000-8000-000000000000');
     await expect(page.getByRole('heading', { name: 'Review not found' })).toBeVisible();
+  });
+});
+
+test.describe('Assistant sign-in', () => {
+  test('signing in from the access screen returns to the consent request instead of the home page', async ({ page }) => {
+    const { dmEmail, dmPassword } = localCredentials();
+    const consent = '/dm/connect?authorization_id=synthetic-request';
+    await page.goto(consent);
+    await page.getByRole('link', { name: 'Sign in with an account' }).click();
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Fdm%2Fconnect%3Fauthorization_id%3Dsynthetic-request$/);
+    await page.getByLabel('Email').fill(dmEmail);
+    await page.getByLabel('Password').fill(dmPassword);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(new RegExp(`${consent.replace(/[?]/g, '\\?')}$`));
+  });
+
+  test('a next address pointing at another site is ignored', async ({ page }) => {
+    await page.goto('/sign-in?next=//evil.example/steal');
+    await expect(page.getByLabel('Email')).toBeVisible();
+    const { dmEmail, dmPassword } = localCredentials();
+    await page.getByLabel('Email').fill(dmEmail);
+    await page.getByLabel('Password').fill(dmPassword);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
   });
 });

@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { BannerArt } from '../components/Banner.tsx';
 import { enrollWithCode, useSession } from '../lib/session.tsx';
 
 export function AccessPage() {
   const { state, refresh, signOut } = useSession();
+  const location = useLocation();
+  const here = location.pathname + location.search;
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -63,7 +65,7 @@ export function AccessPage() {
             <p className="fine-print">This device will stay signed in until you leave or the DM removes it.</p>
           </form>
         )}
-        <p className="account-link"><Link to="/sign-in">Sign in with an account</Link></p>
+        <p className="account-link"><Link to={here === '/' ? '/sign-in' : `/sign-in?next=${encodeURIComponent(here)}`}>Sign in with an account</Link></p>
       </div>
     </div>
   );

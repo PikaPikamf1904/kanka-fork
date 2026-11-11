@@ -1,12 +1,22 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { supabase } from '../lib/supabase.ts';
 import { useSession } from '../lib/session.tsx';
+
+/** Where to go after signing in: a same-site path only, never another site. */
+export function safeNext(next: string | null): string {
+  return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') && !next.startsWith('/sign-in') ? next : '/';
+}
 
 /** Email and password sign-in for named accounts (the DM), with a TOTP step when MFA is enrolled. */
 export function SignInPage() {
   const { state, refresh } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [params] = useSearchParams();
+  // Shown in place (two-step sign-in) the page keeps its own address; from /sign-in, ?next= says
+  // where to return, so a sign-in started by an assistant's consent request ends back on it.
+  const next = location.pathname === '/sign-in' ? safeNext(params.get('next')) : safeNext(location.pathname + location.search);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
@@ -14,8 +24,8 @@ export function SignInPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (state.kind === 'member') navigate('/', { replace: true });
-  }, [state, navigate]);
+    if (state.kind === 'member' && location.pathname === '/sign-in') navigate(next, { replace: true });
+  }, [state, navigate, next, location.pathname]);
 
   async function signIn(e: FormEvent) {
     e.preventDefault();
