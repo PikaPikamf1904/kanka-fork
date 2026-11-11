@@ -159,6 +159,24 @@ test.describe('Assistant sign-in', () => {
     await expect(page).toHaveURL(new RegExp(`${consent.replace(/[?]/g, '\\?')}$`));
   });
 
+  test('an already-allowed assistant is sent straight back, without an error message', async ({ page }) => {
+    await signInAsDm(page);
+    // The local Auth service has no OAuth server; answer as Supabase does when consent exists.
+    // The return address answers 204 No Content, so the browser stays on this page and it can be
+    // read after it tried to leave.
+    let returned = false;
+    await page.route('https://assistant.example/**', (route) => {
+      returned = true;
+      return route.fulfill({ status: 204 });
+    });
+    await page.route('**/auth/v1/oauth/authorizations/synthetic-approved', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ redirect_url: 'https://assistant.example/callback?code=x&state=y' }) }));
+    await page.goto('/dm/connect?authorization_id=synthetic-approved');
+    await expect.poll(() => returned).toBe(true);
+    await expect(page.getByRole('status')).toContainText('Returning you to the assistant');
+    await expect(page.getByText('not valid or has expired')).toHaveCount(0);
+  });
+
   test('a next address pointing at another site is ignored', async ({ page }) => {
     await page.goto('/sign-in?next=//evil.example/steal');
     await expect(page.getByLabel('Email')).toBeVisible();

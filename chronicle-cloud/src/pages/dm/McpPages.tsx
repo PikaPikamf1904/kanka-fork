@@ -113,9 +113,11 @@ export function OAuthConsentPage() {
     if (!authorizationId) return null;
     const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
     if (error) throw new Error('This connection request is not valid or has expired.');
+    // Already allowed before: Supabase approves at once and returns the address to send the
+    // browser back to. Show that it is on its way, not an error, while the browser leaves.
     if (data && 'redirect_url' in data) {
       window.location.assign(data.redirect_url);
-      return null;
+      return { redirecting: true as const };
     }
     return data;
   }, [authorizationId]);
@@ -138,6 +140,7 @@ export function OAuthConsentPage() {
   if (!authorizationId) return <p role="alert">This page is opened by an assistant asking to connect. There is nothing to approve right now.</p>;
   if (details.loading) return <p className="muted">Loading…</p>;
   if (details.error || !details.data) return <p className="form-error" role="alert">{details.error ?? 'This connection request is not valid or has expired.'}</p>;
+  if ('redirecting' in details.data) return <p className="muted" role="status">You allowed this connection before. Returning you to the assistant…</p>;
   const d = details.data;
   return (
     <div>
