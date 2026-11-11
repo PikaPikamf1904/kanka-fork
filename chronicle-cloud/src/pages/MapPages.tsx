@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { VisibilityBadge } from '../components/Badges.tsx';
@@ -39,7 +39,7 @@ export function MapsPage() {
   );
 }
 
-type MarkerRow = MapMarker & { article: { slug: string; title: string } | null };
+type MarkerRow = MapMarker & { article: { slug: string; title: string } | null; submap?: { slug: string; title: string } | null };
 
 // Markers are stored in image pixels from the top-left corner. Leaflet's simple CRS counts
 // latitude upwards from the bottom, so y is flipped at this boundary only.
@@ -59,6 +59,7 @@ function markerIcon(label: string, hidden: boolean) {
 export function MapPage() {
   const { slug = '' } = useParams();
   const isDm = useIsDm();
+  const navigate = useNavigate();
   const data = useLoad(async () => {
     const d = await getMap(slug);
     if (!d) return null;
@@ -116,11 +117,22 @@ export function MapPage() {
         a.textContent = `Read: ${m.article.title}`;
         popup.append(a);
       }
+      if (m.submap) {
+        const open = document.createElement('a');
+        open.href = `/maps/${m.submap.slug}`;
+        open.className = 'popup-map-link';
+        open.textContent = `Open map: ${m.submap.title}`;
+        open.addEventListener('click', (e) => {
+          e.preventDefault();
+          navigate(`/maps/${m.submap!.slug}`);
+        });
+        popup.append(open);
+      }
       marker.bindPopup(popup);
       if (isDm) marker.on('dblclick', () => setEditing(m));
       marker.addTo(layer);
     }
-  }, [shown, isDm, data.data]);
+  }, [shown, isDm, data.data, navigate]);
 
   // DM: click the map to place a new marker.
   useEffect(() => {
@@ -188,6 +200,7 @@ export function MapPage() {
                 <button type="button" className="link-button" onClick={() => d && mapRef.current?.setView(toLatLng(d.map, m.x, m.y), 1)}>{m.label}</button>
                 {isDm && m.visibility === 'dm' && <VisibilityBadge visibility="dm" />}
                 {m.article && <> · <Link to={`/wiki/${m.article.slug}`}>article</Link></>}
+                {m.submap && <> · <Link to={`/maps/${m.submap.slug}`}>map</Link></>}
                 {isDm && <> · <button type="button" className="link-button" onClick={() => setEditing(m)}>edit</button></>}
               </li>
             ))}

@@ -170,7 +170,9 @@ export async function listMaps(): Promise<WikiMap[]> {
   return must(await supabase.from('maps').select('*').order('title'));
 }
 
-export async function getMap(slug: string): Promise<{ map: WikiMap; markers: (MapMarker & { article: ArticleRef | null })[]; children: WikiMap[]; parent: WikiMap | null } | null> {
+export type MapMarkerView = MapMarker & { article: ArticleRef | null; submap: { slug: string; title: string } | null };
+
+export async function getMap(slug: string): Promise<{ map: WikiMap; markers: MapMarkerView[]; children: WikiMap[]; parent: WikiMap | null } | null> {
   const map = must(await supabase.from('maps').select('*').eq('slug', slug).maybeSingle()) as WikiMap | null;
   if (!map) return null;
   const [markers, children, parent] = await Promise.all([
@@ -178,10 +180,22 @@ export async function getMap(slug: string): Promise<{ map: WikiMap; markers: (Ma
     supabase.from('maps').select('*').eq('parent_map_id', map.id).order('title'),
     map.parent_map_id ? supabase.from('maps').select('*').eq('id', map.parent_map_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ]);
+  const markerRows = must(markers) as (MapMarker & { article: ArticleRef | null })[];
+  const childMaps = must(children) as WikiMap[];
+  // A pin linked to a page (a town) opens the map attached to that same page, if the reader may
+  // see one. Maps under this one win over maps elsewhere; Row Level Security hides the rest.
+  const articleIds = [...new Set(markerRows.map((m) => m.article_id).filter((id): id is string => !!id))];
+  const linked = articleIds.length === 0 ? [] : must(await supabase.from('maps').select('id, slug, title, article_id, parent_map_id').in('article_id', articleIds).neq('id', map.id).order('title')) as Pick<WikiMap, 'id' | 'slug' | 'title' | 'article_id' | 'parent_map_id'>[];
+  const submapFor = (articleId: string | null) => {
+    if (!articleId) return null;
+    const candidates = linked.filter((m) => m.article_id === articleId);
+    const pick = candidates.find((m) => m.parent_map_id === map.id) ?? candidates[0];
+    return pick ? { slug: pick.slug, title: pick.title } : null;
+  };
   return {
     map,
-    markers: must(markers) as (MapMarker & { article: ArticleRef | null })[],
-    children: must(children) as WikiMap[],
+    markers: markerRows.map((m) => ({ ...m, submap: submapFor(m.article_id) })),
+    children: childMaps,
     parent: must(parent) as WikiMap | null,
   };
 }
