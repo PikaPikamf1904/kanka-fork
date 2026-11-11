@@ -103,8 +103,11 @@ Owner steps, in order:
 6. In ChatGPT: **Plugins → + → Add custom MCP server**. Name `Chronicle`, Server URL
    `https://chronicle-mcp.life-line-gaming-solutions.workers.dev/mcp`, authentication **OAuth**.
    - Recommended: create an OAuth client in Supabase (Authentication → OAuth Apps → Add), type
-     *confidential*, with the redirect URI ChatGPT shows in the form, and paste its client id and
-     secret into ChatGPT.
+     *confidential*, **token endpoint authentication method `client_secret_post`**, with the
+     redirect URI ChatGPT shows in the form, and paste its client id and secret into ChatGPT.
+     ChatGPT sends the client secret in the token request body. Supabase's default for confidential
+     clients, `client_secret_basic`, expects it in an HTTP header instead and refuses every code
+     exchange with `invalid authentication method` (ChatGPT shows "Request is not valid").
    - Alternative: turn on dynamic client registration in Supabase (step 4) and choose DCR in
      ChatGPT. Anyone could then register a client, though each still needs a Chronicle sign-in
      and your consent.
@@ -131,6 +134,16 @@ Sign in, `chronicle_whoami`, a search, then one proposal approved in Chronicle a
 
 To disconnect: revoke the client's grant in the Supabase dashboard (takes effect when its current
 token expires, about an hour), or revoke at once by removing the Worker or its route.
+
+## Troubleshooting
+
+- **ChatGPT says "Request is not valid" after you click Allow, and no tools appear.** Look in
+  Supabase → Logs → Auth for `POST /oauth/token` with status 400. If the message says
+  `client is registered for 'client_secret_basic' but 'client_secret_post' was used`, edit the
+  OAuth client and set its token endpoint authentication method to `client_secret_post`. The secret
+  does not change. Then reconnect from ChatGPT.
+- **The plugin shows as not installed.** In ChatGPT, open Plugins, find Chronicle under your
+  personal plugins, select Install, then Connect.
 
 ## Not verified
 
