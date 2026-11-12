@@ -284,12 +284,13 @@ function TwoStepPanel() {
 
 export function SettingsPage() {
   const settings = useLoad(getSettings, []);
-  const [form, setForm] = useState({ title: '', tagline: '', overview: '', banner_media_id: null as string | null });
+  const places = useLoad(listAllArticleRefs, []);
+  const [form, setForm] = useState({ title: '', tagline: '', overview: '', banner_media_id: null as string | null, current_location_id: null as string | null, current_status: '' });
   const [msg, setMsg] = useState<string | null>(null);
   const [loadedFrom, setLoadedFrom] = useState<unknown>(null);
   if (settings.data && settings.data !== loadedFrom) {
     setLoadedFrom(settings.data);
-    setForm(settings.data);
+    setForm({ ...settings.data, current_location_id: settings.data.current_location_id ?? null, current_status: settings.data.current_status ?? '' });
   }
   return (
     <>
@@ -306,6 +307,19 @@ export function SettingsPage() {
       <label>Title<input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={80} /></label>
       <label>Tagline<input value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} maxLength={160} /></label>
       <label className="span-2">Campaign overview<textarea rows={6} value={form.overview} onChange={(e) => setForm({ ...form, overview: e.target.value })} /></label>
+      <label>
+        Where the party is now
+        <select value={form.current_location_id ?? ''} onChange={(e) => setForm({ ...form, current_location_id: e.target.value || null })}>
+          <option value="">Not shown</option>
+          {places.data?.filter((a) => a.type === 'location').map((a) => <option key={a.id} value={a.id}>{a.title}{a.status !== 'published' || a.visibility !== 'players' ? ' (hidden from players)' : ''}</option>)}
+        </select>
+        <span className="fine-print">Players only see it once that page is published for them.</span>
+      </label>
+      <label>
+        How things stand (one or two lines)
+        <textarea rows={2} maxLength={600} value={form.current_status} onChange={(e) => setForm({ ...form, current_status: e.target.value })} />
+        <span className="fine-print">Shown to players on the main page. Keep spoilers out.</span>
+      </label>
       <div className="span-2 hero-upload">
         {form.banner_media_id && <MediaImage id={form.banner_media_id} alt="" className="hero-thumb" />}
         <label>
