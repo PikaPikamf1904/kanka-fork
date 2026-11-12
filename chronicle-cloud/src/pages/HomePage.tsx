@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { WhatsNew } from '../beta/WhatsNew.tsx';
 import { ArticleCard } from '../components/ArticleCard.tsx';
 import { BannerArt } from '../components/Banner.tsx';
 import { Markdown } from '../components/Markdown.tsx';
@@ -92,6 +93,8 @@ export function HomePage() {
               <Link key={q.to} to={q.to} className="quick-link"><span className="quick-glyph" aria-hidden="true">{q.glyph}</span>{q.label}</Link>
             ))}
           </nav>
+
+          <WhatsNew />
 
           <div className="now-row">
             <section className="now-card now-where" aria-labelledby="now-where">

@@ -19,6 +19,8 @@ const DmDesk = dm('DmDesk');
 const ChangeReviewPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.ChangeReviewPage })));
 const OAuthConsentPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.OAuthConsentPage })));
 const MediaLibrary = lazy(() => import('./pages/dm/MediaLibrary.tsx').then((m) => ({ default: m.MediaLibrary })));
+const TableScreen = lazy(() => import('./beta/TableScreen.tsx').then((m) => ({ default: m.TableScreen })));
+const BetaPage = lazy(() => import('./beta/BetaPage.tsx').then((m) => ({ default: m.BetaPage })));
 const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
 const gazette = (name: 'GazetteFront' | 'GazetteArchive' | 'GazetteArticle' | 'GazetteDesk' | 'GazetteEditor') =>
   lazy(() => import('./pages/GazettePages.tsx').then((m) => ({ default: m[name] })));
@@ -71,6 +73,7 @@ const router = createBrowserRouter([
       { path: '/category/:slug', element: <CategoryPage /> },
       { path: '/timeline', element: <TimelinePage /> },
       { path: '/connections', element: <ConnectionsPage /> },
+      { path: '/beta', element: page(<BetaPage />) },
       { path: '/news', element: page(<GazetteFront />) },
       { path: '/news/archive', element: page(<GazetteArchive />) },
       { path: '/news/:slug', element: page(<GazetteArticle />) },
@@ -90,6 +93,7 @@ const router = createBrowserRouter([
           { path: 'news/new', element: page(<GazetteEditor />) },
           { path: 'news/edit/:slug', element: page(<GazetteEditor />) },
           { path: 'media', element: page(<MediaLibrary />) },
+          { path: 'table', element: page(<TableScreen />) },
           { path: 'notes', element: page(<NotesPage />) },
           { path: 'access', element: page(<AccessAdmin />) },
           { path: 'settings', element: page(<SettingsPage />) },

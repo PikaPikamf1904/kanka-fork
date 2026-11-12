@@ -1,6 +1,6 @@
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Link } from 'react-router';
+import { PreviewLink } from '../beta/PreviewLink.tsx';
 import { expandWikiLinks } from '../lib/slug.ts';
 import { MediaFigure, MediaImage } from './MediaImage.tsx';
 
@@ -38,7 +38,7 @@ export default function MarkdownImpl({ text }: { text: string }) {
         urlTransform={(url) => (url.startsWith('media:') ? url : defaultUrlTransform(url))}
         components={{
           a({ href, children }) {
-            if (href?.startsWith('/wiki/')) return <Link to={href}>{children}</Link>;
+            if (href?.startsWith('/wiki/')) return <PreviewLink to={href} slug={decodeURIComponent(href.slice('/wiki/'.length).split(/[?#]/)[0]!)}>{children}</PreviewLink>;
             if (href && /^https?:\/\//.test(href)) {
               return (
                 <a href={href} target="_blank" rel="noopener noreferrer nofollow">
