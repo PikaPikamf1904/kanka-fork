@@ -235,15 +235,15 @@ export function GazetteArchive() {
 }
 
 /** The printed story. Used by the story page and by the editor's preview. */
-function StoryView({ title, kicker, deck, summary, body, details, date, related, corrects, toolbar, heroMediaId }: {
-  title: string; kicker: string; deck: string; summary: string; body: string; details: NewsDetails | null; heroMediaId?: string | null;
+function StoryView({ title, deck, summary, body, details, date, related, corrects, toolbar, heroMediaId }: {
+  title: string; deck: string; summary: string; body: string; details: NewsDetails | null; heroMediaId?: string | null;
   date?: string | null; related: ArticleRef[]; corrects?: { slug: string; title: string } | null; toolbar?: ReactNode;
 }) {
   const rel = RELIABILITY[details?.reliability ?? 'confirmed'];
   return (
     <article className={`gz-story gz-story-${details?.reliability ?? 'confirmed'}`}>
       {toolbar}
-      <p className="gz-kicker">{sectionLabel(details?.section)}{kicker ? ` · ${kicker}` : ''} <Stamp reliability={details?.reliability} /></p>
+      <p className="gz-kicker">{sectionLabel(details?.section)} <Stamp reliability={details?.reliability} /></p>
       <h1 className="gz-headline gz-story-headline">{title || 'Untitled story'}</h1>
       {deck && <p className="gz-deck">{deck}</p>}
       <Byline details={details} date={date} />
@@ -278,7 +278,7 @@ export function GazetteArticle() {
     const s = await getNewsStory(slug);
     if (!s) return null;
     const body = s.bundle.sections.map((x) => x.body).join('\n\n');
-    const linked = await articlesBySlugs(wikiLinkTargets(`${s.bundle.article.summary}\n${body}`).map((t) => slugify(t)));
+    const linked = await articlesBySlugs(wikiLinkTargets(`${s.bundle.article.summary}\n${body}`));
     const related = [...new Map([...linked.map((a) => ({ slug: a.slug, title: a.title, type: a.type })), ...s.bundle.relations.map((r) => r.other)]
       .filter((a) => a.type !== 'news').map((a) => [a.slug, a])).values()];
     let corrects: { slug: string; title: string } | null = null;
@@ -300,7 +300,7 @@ export function GazetteArticle() {
     <div className="gazette">
       <Masthead compact issue={news?.issue_number} />
       <StoryView
-        title={a.title} kicker="" deck={a.subtitle} summary={a.summary} body={body} details={news} heroMediaId={a.hero_media_id}
+        title={a.title} deck={a.subtitle} summary={a.summary} body={body} details={news} heroMediaId={a.hero_media_id}
         date={a.published_at} related={related} corrects={corrects}
         toolbar={isDm ? (
           <div className="gz-dm-bar">
@@ -509,7 +509,7 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
 
       {preview ? (
-        <StoryView title={form.title} kicker="" deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} heroMediaId={form.heroMediaId} />
+        <StoryView title={form.title} deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} heroMediaId={form.heroMediaId} />
       ) : (
         <form className="form-grid gz-form" onSubmit={save}>
           <label className="span-2">Headline

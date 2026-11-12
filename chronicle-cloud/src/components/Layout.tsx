@@ -1,3 +1,5 @@
+import { QuickJump, QuickJumpButton } from '../beta/QuickJump.tsx';
+import { isBetaSite } from '../beta/store.ts';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { getSettings } from '../lib/api.ts';
@@ -74,6 +76,8 @@ export function Layout() {
             <SearchBox />
           </div>
           <div className="header-actions">
+            {isBetaSite() && <Link to="/beta" className="beta-ribbon" title="What’s in beta">BETA</Link>}
+            <QuickJumpButton />
             <button type="button" className="icon-button" onClick={nextTheme} title={`Theme: ${theme}`}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" className="theme-icon">
                 <circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -119,6 +123,7 @@ export function Layout() {
               <div className="nav-heading">Dungeon Master</div>
               <NavLink to="/dm" end>DM desk</NavLink>
               <NavLink to="/dm/new">New article</NavLink>
+              <NavLink to="/dm/table">Table screen <span className="beta-tag">beta</span></NavLink>
               <NavLink to="/dm/news">News desk</NavLink>
               <NavLink to="/dm/media">Media library</NavLink>
               <NavLink to="/dm/import">Import lore</NavLink>
@@ -147,6 +152,7 @@ export function Layout() {
           </div>
         </nav>
         {menuOpen && <button type="button" className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+        <QuickJump />
         <main id="main" className="content" tabIndex={-1}>
           <Outlet />
         </main>

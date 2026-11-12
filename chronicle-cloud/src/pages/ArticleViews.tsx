@@ -10,7 +10,7 @@ import { sectionAnchor, Toc } from '../components/Toc.tsx';
 import { articlesBySlugs, listSessions } from '../lib/api.ts';
 import { longDate } from '../lib/dates.ts';
 import { splitTimestamp } from '../lib/journal.ts';
-import { slugify, wikiLinkTargets } from '../lib/slug.ts';
+import { wikiLinkTargets } from '../lib/slug.ts';
 import { relationLabel, TEMPLATES } from '../lib/templates.ts';
 import type { ArticleRef, ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -106,7 +106,7 @@ function Footer({ v, isDm }: { v: ViewModel; isDm: boolean }) {
 /** Pages this one links to in its text, as far as the reader may see them, grouped by kind. */
 function useLinked(v: ViewModel) {
   const text = [v.summary, ...v.sections.map((s) => s.body), ...v.infobox.map((f) => f.value)].join('\n');
-  const slugs = wikiLinkTargets(text).map((t) => slugify(t)).filter((x) => x && x !== v.slug);
+  const slugs = wikiLinkTargets(text).filter((x) => x && x !== v.slug);
   const linked = useLoad(() => articlesBySlugs(slugs), [slugs.join(',')]);
   const all = new Map<string, ArticleRef & { hero_media_id?: string | null }>();
   for (const a of linked.data ?? []) all.set(a.slug, a);

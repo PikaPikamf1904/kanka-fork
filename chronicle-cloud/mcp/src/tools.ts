@@ -3,7 +3,8 @@
 // create previews or apply previews a human approved on the website; nothing here can publish,
 // delete a page, change members or run SQL.
 import type { ChangeOp, ChangeSet, ErrorCode, Preview, ProvenanceKind } from '../../src/lib/changeSetTypes.ts';
-import { packageToChangeSet, parsePackage, wikiLinkTargets } from '../../src/lib/lorePackage.ts';
+import { packageToChangeSet, parsePackage } from '../../src/lib/lorePackage.ts';
+import { wikiLinkTargets } from '../../src/lib/slug.ts';
 import { ToolError, type Db } from './db.ts';
 
 export const SCOPES = ['chronicle:read', 'chronicle:preview', 'chronicle:draft_write', 'chronicle:revision_restore'] as const;
@@ -245,7 +246,7 @@ export const TOOLS: Tool[] = [
       const sections = await ctx.db.get<{ id: string; heading: string; body: string; visibility: string; status: string; article: { slug: string; visibility: string; status: string } }>(
         `article_sections?select=id,heading,body,visibility,status,article:articles!inner(slug,visibility,status)${art ? `&article_id=eq.${art.id}` : ''}&body=like.*%5B%5B*&order=id&limit=${limit + 1}&offset=${offset}`);
       const shown = sections.slice(0, limit);
-      const targets = [...new Set(shown.flatMap((s) => wikiLinkTargets(s.body).map((t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''))))].filter((t) => SLUG.test(t)).slice(0, 400);
+      const targets = [...new Set(shown.flatMap((s) => wikiLinkTargets(s.body)))].filter((t) => SLUG.test(t)).slice(0, 400);
       const [pages, redirects] = targets.length === 0 ? [[], []] : await Promise.all([
         ctx.db.get<{ slug: string; visibility: string; status: string }>(`articles?select=slug,visibility,status&slug=in.(${targets.join(',')})`),
         ctx.db.get<{ from_slug: string }>(`redirects?select=from_slug&from_slug=in.(${targets.join(',')})`),
@@ -255,7 +256,7 @@ export const TOOLS: Tool[] = [
       const out = { broken: [] as Json[], ambiguous: [] as Json[], potential_spoiler_edge: [] as Json[], redirects: [] as Json[] };
       for (const s of shown) {
         const playerVisible = s.visibility === 'players' && s.status === 'published' && s.article.visibility === 'players' && s.article.status === 'published';
-        for (const t of new Set(wikiLinkTargets(s.body).map((x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')))) {
+        for (const t of wikiLinkTargets(s.body)) {
           const base = { source_slug: s.article.slug, source_section_id: s.id, section_heading: s.heading, target_slug: t };
           const target = bySlug.get(t);
           if (!target && viaRedirect.has(t)) out.redirects.push({ ...base, reason: 'The link goes through a redirect.', recommendation: 'Link to the page directly.' });

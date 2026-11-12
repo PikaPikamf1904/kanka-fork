@@ -1,3 +1,4 @@
+import { ConnectionsWeb } from '../beta/ConnectionsWeb.tsx';
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
@@ -218,16 +219,24 @@ export function ConnectionsPage() {
   );
   const byKind = new Map<string, typeof shown>();
   for (const r of shown) byKind.set(r.kind, [...(byKind.get(r.kind) ?? []), r]);
+  const [mode, setMode] = useState<'list' | 'web'>('list');
   return (
     <div>
       <h1 className="page-title">Connections</h1>
       <p className="muted">Who knows whom, who serves whom, and where everyone lives, as far as the party knows.</p>
-      <label className="filter">
-        <span className="visually-hidden">Filter by name</span>
-        <input type="search" placeholder="Filter by name…" value={focus} onChange={(e) => setFocus(e.target.value)} />
-      </label>
+      <div className="row-wrap connections-tools">
+        <label className="filter">
+          <span className="visually-hidden">Filter by name</span>
+          <input type="search" placeholder="Filter by name…" value={focus} onChange={(e) => setFocus(e.target.value)} />
+        </label>
+        <div className="row-wrap" role="group" aria-label="Show as">
+          <button type="button" className={mode === 'list' ? 'chip chip-on' : 'chip'} aria-pressed={mode === 'list'} onClick={() => setMode('list')}>List</button>
+          <button type="button" className={mode === 'web' ? 'chip chip-on' : 'chip'} aria-pressed={mode === 'web'} onClick={() => setMode('web')}>Web <span className="beta-tag">beta</span></button>
+        </div>
+      </div>
       {rels.error && <p className="form-error">{rels.error}</p>}
-      {[...byKind.entries()].map(([kind, list]) => (
+      {mode === 'web' && rels.data && <ConnectionsWeb relations={shown} />}
+      {mode === 'list' && [...byKind.entries()].map(([kind, list]) => (
         <section key={kind} className="panel">
           <h2>{relationLabel(kind)}</h2>
           <ul className="relation-list">
@@ -244,7 +253,7 @@ export function ConnectionsPage() {
           </ul>
         </section>
       ))}
-      {rels.data && shown.length === 0 && <p className="muted">No connections found.</p>}
+      {mode === 'list' && rels.data && shown.length === 0 && <p className="muted">No connections found.</p>}
     </div>
   );
 }

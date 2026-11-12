@@ -34,7 +34,6 @@ interface Item {
   view: View;
 }
 
-const MAX: Record<Purpose, number> = { portrait: MAX_ARTICLE_IMAGE, landscape: MAX_ARTICLE_IMAGE, banner: 2400, picture: MAX_ARTICLE_IMAGE, gallery: MAX_ARTICLE_IMAGE };
 const FIRST_ASPECT: Record<Purpose, AspectKey> = { portrait: 'portrait', landscape: 'landscape', banner: 'banner', picture: 'original', gallery: 'original' };
 const ASPECT_CHOICES: Record<Purpose, AspectKey[]> = {
   portrait: ['portrait', 'square', 'landscape', 'original'],
@@ -169,7 +168,7 @@ export function ImagePicker({ purpose, title, start, onCancel, onDone }: {
         // A new, smaller copy: the original upload or library file is never changed.
         const source = it.file ?? (await downloadMedia(it.library!.path));
         const crop = isWholePicture(it.view, ratio) ? null : cropFromView(it.view, it.width, it.height, ratio);
-        const prepared = await renderImage(source, crop, MAX[purpose]);
+        const prepared = await renderImage(source, crop, purpose === 'banner' ? 2400 : MAX_ARTICLE_IMAGE);
         const media = await uploadMedia(prepared.blob, {
           alt: it.alt, width: prepared.width, height: prepared.height, credit: it.credit,
           originalName: it.file ? baseName(it.file.name) : it.library!.original_name || it.library!.alt,

@@ -15,12 +15,11 @@ const IMAGE = /!\[([^\]\n]*)\]\(media:([a-z0-9][a-z0-9/_.-]*[a-z0-9])(?:[ \t]+"(
 export function findImages(text: string): InlineImage[] {
   const out: InlineImage[] = [];
   for (const m of text.matchAll(IMAGE)) {
-    out.push({ alt: unescape(m[1] ?? ''), path: m[2]!, caption: m[3] ?? '', start: m.index!, end: m.index! + m[0].length });
+    out.push({ alt: m[1] ?? '', path: m[2]!, caption: m[3] ?? '', start: m.index!, end: m.index! + m[0].length });
   }
   return out;
 }
 
-const unescape = (s: string) => s.replace(/\\([[\]\\])/g, '$1');
 const clean = (s: string) => s.replace(/[\r\n]+/g, ' ').trim();
 
 export function imageMarkdown(img: { path: string; alt: string; caption?: string }): string {
