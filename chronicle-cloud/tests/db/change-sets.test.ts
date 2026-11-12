@@ -265,6 +265,46 @@ describe('preview rules (DATA-10 to DATA-13)', () => {
     expect((await apply(p, 'key-mcp-000002', 'dm', mcp)).data).toMatchObject({ created: ['synthetic-hero'] });
   });
 
+  it('does not let an approved OAuth change set remove a player-visible section, and rolls back earlier changes', async () => {
+    const mcp = { client_id: 'synthetic-mcp-client' };
+    const v = await version('public-article');
+    const section = (await bundle('public-article')).sections[0]!;
+    const p = await preview({ changes: [
+      { operation: 'create_article', slug: 'rollback-draft', title: 'Synthetic Draft', type: 'lore' },
+      { operation: 'remove_section', article_slug: 'public-article', section_id: section.id, expected_version: v },
+    ] }, 'dm', mcp);
+    expect(p.error).toBeUndefined();
+    expect((await rpc('dm', 'approve_change_preview', [p.data!.preview_id])).error).toBeUndefined();
+    const result = await apply(p, 'key-visible-removal', 'dm', mcp);
+    expect(result.error?.sqlstate).toBe('42501');
+    expect((await bundle('public-article')).sections.some((s) => s.id === section.id)).toBe(true);
+    expect((await admin("select count(*) n from public.articles where slug = 'rollback-draft'")).rows[0]!.n).toBe('0');
+  });
+
+  it('rejects removal when a section becomes player-visible after preview', async () => {
+    const mcp = { client_id: 'synthetic-mcp-client' };
+    const section = (await bundle('public-article')).sections.find((s) => s.visibility === 'dm')!;
+    const p = await preview({ changes: [{ operation: 'remove_section', article_slug: 'public-article', section_id: section.id, expected_version: await version('public-article') }] }, 'dm', mcp);
+    expect(p.error).toBeUndefined();
+    expect((await rpc('dm', 'approve_change_preview', [p.data!.preview_id])).error).toBeUndefined();
+    await admin("update public.article_sections set visibility = 'players', status = 'published' where id = $1", [section.id]);
+    expect((await apply(p, 'key-visible-race', 'dm', mcp)).error?.code).toBe('CONFLICT');
+    expect((await bundle('public-article')).sections.some((s) => s.id === section.id)).toBe(true);
+  });
+
+  it('still permits OAuth changes to private draft sections and website removal of public sections', async () => {
+    const mcp = { client_id: 'synthetic-mcp-client' };
+    const sections = (await bundle('public-article')).sections;
+    const visible = sections.find((s) => s.visibility === 'players' && s.status === 'published')!;
+    const privateSection = sections.find((s) => s.visibility === 'dm')!;
+    const p = await preview({ changes: [{ operation: 'remove_section', article_slug: 'public-article', section_id: privateSection.id, expected_version: await version('public-article') }] }, 'dm', mcp);
+    expect(p.error).toBeUndefined();
+    expect((await rpc('dm', 'approve_change_preview', [p.data!.preview_id])).error).toBeUndefined();
+    expect((await apply(p, 'key-private-removal', 'dm', mcp)).error).toBeUndefined();
+    const website = await as('dm', 'delete from public.article_sections where id = $1 returning id', [visible.id]);
+    expect(website.rowCount).toBe(1);
+  });
+
   it('an OAuth client cannot change text players can already read', async () => {
     const mcp = { client_id: 'synthetic-mcp-client' };
     const v = await version('public-article');
