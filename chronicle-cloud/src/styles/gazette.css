@@ -149,3 +149,9 @@
   .gz-ears > span { white-space: nowrap; }
   .gz-ears > span:last-child { display: none; }
 }
+
+/* Story pictures: printed-plate look (sepia, rule border). */
+.gz-art { margin: 0.75rem 0 1rem; border: 1px solid var(--gz-rule); padding: 4px; background: color-mix(in srgb, var(--gz-rule) 8%, transparent); }
+.gz-art img { display: block; width: 100%; max-height: 420px; object-fit: cover; filter: sepia(0.35) contrast(1.05); }
+.gz-art figcaption { font-style: italic; font-size: 0.9rem; text-align: center; padding-top: 0.25rem; }
+.gazette .prose-figure img { filter: sepia(0.35) contrast(1.05); }

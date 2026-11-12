@@ -239,6 +239,14 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .prose table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; }
 .prose th, .prose td { border: 1px solid var(--line); padding: 0.35rem 0.6rem; }
 .prose-image { display: block; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); margin: 0.75rem auto; }
+/* Pictures in article text: a figure with caption, or several side by side as a gallery. */
+.prose-figure { margin: 1rem 0; break-inside: avoid; }
+.prose-figure img { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; border-radius: 8px; border: 1px solid var(--line); }
+.prose-figure a { display: block; }
+.prose-figure figcaption { margin-top: 0.35rem; font-size: 0.9rem; font-style: italic; text-align: center; color: var(--muted, inherit); }
+.prose-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(180px, 45%), 1fr)); gap: 0.75rem; margin: 1rem 0; align-items: start; }
+.prose-gallery .prose-figure { margin: 0; }
+.prose-gallery .prose-figure img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; max-height: none; }
 .infobox { float: right; width: 300px; margin: 0 0 1rem 1.5rem; background: var(--surface); border: 2px solid var(--gold); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); font-family: var(--font-ui); }
 .infobox-title { background: linear-gradient(var(--night-2), var(--night-1)); color: var(--gold-light); font-family: var(--font-display); font-weight: 700; text-align: center; padding: 0.55rem 0.75rem; font-size: 1.15rem; }
 .infobox-image { display: grid; place-items: center; padding: 0.75rem; background: var(--surface-2); }

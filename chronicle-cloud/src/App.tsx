@@ -18,6 +18,7 @@ const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'Tim
 const DmDesk = dm('DmDesk');
 const ChangeReviewPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.ChangeReviewPage })));
 const OAuthConsentPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.OAuthConsentPage })));
+const MediaLibrary = lazy(() => import('./pages/dm/MediaLibrary.tsx').then((m) => ({ default: m.MediaLibrary })));
 const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
 const gazette = (name: 'GazetteFront' | 'GazetteArchive' | 'GazetteArticle' | 'GazetteDesk' | 'GazetteEditor') =>
   lazy(() => import('./pages/GazettePages.tsx').then((m) => ({ default: m[name] })));
@@ -88,6 +89,7 @@ const router = createBrowserRouter([
           { path: 'news', element: page(<GazetteDesk />) },
           { path: 'news/new', element: page(<GazetteEditor />) },
           { path: 'news/edit/:slug', element: page(<GazetteEditor />) },
+          { path: 'media', element: page(<MediaLibrary />) },
           { path: 'notes', element: page(<NotesPage />) },
           { path: 'access', element: page(<AccessAdmin />) },
           { path: 'settings', element: page(<SettingsPage />) },

@@ -34,7 +34,9 @@ the humor should come from *how* they report, not from a punchline at the end of
    - **Reporter.** Their voice notes appear under the menu.
    - **Dateline, in-world date, issue number.** Leave a date blank rather than guess it.
    - **Lead story**, if it should headline the front page.
-   - **Story.** Markdown. Link Chronicle pages with `[[page-address]]` or `[[page-address|shown text]]`;
+   - **Story picture** (optional): **Add image**, then crop it. It appears under the headline and,
+     for the lead story, on the front page. See [IMAGES.md](IMAGES.md).
+   - **Story.** Markdown. **Add image** and **Add gallery** above the text box place pictures for you. Link Chronicle pages with `[[page-address]]` or `[[page-address|shown text]]`;
      linked pages that players may read appear under *In the Chronicle*.
 3. **Save story.** It is a private draft. **Preview as printed** shows exactly how it will look.
 

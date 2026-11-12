@@ -120,6 +120,7 @@ export function Layout() {
               <NavLink to="/dm" end>DM desk</NavLink>
               <NavLink to="/dm/new">New article</NavLink>
               <NavLink to="/dm/news">News desk</NavLink>
+              <NavLink to="/dm/media">Media library</NavLink>
               <NavLink to="/dm/import">Import lore</NavLink>
               <NavLink to="/browse/dossier">Dossiers</NavLink>
               <NavLink to="/dm/notes">Private notes</NavLink>

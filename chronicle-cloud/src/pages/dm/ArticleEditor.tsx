@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../../components/Badges.tsx';
 import { Markdown } from '../../components/Markdown.tsx';
-import { MediaImage } from '../../components/MediaImage.tsx';
+import { ImageField } from '../../components/images/ImageField.tsx';
+import { MarkdownField } from '../../components/images/MarkdownField.tsx';
 import {
   addRedirect, addRelation, createCategory, deleteArticle, deleteNote, deleteRedirect, deleteRelation,
-  getArticleForEdit, listAllArticleRefs, listCategories, restoreRevision, saveArticle, saveNote, uploadMedia,
+  getArticleForEdit, listAllArticleRefs, listCategories, restoreRevision, saveArticle, saveNote,
   type ArticleDraft,
 } from '../../lib/api.ts';
 import { ChronicleError } from '../../lib/changeSets.ts';
-import { prepareImage } from '../../lib/image.ts';
 import { slugify, wikiLinkTargets } from '../../lib/slug.ts';
 import { RELATION_KINDS, relationLabel, TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
 import type { ArticleType, PublishStatus, Visibility } from '../../lib/types.ts';
@@ -162,20 +162,6 @@ export function ArticleEditor() {
     }
   }
 
-  async function onHeroFile(file: File | undefined) {
-    if (!file) return;
-    setError(null);
-    try {
-      const prepared = await prepareImage(file);
-      // Uploaded DM-only. The database shows it to players only while this article is published to them.
-      const media = await uploadMedia(prepared.blob, { alt: '', width: prepared.width, height: prepared.height });
-      update({ hero_media_id: media.id });
-      setMessage(`Image uploaded (${Math.round(prepared.blob.size / 1024)} KB). Players see it only while this article is published to them.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed.');
-    }
-  }
-
   const e = existing.data;
   const t = TEMPLATES[draft.article.type];
   const articleId = draft.article.id;
@@ -252,13 +238,15 @@ export function ArticleEditor() {
           Players see this article only when it is <strong>Published</strong> and visible to <strong>Players</strong>. Each section and infobox
           row below has its own setting, so one article can hold both player lore and DM secrets.
         </p>
-        <div className="span-2 hero-upload">
-          {draft.article.hero_media_id && <MediaImage id={draft.article.hero_media_id} alt="" className="hero-thumb" />}
-          <label>
-            Main image (resized to 1600 px WebP before upload)
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(ev) => void onHeroFile(ev.target.files?.[0])} />
-          </label>
-          {draft.article.hero_media_id && <button type="button" className="button secondary small" onClick={() => update({ hero_media_id: null })}>Remove image</button>}
+        <div className="span-2">
+          <ImageField
+            label={draft.article.type === 'character' ? 'Portrait' : 'Main picture'}
+            purpose={draft.article.type === 'character' ? 'portrait' : 'landscape'}
+            mediaId={draft.article.hero_media_id}
+            onChange={(id) => update({ hero_media_id: id })}
+            hint="Players see it only while this page is published to them. Save the page to keep the change."
+            testId="main-picture"
+          />
         </div>
       </section>
 
@@ -283,7 +271,7 @@ export function ArticleEditor() {
 
       <section className="panel">
         <h2>Sections</h2>
-        <p className="fine-print">Write in Markdown. Link to other pages with [[Page title]] or [[slug|shown text]]. Add an image with ![alt](media:path).</p>
+        <p className="fine-print">Write in Markdown. Link to other pages with [[Page title]] or [[slug|shown text]]. Use <strong>Add image</strong> to place a picture where the cursor is; players see it only in a published, player-visible section.</p>
         {draft.sections.map((s, i) => (
           <div key={s.id ?? `new-${i}`} className={s.visibility === 'dm' || s.status === 'draft' ? 'section-editor dm-only' : 'section-editor'}>
             <div className="row">
@@ -307,7 +295,7 @@ export function ArticleEditor() {
                 ✕
               </button>
             </div>
-            <textarea aria-label={`${s.heading} text`} rows={6} value={s.body} onChange={(ev) => updateSection(i, { body: ev.target.value })} />
+            <MarkdownField label={`${s.heading} text`} rows={6} value={s.body} onChange={(body) => updateSection(i, { body })} />
             {preview === i && <div className="section-preview"><Markdown text={s.body} /></div>}
           </div>
         ))}

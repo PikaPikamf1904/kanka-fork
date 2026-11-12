@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ArticleCard } from '../../components/ArticleCard.tsx';
 import { StatusBadge, VisibilityBadge } from '../../components/Badges.tsx';
 import { Markdown } from '../../components/Markdown.tsx';
+import { ImageField } from '../../components/images/ImageField.tsx';
 import { MediaImage } from '../../components/MediaImage.tsx';
 import {
   createAccessCode, deleteNote, deleteTimelineEvent, getMap, getSettings, listAccessCodes, listAllArticleRefs, listDrafts,
@@ -320,23 +321,15 @@ export function SettingsPage() {
         <textarea rows={2} maxLength={600} value={form.current_status} onChange={(e) => setForm({ ...form, current_status: e.target.value })} />
         <span className="fine-print">Shown to players on the main page. Keep spoilers out.</span>
       </label>
-      <div className="span-2 hero-upload">
-        {form.banner_media_id && <MediaImage id={form.banner_media_id} alt="" className="hero-thumb" />}
-        <label>
-          Banner image
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const p = await prepareImage(file, 2400);
-              const media = await uploadMedia(p.blob, { alt: 'Banner', width: p.width, height: p.height });
-              setForm({ ...form, banner_media_id: media.id });
-            }}
-          />
-        </label>
-        {form.banner_media_id && <button type="button" className="button secondary small" onClick={() => setForm({ ...form, banner_media_id: null })}>Use the built-in banner</button>}
+      <div className="span-2">
+        <ImageField
+          label="Banner"
+          purpose="banner"
+          mediaId={form.banner_media_id}
+          onChange={(id) => setForm((f) => ({ ...f, banner_media_id: id }))}
+          hint="The wide picture at the top of the main page; every player sees it. Remove it to use the built-in banner. Save settings to keep the change."
+          testId="banner-picture"
+        />
       </div>
       <button type="submit" className="button">Save settings</button>
       {msg && <p className="form-ok">{msg}</p>}

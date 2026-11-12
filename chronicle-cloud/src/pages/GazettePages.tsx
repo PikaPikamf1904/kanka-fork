@@ -9,7 +9,10 @@ import '@fontsource/old-standard-tt/700.css';
 import '../styles/gazette.css';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { ImageField } from '../components/images/ImageField.tsx';
+import { MarkdownField } from '../components/images/MarkdownField.tsx';
 import { Markdown } from '../components/Markdown.tsx';
+import { useMediaUrl } from '../components/MediaImage.tsx';
 import {
   articlesBySlugs, getNewsStory, listNews, listNewsPending, newsTransition, saveNewsStory,
   type NewsAction, type NewsDetails, type NewsDraft, type NewsStory,
@@ -83,10 +86,23 @@ export function Masthead({ issue, compact = false }: { issue?: number | null; co
   );
 }
 
+/** A story's picture, engraved-plate style. Nothing at all when there is none or it may not be shown. */
+function LeadArt({ id, alt, caption }: { id: string | null | undefined; alt: string; caption?: string }) {
+  const url = useMediaUrl(id);
+  if (!id || !url) return null;
+  return (
+    <figure className="gz-art">
+      <img src={url} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}
+
 function StoryTeaser({ s, size = 'normal' }: { s: NewsStory; size?: 'lead' | 'normal' | 'brief' }) {
   const first = plain(s.summary || '');
   return (
     <article className={`gz-teaser gz-teaser-${size}`}>
+      {size === 'lead' && <LeadArt id={s.hero_media_id} alt="" />}
       <p className="gz-kicker">{sectionLabel(s.news?.section)} <Stamp reliability={s.news?.reliability} /></p>
       <h2 className="gz-headline"><Link to={`/news/${s.slug}`}>{s.title}</Link></h2>
       {s.subtitle && size !== 'brief' && <p className="gz-deck">{s.subtitle}</p>}
@@ -219,8 +235,8 @@ export function GazetteArchive() {
 }
 
 /** The printed story. Used by the story page and by the editor's preview. */
-function StoryView({ title, kicker, deck, summary, body, details, date, related, corrects, toolbar }: {
-  title: string; kicker: string; deck: string; summary: string; body: string; details: NewsDetails | null;
+function StoryView({ title, kicker, deck, summary, body, details, date, related, corrects, toolbar, heroMediaId }: {
+  title: string; kicker: string; deck: string; summary: string; body: string; details: NewsDetails | null; heroMediaId?: string | null;
   date?: string | null; related: ArticleRef[]; corrects?: { slug: string; title: string } | null; toolbar?: ReactNode;
 }) {
   const rel = RELIABILITY[details?.reliability ?? 'confirmed'];
@@ -231,6 +247,7 @@ function StoryView({ title, kicker, deck, summary, body, details, date, related,
       <h1 className="gz-headline gz-story-headline">{title || 'Untitled story'}</h1>
       {deck && <p className="gz-deck">{deck}</p>}
       <Byline details={details} date={date} />
+      <LeadArt id={heroMediaId} alt={title} />
       {details?.reliability && details.reliability !== 'confirmed' && (
         <p className="gz-reliability-note"><strong>{rel.label}.</strong> {rel.note}</p>
       )}
@@ -283,7 +300,7 @@ export function GazetteArticle() {
     <div className="gazette">
       <Masthead compact issue={news?.issue_number} />
       <StoryView
-        title={a.title} kicker="" deck={a.subtitle} summary={a.summary} body={body} details={news}
+        title={a.title} kicker="" deck={a.subtitle} summary={a.summary} body={body} details={news} heroMediaId={a.hero_media_id}
         date={a.published_at} related={related} corrects={corrects}
         toolbar={isDm ? (
           <div className="gz-dm-bar">
@@ -422,8 +439,8 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
   const voice = useMemo(() => reporter(form?.details.reporter).voice, [form?.details.reporter]);
   const state = e?.news?.review_state ?? 'draft';
   const printed = e ? isPublished(e.bundle.article) : false;
-  const set = (patch: Partial<typeof form>) => setForm({ ...form, ...patch });
-  const setD = (patch: Partial<NewsDraft['details']>) => setForm({ ...form, details: { ...form.details, ...patch } });
+  const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
+  const setD = (patch: Partial<NewsDraft['details']>) => setForm((f) => ({ ...f, details: { ...f.details, ...patch } }));
 
   async function save(ev: FormEvent) {
     ev.preventDefault();
@@ -492,7 +509,7 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
 
       {preview ? (
-        <StoryView title={form.title} kicker="" deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} />
+        <StoryView title={form.title} kicker="" deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} heroMediaId={form.heroMediaId} />
       ) : (
         <form className="form-grid gz-form" onSubmit={save}>
           <label className="span-2">Headline
@@ -542,10 +559,21 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
           <label className="checkbox span-2">
             <input type="checkbox" checked={form.details.is_lead} onChange={(ev) => setD({ is_lead: ev.target.checked })} /> Lead story on the front page
           </label>
-          <label className="span-2">Story
-            <textarea rows={16} value={form.body} onChange={(ev) => set({ body: ev.target.value })} />
-            <span className="fine-print">Markdown. Link Chronicle pages with [[page-address]] or [[page-address|shown text]]; they appear under “In the Chronicle”. Only write what players may know: printing makes the whole story public to them.</span>
-          </label>
+          <div className="span-2">
+            <ImageField
+              label="Story picture"
+              purpose="landscape"
+              mediaId={form.heroMediaId}
+              onChange={(id) => set({ heroMediaId: id })}
+              hint="Shown under the headline and on the front page if it is the lead story. Players see it only once the story is printed."
+              testId="story-picture"
+            />
+          </div>
+          <div className="span-2 gz-story-field">
+            <span className="field-label">Story</span>
+            <MarkdownField label="Story" rows={16} value={form.body} onChange={(body) => set({ body })} />
+            <span className="fine-print">Markdown. Link Chronicle pages with [[page-address]] or [[page-address|shown text]]; they appear under “In the Chronicle”. Use <strong>Add image</strong> for pictures. Only write what players may know: printing makes the whole story public to them.</span>
+          </div>
           <div className="form-actions">
             <button type="submit" className="button" disabled={busy || !form.title.trim()}>{busy ? 'Saving…' : 'Save story'}</button>
             <Link className="button secondary" to="/dm/news">Back to the desk</Link>

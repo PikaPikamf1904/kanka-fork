@@ -342,20 +342,110 @@ export async function mediaUrlForPath(path: string): Promise<string | null> {
 }
 
 
-/** DM only. Upload an already-resized image and register it (private by default). */
+/** DM only. Uploads an already-resized image and registers it in the media library. */
 /** Uploads start DM-only (enforced by policy); the page that shows the image decides who sees it. */
-export async function uploadMedia(blob: Blob, info: { alt: string; width: number; height: number }): Promise<Media> {
+export async function uploadMedia(
+  blob: Blob,
+  info: { alt: string; width: number; height: number; credit?: string; originalName?: string },
+): Promise<Media> {
   const path = `media/${crypto.randomUUID()}.webp`;
   must(await supabase.storage.from(MEDIA_BUCKET).upload(path, blob, { contentType: 'image/webp', upsert: false }));
   return must(
     await supabase
       .from('media')
-      .insert({ path, alt: info.alt, width: info.width, height: info.height, bytes: blob.size, content_type: 'image/webp' })
+      .insert({
+        path, alt: info.alt.slice(0, 500), width: info.width, height: info.height, bytes: blob.size, content_type: 'image/webp',
+        credit: (info.credit ?? '').slice(0, 200), original_name: (info.originalName ?? '').slice(0, 200),
+      })
       .select('id, path, alt, width, height, visibility')
       .single(),
   );
 }
 
+export interface MediaItem extends Media {
+  credit: string;
+  original_name: string;
+  bytes: number | null;
+  created_at: string;
+}
+
+/** DM: every file in the library, newest first. */
+export async function listMedia(): Promise<MediaItem[]> {
+  return must(
+    await supabase
+      .from('media')
+      .select('id, path, alt, width, height, visibility, credit, original_name, bytes, created_at')
+      .order('created_at', { ascending: false })
+      .limit(1000),
+  ) as MediaItem[];
+}
+
+export async function getMediaItem(id: string): Promise<MediaItem | null> {
+  return must(
+    await supabase.from('media').select('id, path, alt, width, height, visibility, credit, original_name, bytes, created_at').eq('id', id).maybeSingle(),
+  ) as MediaItem | null;
+}
+
+export async function updateMedia(id: string, patch: { alt?: string; credit?: string }): Promise<void> {
+  must(await supabase.from('media').update(patch).eq('id', id).select('id').single());
+}
+
+/** The file itself, for adjusting a library picture. Only works for files the reader may see. */
+export async function downloadMedia(path: string): Promise<Blob> {
+  return must(await supabase.storage.from(MEDIA_BUCKET).download(path));
+}
+
+export interface MediaUse {
+  label: string;
+  to: string;
+}
+
+/** DM: where each library file is used (by media id), so nothing in use can be deleted by mistake. */
+export async function mediaUsage(): Promise<Map<string, MediaUse[]>> {
+  const [heroes, maps, settings, sections, pending, media] = await Promise.all([
+    supabase.from('articles').select('slug, title, type, hero_media_id').not('hero_media_id', 'is', null),
+    supabase.from('maps').select('slug, title, media_id').not('media_id', 'is', null),
+    supabase.from('campaign_settings').select('banner_media_id').limit(1),
+    supabase.from('article_sections').select('body, article:articles!inner(slug, title, type)').like('body', '%media:%'),
+    supabase.from('news_pending').select('story, article:articles!inner(slug, title)'),
+    supabase.from('media').select('id, path'),
+  ]);
+  for (const r of [heroes, maps, settings, sections, pending, media]) if (r.error) throw new Error(r.error.message);
+  const byPath = new Map((media.data ?? []).map((m: { id: string; path: string }) => [m.path, m.id]));
+  const out = new Map<string, MediaUse[]>();
+  const add = (id: string | null | undefined, use: MediaUse) => {
+    if (!id) return;
+    const list = out.get(id) ?? [];
+    if (!list.some((u) => u.label === use.label)) list.push(use);
+    out.set(id, list);
+  };
+  const pageLink = (a: { slug: string; type?: string }) => (a.type === 'news' ? `/news/${a.slug}` : `/wiki/${a.slug}`);
+  for (const a of (heroes.data ?? []) as { slug: string; title: string; type: string; hero_media_id: string }[]) {
+    add(a.hero_media_id, { label: `Main picture of “${a.title}”`, to: pageLink(a) });
+  }
+  for (const m of (maps.data ?? []) as { slug: string; title: string; media_id: string }[]) {
+    add(m.media_id, { label: `Map “${m.title}”`, to: `/maps/${m.slug}` });
+  }
+  add((settings.data?.[0] as { banner_media_id: string | null } | undefined)?.banner_media_id, { label: 'Main page banner', to: '/' });
+  const pathsIn = (text: string) => [...text.matchAll(/media:([a-z0-9][a-z0-9/_.-]*[a-z0-9])/g)].map((m) => m[1]!);
+  for (const s of (sections.data ?? []) as unknown as { body: string; article: { slug: string; title: string; type: string } }[]) {
+    for (const p of pathsIn(s.body)) add(byPath.get(p), { label: `In the text of “${s.article.title}”`, to: pageLink(s.article) });
+  }
+  for (const r of (pending.data ?? []) as unknown as { story: unknown; article: { slug: string; title: string } }[]) {
+    const story = r.story as { article?: { hero_media_id?: string | null } };
+    add(story.article?.hero_media_id, { label: `Waiting revision of “${r.article.title}”`, to: `/dm/news/edit/${r.article.slug}` });
+    for (const p of pathsIn(JSON.stringify(r.story))) add(byPath.get(p), { label: `Waiting revision of “${r.article.title}”`, to: `/dm/news/edit/${r.article.slug}` });
+  }
+  return out;
+}
+
+/** DM: removes a library file that nothing uses. Callers check mediaUsage first. */
+export async function deleteMedia(item: { id: string; path: string }): Promise<void> {
+  must(await supabase.from('media').delete().eq('id', item.id).select('id').single());
+  signedCache.delete(item.path);
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([item.path]);
+  if (error) throw new Error(`The library entry was removed, but the stored file could not be: ${error.message}`);
+}
 
 // ---------------------------------------------------------------------------------------------
 // DM writes. RLS refuses all of these for players; the UI only offers them to the DM.
