@@ -68,6 +68,22 @@ test.describe('The Goblin Gazette', () => {
     await player.goto('/news');
     await expect(player.getByRole('link', { name: headline })).toBeVisible();
 
+    // An edit to the printed story is a revision: players keep the printed headline until approval.
+    const revised = `${headline} (Updated)`;
+    await page.getByLabel('Headline', { exact: true }).fill(revised);
+    await page.getByRole('button', { name: 'Save story' }).click();
+    await expect(page.getByText('Saved as a revision. Players still see the printed version')).toBeVisible();
+    await player.goto(`/news/${slug}`);
+    await expect(player.getByRole('heading', { level: 1, name: headline, exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Send revision for review' }).click();
+    await expect(page.getByText('Revision sent for review. Players still see the printed version.')).toBeVisible();
+    await player.reload();
+    await expect(player.getByRole('heading', { level: 1, name: headline, exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Approve revision' }).click();
+    await expect(page.getByText('Revision approved: players now read the new version.')).toBeVisible();
+    await player.reload();
+    await expect(player.getByRole('heading', { level: 1, name: revised })).toBeVisible();
+
     await page.getByRole('button', { name: 'Back to draft' }).click();
     await expect(page.getByText('Draft: players cannot see this story.')).toBeVisible();
     await player.goto(`/news/${slug}`);

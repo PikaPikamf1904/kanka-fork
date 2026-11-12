@@ -11,12 +11,12 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Markdown } from '../components/Markdown.tsx';
 import {
-  articlesBySlugs, getNewsStory, listNews, newsTransition, saveNewsStory,
+  articlesBySlugs, getNewsStory, listNews, listNewsPending, newsTransition, saveNewsStory,
   type NewsAction, type NewsDetails, type NewsDraft, type NewsStory,
 } from '../lib/api.ts';
 import { ChronicleError } from '../lib/changeSetTypes.ts';
 import { longDate } from '../lib/dates.ts';
-import { GAZETTE, RELIABILITY, REVIEW_LABEL, reporter, SECTIONS, sectionLabel, STAFF, type NewsReliability, type NewsSection } from '../lib/gazette.ts';
+import { GAZETTE, RELIABILITY, REVIEW_LABEL, reporter, SECTIONS, sectionLabel, STAFF, type NewsReliability, type NewsReviewState, type NewsSection } from '../lib/gazette.ts';
 import { useIsDm } from '../lib/session.tsx';
 import { slugify, wikiLinkTargets } from '../lib/slug.ts';
 import { TEMPLATES } from '../lib/templates.ts';
@@ -289,6 +289,7 @@ export function GazetteArticle() {
           <div className="gz-dm-bar">
             <span className={`badge ${isPublished(a) ? 'badge-ok' : 'badge-dm'}`}>{isPublished(a) ? 'Printed: players can read this' : 'Not printed: players cannot see this'}</span>
             <span className="badge">{REVIEW_LABEL[news?.review_state ?? 'draft']}</span>
+            {story.data.pending && <span className="badge badge-dm">Revision waiting: {REVIEW_LABEL[story.data.pending.review_state]}</span>}
             <Link className="button small" to={`/dm/news/edit/${a.slug}`}>Edit</Link>
           </div>
         ) : undefined}
@@ -304,7 +305,10 @@ export function GazetteArticle() {
 const STATE_ORDER = ['in_review', 'draft', 'approved'] as const;
 
 export function GazetteDesk() {
-  const news = useLoad(listNews, []);
+  const news = useLoad(async () => {
+    const [stories, pending] = await Promise.all([listNews(), listNewsPending()]);
+    return stories.map((s) => ({ ...s, pendingState: pending.get(s.id) ?? null }));
+  }, []);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   async function act(id: string, action: NewsAction) {
@@ -328,7 +332,7 @@ export function GazetteDesk() {
         <h1 className="page-title">The news desk</h1>
         <div className="toolbar-actions"><Link className="button" to="/dm/news/new">Write a story</Link></div>
       </div>
-      <p className="muted">Every story goes Draft → In review → Approved → Printed. Players see nothing until you print it, and taking a story back to draft un-prints it at once. Assistants can draft stories; only you, here, can approve and print them. See <code>docs/chronicle/GOBLIN-GAZETTE.md</code>.</p>
+      <p className="muted">Every story goes Draft → In review → Approved → Printed. Players see nothing until you print it, and taking a story back to draft un-prints it at once. Editing a printed story makes a revision: players keep the printed version until you approve the revision. Assistants can draft stories; only you, here, can approve and print them. See <code>docs/chronicle/GOBLIN-GAZETTE.md</code>.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       <h2>On the desk</h2>
       {desk.length === 0 ? <p className="muted">Nothing waiting.</p> : <DeskTable stories={desk} busy={busy} act={act} />}
@@ -338,7 +342,8 @@ export function GazetteDesk() {
   );
 }
 
-function DeskTable({ stories, busy, act }: { stories: NewsStory[]; busy: string; act: (id: string, a: NewsAction) => void }) {
+type DeskStory = NewsStory & { pendingState: NewsReviewState | null };
+function DeskTable({ stories, busy, act }: { stories: DeskStory[]; busy: string; act: (id: string, a: NewsAction) => void }) {
   return (
     <div className="table-scroll">
       <table className="table gz-desk-table">
@@ -352,8 +357,8 @@ function DeskTable({ stories, busy, act }: { stories: NewsStory[]; busy: string;
                 <td><Link to={`/dm/news/edit/${s.slug}`}>{s.title}</Link> <Stamp reliability={s.news?.reliability} /></td>
                 <td>{sectionLabel(s.news?.section)}</td>
                 <td>{reporter(s.news?.reporter).name}</td>
-                <td>{printed ? 'Printed' : REVIEW_LABEL[state]}</td>
-                <td><StoryActions id={s.id} state={state} printed={printed} busy={busy === s.id} act={act} /></td>
+                <td>{printed ? 'Printed' : REVIEW_LABEL[state]}{printed && s.pendingState && <><br /><span className="badge badge-dm">Revision: {REVIEW_LABEL[s.pendingState]}</span></>}</td>
+                <td><StoryActions id={s.id} state={state} printed={printed} pending={s.pendingState} busy={busy === s.id} act={act} /></td>
               </tr>
             );
           })}
@@ -363,10 +368,12 @@ function DeskTable({ stories, busy, act }: { stories: NewsStory[]; busy: string;
   );
 }
 
-function StoryActions({ id, state, printed, busy, act }: { id: string; state: string; printed: boolean; busy: boolean; act: (id: string, a: NewsAction) => void }) {
+function StoryActions({ id, state, printed, pending = null, busy, act }: { id: string; state: string; printed: boolean; pending?: NewsReviewState | null; busy: boolean; act: (id: string, a: NewsAction) => void }) {
   const b = (label: string, a: NewsAction, cls = 'button small secondary') => (
     <button key={a} type="button" className={cls} disabled={busy} onClick={() => act(id, a)}>{label}</button>
   );
+  if (printed && pending === 'draft') return <span className="gz-actions">{b('Send revision for review', 'submit', 'button small')}{b('Discard revision', 'discard')}</span>;
+  if (printed && pending === 'in_review') return <span className="gz-actions">{b('Approve revision', 'approve', 'button small')}{b('Discard revision', 'discard')}</span>;
   if (printed) return <span className="gz-actions">{b('Unprint', 'unpublish')}{b('Back to draft', 'return')}</span>;
   if (state === 'draft') return <span className="gz-actions">{b('Send for review', 'submit', 'button small')}</span>;
   if (state === 'in_review') return <span className="gz-actions">{b('Approve', 'approve', 'button small')}{b('Back to draft', 'return')}</span>;
@@ -385,7 +392,7 @@ export function GazetteEditor() {
   if (slug && !existing.loading && !existing.data) return <NotFound what="story" />;
   const e = existing.data ?? null;
   // A fresh form after every save or state change (the key changes with the version and state).
-  const key = e ? `${e.bundle.article.id}:${e.bundle.article.version}:${e.news?.review_state}:${e.bundle.article.status}` : 'new';
+  const key = e ? `${e.bundle.article.id}:${e.bundle.article.version}:${e.news?.review_state}:${e.bundle.article.status}:${e.pending?.review_state ?? ''}:${e.pending?.updated_at ?? ''}` : 'new';
   return <StoryEditor key={key} e={e} reload={existing.reload} flash={flash} setFlash={setFlash} />;
 }
 
@@ -394,11 +401,19 @@ type Loaded = NonNullable<Awaited<ReturnType<typeof getNewsStory>>>;
 function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload: () => void; flash: string | null; setFlash: (m: string | null) => void }) {
   const navigate = useNavigate();
   const others = useLoad(listNews, []);
-  const [form, setForm] = useState(() => (e ? {
+  // A printed story with a waiting revision opens the revision; the printed version stays as it is.
+  const rev = e?.pending?.story ?? null;
+  const [form, setForm] = useState(() => (rev ? {
+    title: rev.article.title, slug: rev.article.slug, subtitle: rev.article.subtitle ?? '', summary: rev.article.summary ?? '',
+    heroMediaId: rev.article.hero_media_id ?? null,
+    body: (rev.sections ?? []).map((x) => x.body).join('\n\n'), sectionId: e?.bundle.sections[0]?.id as string | undefined,
+    details: { ...EMPTY_DETAILS, ...(rev.details ?? {}) } as NewsDraft['details'],
+  } : e ? {
     title: e.bundle.article.title, slug: e.bundle.article.slug, subtitle: e.bundle.article.subtitle, summary: e.bundle.article.summary,
+    heroMediaId: e.bundle.article.hero_media_id,
     body: e.bundle.sections.map((x) => x.body).join('\n\n'), sectionId: e.bundle.sections[0]?.id as string | undefined,
     details: { ...EMPTY_DETAILS, ...(e.news ?? {}) } as NewsDraft['details'],
-  } : { title: '', slug: '', subtitle: '', summary: '', body: '', sectionId: undefined as string | undefined, details: EMPTY_DETAILS }));
+  } : { heroMediaId: null as string | null, title: '', slug: '', subtitle: '', summary: '', body: '', sectionId: undefined as string | undefined, details: EMPTY_DETAILS }));
   const [touchedSlug, setTouchedSlug] = useState(false);
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -415,11 +430,13 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
     setBusy(true); setMessage(null);
     try {
       const saved = await saveNewsStory({
-        article: { id: e?.bundle.article.id, slug: form.slug || slugify(form.title), title: form.title, subtitle: form.subtitle, summary: form.summary, hero_media_id: e?.bundle.article.hero_media_id ?? null },
+        article: { id: e?.bundle.article.id, slug: form.slug || slugify(form.title), title: form.title, subtitle: form.subtitle, summary: form.summary, hero_media_id: form.heroMediaId },
         sections: [{ id: form.sectionId, heading: '', body: form.body, visibility: 'players', status: 'published' }],
         details: form.details,
       }, e ? `v${e.bundle.article.version}` : undefined);
-      const done = printed ? 'Saved. The printed story now shows this version to players.' : 'Saved. Players cannot see it until you print it.';
+      const done = saved.pending
+        ? 'Saved as a revision. Players still see the printed version until you send this for review and approve it.'
+        : state === 'approved' && !printed ? 'Saved. Because the story changed after approval, it is back in review.' : 'Saved. Players cannot see it until you print it.';
       setMessage({ ok: true, text: done });
       setFlash(done);
       if (!e || saved.slug !== e.bundle.article.slug) navigate(`/dm/news/edit/${saved.slug}`, { replace: true });
@@ -438,7 +455,12 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
     setBusy(true); setMessage(null);
     try {
       const r = await newsTransition(e.bundle.article.id, action);
-      setFlash(r.status === 'published' ? 'Printed: players can now read this story.' : action === 'unpublish' || action === 'return' ? 'Taken out of the paper: players can no longer see it.' : `Now: ${REVIEW_LABEL[r.review_state]}.`);
+      setFlash(action === 'approve' && printed ? 'Revision approved: players now read the new version.'
+        : action === 'discard' ? 'Revision discarded: the printed version is unchanged.'
+        : action === 'submit' && printed ? 'Revision sent for review. Players still see the printed version.'
+        : r.status === 'published' ? 'Printed: players can now read this story.'
+        : action === 'unpublish' || action === 'return' ? 'Taken out of the paper: players can no longer see it.'
+        : `Now: ${REVIEW_LABEL[r.review_state]}.`);
       reload();
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not change the story.' });
@@ -459,8 +481,12 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
       </div>
       {e && (
         <section className="panel gz-workflow" aria-label="Review and printing">
-          <p><strong>{printed ? 'Printed: players can read this story.' : `${REVIEW_LABEL[state]}: players cannot see this story.`}</strong></p>
-          <StoryActions id={e.bundle.article.id} state={state} printed={printed} busy={busy} act={(_id, a) => void act(a)} />
+          <div>
+            <p><strong>{printed ? 'Printed: players can read this story.' : `${REVIEW_LABEL[state]}: players cannot see this story.`}</strong></p>
+            {printed && !e.pending && <p className="fine-print">Saving changes makes a revision. Players keep reading the printed version until you approve it.</p>}
+            {printed && e.pending && <p className="fine-print gz-revision-note">You are editing a revision ({REVIEW_LABEL[e.pending.review_state].toLowerCase()}). Players still see the printed version.</p>}
+          </div>
+          <StoryActions id={e.bundle.article.id} state={state} printed={printed} pending={e.pending?.review_state ?? null} busy={busy} act={(_id, a) => void act(a)} />
         </section>
       )}
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}

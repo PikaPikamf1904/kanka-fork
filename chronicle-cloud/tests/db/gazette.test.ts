@@ -25,13 +25,13 @@ async function transition(id: string, action: string, who: Who = 'dm', claims: C
   return as<{ r: { review_state: string; status: string; visibility: string } }>(who, 'select public.news_transition($1, $2) as r', [id, action], claims);
 }
 /** Saves as the DM and commits (the `as` helper rolls back, so write with the superuser's view of the result). */
-async function created(): Promise<string> {
+async function created(s: unknown = story()): Promise<string> {
   const c = await pool.connect();
   try {
     await c.query('begin');
     await c.query('set local role authenticated');
     await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: '00000000-0000-4000-8000-0000000000d1', role: 'authenticated', aal: 'aal1' })]);
-    const { rows } = await c.query('select public.save_news_story($1::jsonb) as r', [JSON.stringify(story())]);
+    const { rows } = await c.query('select public.save_news_story($1::jsonb) as r', [JSON.stringify(s)]);
     await c.query('commit');
     return rows[0].r.id as string;
   } finally {
@@ -126,15 +126,68 @@ describe('Goblin Gazette workflow', () => {
     expect((await as('player', "insert into public.news_stories (article_id) values ($1)", [id])).error?.code).toBe('42501');
   });
 
-  it('editing a story never changes its publication or review state', async () => {
+  it('an edit to a printed story waits for approval; players keep the printed version', async () => {
     const id = await created();
     for (const a of ['submit', 'approve', 'publish']) await step(id, a);
-    const v = (await admin('select version from public.articles where id = $1', [id])).rows[0]!.version as string;
-    const r = await save('dm', { ...story({ id, title: 'GOBLINSCOOP: Bridge Still There' }), details: { ...story().details, reliability: 'confirmed' } });
-    expect(r.error).toBeUndefined();
-    expect(Number(v)).toBeGreaterThan(0);
-    const after = await admin("select a.status, a.visibility, s.review_state from public.articles a join public.news_stories s on s.article_id = a.id where a.id = $1", [id]);
-    expect(after.rows[0]).toEqual({ status: 'published', visibility: 'players', review_state: 'approved' });
+    const edited = { ...story({ id, title: 'GOBLINSCOOP: Bridge Has Moved' }), sections: [{ heading: '', body: 'REVISEDBODY', visibility: 'players', status: 'published' }], details: { ...story().details, reliability: 'confirmed' } };
+    await created(edited);
+    let seen = await playerSees();
+    expect(seen.rows).toEqual([{ title: 'GOBLINSCOOP: Bridge Found Exactly Where It Was', reliability: 'rumor', body: 'The bridge was there. GOBLINBODY' }]);
+    expect(seen.raw).not.toContain('REVISEDBODY');
+    expect((await as('player', 'select * from public.news_pending')).rows).toEqual([]); // the revision is DM-only
+    const pending = await as('dm', 'select review_state, story #>> \'{article,title}\' as title from public.news_pending where article_id = $1', [id]);
+    expect(pending.rows).toEqual([{ review_state: 'draft', title: 'GOBLINSCOOP: Bridge Has Moved' }]);
+    const state = await admin('select a.status, s.review_state from public.articles a join public.news_stories s on s.article_id = a.id where a.id = $1', [id]);
+    expect(state.rows[0]).toEqual({ status: 'published', review_state: 'approved' });
+
+    expect((await transition(id, 'approve')).error?.message).toBe('CONFLICT'); // review first
+    await step(id, 'submit');
+    expect((await playerSees()).raw).not.toContain('REVISEDBODY');
+    await step(id, 'approve');
+    seen = await playerSees();
+    expect(seen.rows).toEqual([{ title: 'GOBLINSCOOP: Bridge Has Moved', reliability: 'confirmed', body: 'REVISEDBODY' }]);
+    expect((await admin('select count(*)::int n from public.news_pending')).rows[0]).toEqual({ n: 0 });
+  });
+
+  it('a revision can be discarded, and the printed version stays', async () => {
+    const id = await created();
+    for (const a of ['submit', 'approve', 'publish']) await step(id, a);
+    await created({ ...story({ id, title: 'GOBLINSCOOP: Never Mind' }) });
+    await step(id, 'discard');
+    expect((await playerSees()).rows[0]!.title).toBe('GOBLINSCOOP: Bridge Found Exactly Where It Was');
+    expect((await admin('select count(*)::int n from public.news_pending')).rows[0]).toEqual({ n: 0 });
+  });
+
+  it('no other route can change a printed story', async () => {
+    const id = await created();
+    for (const a of ['submit', 'approve', 'publish']) await step(id, a);
+    const viaEditor = await as('dm', 'select public.save_article($1::jsonb)', [JSON.stringify({ article: { id, slug: 'goblin-scoop', type: 'news', title: 'Sneaky edit', visibility: 'players', status: 'published' }, sections: [], infobox: [] })]);
+    expect(viaEditor.error?.message).toBe('FORBIDDEN');
+    expect((await as('dm', "update public.articles set summary = 'sneaky' where id = $1", [id])).error?.message).toBe('FORBIDDEN');
+    expect((await as('dm', "update public.article_sections set body = 'sneaky' where article_id = $1", [id])).error?.message).toBe('FORBIDDEN');
+    expect((await as('dm', "insert into public.article_sections (article_id, position, heading, body, visibility, status) values ($1, 9, '', 'sneaky', 'players', 'published')", [id])).error?.message).toBe('FORBIDDEN');
+    expect((await as('dm', 'delete from public.article_sections where article_id = $1', [id])).error?.message).toBe('FORBIDDEN');
+    // A printed story's address cannot be changed through a revision either.
+    expect((await save('dm', story({ id, slug: 'another-address' }))).error?.message).toBe('VALIDATION_FAILED');
+  });
+
+  it('editing an approved story that is not printed yet sends it back to review', async () => {
+    const id = await created();
+    for (const a of ['submit', 'approve']) await step(id, a);
+    await created(story({ id, title: 'GOBLINSCOOP: Changed After Approval' }));
+    const r = await admin('select review_state from public.news_stories where article_id = $1', [id]);
+    expect(r.rows[0]).toEqual({ review_state: 'in_review' });
+    expect((await transition(id, 'publish')).error?.message).toBe('FORBIDDEN');
+  });
+
+  it('taking a printed story out of the paper keeps a waiting revision as the new draft', async () => {
+    const id = await created();
+    for (const a of ['submit', 'approve', 'publish']) await step(id, a);
+    await created(story({ id, title: 'GOBLINSCOOP: Unreviewed Words' }));
+    await step(id, 'unpublish');
+    const r = await admin('select a.status, a.title, s.review_state from public.articles a join public.news_stories s on s.article_id = a.id where a.id = $1', [id]);
+    expect(r.rows[0]).toEqual({ status: 'draft', title: 'GOBLINSCOOP: Unreviewed Words', review_state: 'in_review' });
+    expect((await playerSees()).rows).toEqual([]);
   });
 
   it('the current location is only shown to players who may read that page', async () => {

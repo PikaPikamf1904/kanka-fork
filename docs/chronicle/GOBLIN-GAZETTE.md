@@ -48,6 +48,8 @@ news desk move it along:
 | Send for review | Draft → In review |
 | Approve | In review → Approved (still not visible to players) |
 | Print for players | Approved → printed: players can read it |
+| Send revision for review / Approve revision | For a printed story you edited: the approved revision replaces what players read |
+| Discard revision | Drops the waiting revision; the printed story is unchanged |
 | Unprint | Takes a printed story out of the paper (it stays approved) |
 | Back to draft | Any state → Draft. A printed story disappears from players at once. |
 
@@ -59,8 +61,16 @@ The database enforces these rules, so they hold whatever screen or tool is used:
 - Only the DM, **on the Chronicle website**, can save, review or print stories. A connected
   assistant (ChatGPT, Codex) can propose a story draft through the usual preview-and-approve flow,
   but cannot send it for review, approve or print it.
-- Editing a printed story keeps it printed and shows players the new version. Use **Back to draft**
-  first if a change needs another look.
+- **Editing a printed story does not change what players read.** Your changes are saved as a
+  *revision* that only you can see. Players keep reading the printed version until you **Send
+  revision for review** and **Approve revision**. Then the new version replaces it in one step.
+  **Discard revision** throws the changes away and leaves the printed story as it was. The news desk
+  marks stories with a waiting revision.
+- Nothing else can change a printed story's text, pictures or newspaper details: the general article
+  editor, assistants and direct database writes are all refused.
+- Editing a story that is approved but not printed yet sends it back to *In review*.
+- **Unprint** or **Back to draft** on a story with a waiting revision takes it out of the paper and
+  keeps the revision's text as the new draft, back in review.
 
 **Before printing, check:** nothing in the story is DM-only, unplayed or a future plan. Printing
 makes the whole story visible to every player.

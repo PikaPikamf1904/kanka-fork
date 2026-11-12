@@ -80,11 +80,23 @@ export async function listNews(): Promise<NewsStory[]> {
   return rows.sort((a, b) => (b.news?.issue_number ?? 0) - (a.news?.issue_number ?? 0) || (b.published_at ?? b.updated_at).localeCompare(a.published_at ?? a.updated_at));
 }
 
-export async function getNewsStory(slug: string): Promise<{ bundle: ArticleBundle; news: NewsDetails | null } | null> {
+/** A revision of a printed story, waiting for the DM (only the DM can read these). */
+export interface NewsPending { article_id: string; story: NewsDraft; review_state: NewsReviewState; updated_at: string }
+
+export async function getNewsStory(slug: string): Promise<{ bundle: ArticleBundle; news: NewsDetails | null; pending: NewsPending | null } | null> {
   const bundle = await getArticle(slug);
   if (!bundle || bundle.article.type !== 'news') return null;
-  const news = must(await supabase.from('news_stories').select('*').eq('article_id', bundle.article.id).maybeSingle()) as NewsDetails | null;
-  return { bundle, news };
+  const [news, pending] = await Promise.all([
+    supabase.from('news_stories').select('*').eq('article_id', bundle.article.id).maybeSingle(),
+    supabase.from('news_pending').select('*').eq('article_id', bundle.article.id).maybeSingle(),
+  ]);
+  return { bundle, news: must(news) as NewsDetails | null, pending: (pending.error ? null : pending.data) as NewsPending | null };
+}
+
+/** Which printed stories have a waiting revision, and in what state (DM only; players get none). */
+export async function listNewsPending(): Promise<Map<string, NewsReviewState>> {
+  const { data } = await supabase.from('news_pending').select('article_id, review_state');
+  return new Map((data ?? []).map((r: { article_id: string; review_state: NewsReviewState }) => [r.article_id, r.review_state]));
 }
 
 export interface NewsDraft {
@@ -93,18 +105,19 @@ export interface NewsDraft {
   details: Omit<NewsDetails, 'review_state' | 'reviewed_at'>;
 }
 
-/** Saves story and details in one transaction (website, DM only). Never publishes. */
-export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string): Promise<Article> {
+/** Saves story and details in one transaction (website, DM only). Never publishes. A printed story
+ *  is not changed: the save becomes its waiting revision (`pending: true`). */
+export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string): Promise<Article & { pending: boolean }> {
   const { data, error } = await supabase.rpc('save_news_story', { p_story: draft, p_expected_version: expectedVersion ?? null });
   if (error) throw toChronicleError(error);
-  return data as Article;
+  return data as Article & { pending: boolean };
 }
 
-export type NewsAction = 'submit' | 'approve' | 'return' | 'publish' | 'unpublish';
+export type NewsAction = 'submit' | 'approve' | 'return' | 'publish' | 'unpublish' | 'discard';
 export async function newsTransition(articleId: string, action: NewsAction) {
   const { data, error } = await supabase.rpc('news_transition', { p_article: articleId, p_action: action });
   if (error) throw toChronicleError(error);
-  return data as { review_state: NewsReviewState; status: Article['status']; visibility: Article['visibility'] };
+  return data as { review_state: NewsReviewState; status: Article['status']; visibility: Article['visibility']; pending: NewsReviewState | null };
 }
 
 export async function listArticles(opts: {
