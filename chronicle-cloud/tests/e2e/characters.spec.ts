@@ -3,8 +3,8 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { enrollAsPlayer, localCredentials, noHorizontalOverflow, signInAsDm } from './support.ts';
 
-// Synthetic sample characters only. Screenshots go to docs/chronicle/screenshots-characters/.
-const shots = path.resolve(import.meta.dirname, '../../../docs/chronicle/screenshots-characters');
+// Synthetic sample characters only; screenshots are disposable test artifacts.
+const shots = path.resolve(import.meta.dirname, '../../test-results/screenshots-characters');
 async function shot(page: Page, name: string) {
   fs.mkdirSync(shots, { recursive: true });
   await page.waitForLoadState('networkidle');

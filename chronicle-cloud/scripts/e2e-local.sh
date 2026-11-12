@@ -5,8 +5,14 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-# shellcheck disable=SC1091
-. .local/env
+# Validate both the endpoints and database identity before reading keys or building.
+node --input-type=module -e "import {readLocalEnv, assertDisposableDatabase} from './scripts/local-targets.mjs'; const e = readLocalEnv(); await assertDisposableDatabase(e.DATABASE_URL);"
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_PUBLISHABLE_KEY=$(sed -n 's/^SUPABASE_PUBLISHABLE_KEY=//p' .local/env)
+SUPABASE_SECRET_KEY=$(sed -n 's/^SUPABASE_SECRET_KEY=//p' .local/env)
+for key in "$SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_SECRET_KEY"; do
+  [[ "$key" =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]] || { echo 'Invalid local API key' >&2; exit 1; }
+done
 
 cat > .dev.vars <<EOF
 SUPABASE_URL=$SUPABASE_URL

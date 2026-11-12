@@ -6,14 +6,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { chromium } from '@playwright/test';
+import { assertDisposableDatabase, readLocalEnv } from './local-targets.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const env = Object.fromEntries(
-  fs.readFileSync(path.join(root, '.local/env'), 'utf8')
-    .split('\n').filter((l) => l.includes('=') && !l.startsWith('#'))
-    .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
-);
-if (!env.SUPABASE_URL.startsWith('http://127.0.0.1:')) throw new Error('Refusing to seed anything but the local stack.');
+const env = readLocalEnv();
+await assertDisposableDatabase(env.DATABASE_URL);
 
 const db = new pg.Client({ connectionString: env.DATABASE_URL });
 await db.connect();

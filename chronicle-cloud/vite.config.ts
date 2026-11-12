@@ -32,6 +32,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'db',
+          setupFiles: ['tests/db/setup.ts'],
           include: ['tests/db/**/*.test.ts'],
           environment: 'node',
           // One database; run files one after another.

@@ -3,12 +3,10 @@
 // to the `anon` or `authenticated` role with JWT claims, exactly like PostgREST does, and is
 // rolled back afterwards.
 import pg from 'pg';
+import { assertDatabaseUrl, localAdminUrl } from '../../scripts/local-targets.mjs';
 
-const LOCAL_URL = 'postgres://supabase_admin@127.0.0.1:54322/postgres';
-const url = process.env.CHRONICLE_TEST_DB_URL ?? LOCAL_URL;
-if (!/@(127\.0\.0\.1|localhost):54322\//.test(url)) {
-  throw new Error('Database tests only run against the local stack on 127.0.0.1:54322.');
-}
+const url = process.env.CHRONICLE_TEST_DB_URL ?? localAdminUrl;
+assertDatabaseUrl(url);
 
 export const pool = new pg.Pool({ connectionString: url, max: 4 });
 

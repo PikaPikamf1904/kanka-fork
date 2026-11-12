@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 import pg from 'pg';
+import { assertDisposableDatabase, readLocalEnv } from '../../scripts/local-targets.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
@@ -20,7 +21,7 @@ export const SAMPLE_SECRETS = [
   'GAZETTEDRAFT', 'Secret Talks',
 ];
 
-export const shotDir = path.join(root, '..', 'docs', 'chronicle-cloud', 'screenshots');
+export const shotDir = path.join(root, 'test-results', 'screenshots');
 
 export async function screenshot(page: Page, name: string) {
   fs.mkdirSync(shotDir, { recursive: true });
@@ -49,8 +50,9 @@ export function recordApi(context: BrowserContext) {
  * enrolment limit (tested separately in tests/db). Clear the LOCAL attempt log before each one.
  */
 async function resetLocalEnrollmentLimit() {
-  const url = fs.readFileSync(path.join(root, '.local/env'), 'utf8').match(/^DATABASE_URL=(.*)$/m)?.[1] ?? '';
-  if (!/@(127\.0\.0\.1|localhost):/.test(url)) throw new Error('Refusing to touch a non-local database.');
+  const url = readLocalEnv().DATABASE_URL;
+  if (!url) throw new Error('Missing local database URL.');
+  await assertDisposableDatabase(url);
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {

@@ -45,7 +45,7 @@ down() {
 
 up() {
   down
-  rm -rf "$LOCAL/pg" "$LOCAL/storage-files" "$LOCAL/env"
+  rm -rf "$LOCAL/pg" "$LOCAL/storage-files" "$LOCAL/env" "$LOCAL/test-db-marker"
   mkdir -p "$LOCAL/pg" "$LOCAL/storage-files"
   chown postgres:postgres "$LOCAL/pg"
   chmod 700 "$LOCAL/pg"
@@ -70,7 +70,7 @@ up() {
 
   psql_as supabase_admin -c "create role postgres login createrole createdb"
   for f in "$LOCAL"/supabase-postgres/migrations/db/init-scripts/0000000000000*.sql; do
-    psql_as supabase_admin -f "$f" 2>&1 | grep -v -E 'wal_level|HINT' || true
+    psql_as supabase_admin -f "$f"
   done
   psql_as supabase_admin -f "$ROOT/supabase/local/bootstrap-local.sql"
 
@@ -106,10 +106,21 @@ up() {
 
   echo "Applying Chronicle migrations as the postgres role"
   for f in "$ROOT"/supabase/migrations/*.sql; do
-    psql_as postgres -f "$f" 2>&1 | grep -v -E 'already exists, skipping' || true
+    psql_as postgres -f "$f"
   done
   # Fail loudly if any migration did not apply.
   psql_as postgres -Atc "select to_regprocedure('public.complete_enrollment(uuid,uuid,text)') is not null" | grep -q t
+
+  # This random identity binds destructive tests to this exact disposable database.
+  openssl rand -hex 32 > "$LOCAL/test-db-marker"
+  chmod 600 "$LOCAL/test-db-marker"
+  psql_as supabase_admin -v marker="$(cat "$LOCAL/test-db-marker")" <<'SQL'
+create schema chronicle_local_test;
+create table chronicle_local_test.identity (marker text not null);
+insert into chronicle_local_test.identity values (:'marker');
+grant usage on schema chronicle_local_test to postgres;
+grant select on chronicle_local_test.identity to postgres;
+SQL
 
   echo "Starting Data API (PostgREST) on $REST_PORT"
   docker run -d --name chronicle-rest --network host \
@@ -136,8 +147,6 @@ EOF
 }
 
 seed() {
-  # shellcheck disable=SC1091
-  . "$LOCAL/env"
   node "$ROOT/scripts/seed-local.mjs"
 }
 
