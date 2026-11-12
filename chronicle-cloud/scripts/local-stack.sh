@@ -26,7 +26,10 @@ GOTRUE_IMAGE=supabase/gotrue:v2.177.0
 POSTGREST_IMAGE=postgrest/postgrest:v12.2.12
 STORAGE_IMAGE=supabase/storage-api:v1.25.7
 
-psql_as() { psql -h 127.0.0.1 -p "$PG_PORT" -U "$1" -d postgres -v ON_ERROR_STOP=1 -q "${@:2}"; }
+# A configured remote Docker context must never receive destructive cleanup commands.
+docker() { env -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_TLS -u DOCKER_TLS_VERIFY -u DOCKER_CERT_PATH docker --host=unix:///var/run/docker.sock "$@"; }
+
+psql_as() { env -i PATH="$PATH" psql -h 127.0.0.1 -p "$PG_PORT" -U "$1" -d postgres -v ON_ERROR_STOP=1 -q "${@:2}"; }
 
 wait_http() {
   for _ in $(seq 1 60); do
@@ -37,13 +40,67 @@ wait_http() {
   return 1
 }
 
+# Refuse to manage pre-existing directories or containers unless this script created them.
+# A legacy .local directory must be reviewed and moved by its owner before a fresh stack is made.
+verify_owned_resources() {
+  [ ! -L "$LOCAL" ] || { echo "Refusing symlinked .local directory" >&2; return 1; }
+  [ -f "$LOCAL/stack-owner" ] && [ ! -L "$LOCAL/stack-owner" ] || {
+    echo "Refusing unowned .local directory; inspect it before proceeding" >&2; return 1;
+  }
+  OWNER="$(cat "$LOCAL/stack-owner")"
+  [[ "$OWNER" =~ ^[a-f0-9]{64}$ ]] || { echo "Invalid local stack owner marker" >&2; return 1; }
+  [ ! -L "$LOCAL/pg" ] || { echo "Refusing symlinked database directory" >&2; return 1; }
+  docker info >/dev/null
+  local name actual container_id pid
+  local -a gateway_args
+  OWNED_CONTAINERS=()
+  for name in chronicle-gotrue chronicle-rest chronicle-storage; do
+    if docker container inspect "$name" >/dev/null 2>&1; then
+      read -r container_id actual < <(docker container inspect -f '{{.Id}} {{index .Config.Labels "chronicle.local.owner"}}' "$name")
+      [ "$actual" = "$OWNER" ] && [[ "$container_id" =~ ^[a-f0-9]{64}$ ]] || { echo "Refusing unowned container $name" >&2; return 1; }
+      OWNED_CONTAINERS+=("$container_id")
+    fi
+  done
+  if [ -f "$LOCAL/gateway.pid" ]; then
+    pid="$(cat "$LOCAL/gateway.pid")"
+    [[ "$pid" =~ ^[0-9]+$ ]] || { echo "Invalid gateway pid" >&2; return 1; }
+    if [ -d "/proc/$pid" ]; then
+      mapfile -d '' -t gateway_args < "/proc/$pid/cmdline"
+      [ "${gateway_args[1]:-}" = "$ROOT/scripts/local-gateway.mjs" ] || {
+        echo "Refusing to stop an unrelated process" >&2; return 1;
+      }
+    fi
+  fi
+}
+
 down() {
-  docker rm -f chronicle-gotrue chronicle-rest chronicle-storage >/dev/null 2>&1 || true
-  if [ -f "$LOCAL/gateway.pid" ]; then kill "$(cat "$LOCAL/gateway.pid")" 2>/dev/null || true; rm -f "$LOCAL/gateway.pid"; fi
-  if [ -d "$LOCAL/pg" ]; then su postgres -c "$PGBIN/pg_ctl -D $LOCAL/pg -m fast stop" >/dev/null 2>&1 || true; fi
+  [ -e "$LOCAL" ] || return 0
+  verify_owned_resources
+  local container_id
+  for container_id in "${OWNED_CONTAINERS[@]}"; do docker rm -f "$container_id" >/dev/null; done
+  if [ -f "$LOCAL/gateway.pid" ]; then
+    local pid
+    pid="$(cat "$LOCAL/gateway.pid")"
+    if [ -d "/proc/$pid" ]; then kill "$pid" || return 1; fi
+    rm -f "$LOCAL/gateway.pid"
+  fi
+  if [ -d "$LOCAL/pg" ]; then
+    local pg_status
+    if su postgres -s /bin/bash -c 'exec "$@"' -- bash "$PGBIN/pg_ctl" -D "$LOCAL/pg" status >/dev/null 2>&1; then
+      su postgres -s /bin/bash -c 'exec "$@"' -- bash "$PGBIN/pg_ctl" -D "$LOCAL/pg" -m fast -w stop >/dev/null
+    else
+      pg_status=$?
+      [ "$pg_status" -eq 3 ] || { echo "Cannot verify local PostgreSQL status" >&2; return 1; }
+    fi
+  fi
 }
 
 up() {
+  if [ ! -e "$LOCAL" ]; then
+    mkdir -m 700 "$LOCAL"
+    openssl rand -hex 32 > "$LOCAL/stack-owner"
+    chmod 600 "$LOCAL/stack-owner"
+  fi
   down
   rm -rf "$LOCAL/pg" "$LOCAL/storage-files" "$LOCAL/env" "$LOCAL/test-db-marker"
   mkdir -p "$LOCAL/pg" "$LOCAL/storage-files"
@@ -59,8 +116,8 @@ up() {
   service="$(node "$ROOT/scripts/mint-local-jwt.mjs" "$secret" service_role)"
 
   echo "Starting PostgreSQL on $PG_PORT"
-  su postgres -c "$PGBIN/initdb -D $LOCAL/pg -U supabase_admin --auth=trust -E UTF8 --locale=C.UTF-8" >/dev/null
-  su postgres -c "$PGBIN/pg_ctl -D $LOCAL/pg -o '-p $PG_PORT -k /tmp -c listen_addresses=127.0.0.1' -l $LOCAL/pg/server.log -w start" >/dev/null
+  su postgres -s /bin/bash -c 'exec "$@"' -- bash "$PGBIN/initdb" -D "$LOCAL/pg" -U supabase_admin --auth=trust -E UTF8 --locale=C.UTF-8 >/dev/null
+  su postgres -s /bin/bash -c 'exec "$@"' -- bash "$PGBIN/pg_ctl" -D "$LOCAL/pg" -o "-p $PG_PORT -k /tmp -c listen_addresses=127.0.0.1" -l "$LOCAL/pg/server.log" -w start >/dev/null
 
   if [ ! -d "$LOCAL/supabase-postgres" ]; then
     git clone -q --filter=blob:none --sparse "$SUPABASE_POSTGRES_REPO" "$LOCAL/supabase-postgres"
@@ -77,7 +134,7 @@ up() {
   echo "Starting Auth (GoTrue) on $AUTH_PORT"
   # Sign-ups are disabled, as in production: players are created only by the enrollment
   # function, and the DM account is created by hand.
-  docker run -d --name chronicle-gotrue --network host \
+  docker run -d --label "chronicle.local.owner=$OWNER" --name chronicle-gotrue --network host \
     -e GOTRUE_API_HOST=127.0.0.1 -e PORT="$AUTH_PORT" \
     -e API_EXTERNAL_URL="http://127.0.0.1:$GATEWAY_PORT/auth/v1" \
     -e GOTRUE_DB_DRIVER=postgres \
@@ -93,7 +150,7 @@ up() {
   wait_http "http://127.0.0.1:$AUTH_PORT/health"
 
   echo "Starting Storage on $STORAGE_PORT"
-  docker run -d --name chronicle-storage --network host -v "$LOCAL/storage-files:/var/lib/storage" \
+  docker run -d --label "chronicle.local.owner=$OWNER" --name chronicle-storage --network host -v "$LOCAL/storage-files:/var/lib/storage" \
     -e ANON_KEY="$anon" -e SERVICE_KEY="$service" -e AUTH_JWT_SECRET="$secret" -e PGRST_JWT_SECRET="$secret" \
     -e DATABASE_URL="postgres://supabase_storage_admin@127.0.0.1:$PG_PORT/postgres" -e DB_INSTALL_ROLES=false \
     -e FILE_SIZE_LIMIT=52428800 -e STORAGE_BACKEND=file -e FILE_STORAGE_BACKEND_PATH=/var/lib/storage \
@@ -123,7 +180,7 @@ grant select on chronicle_local_test.identity to postgres;
 SQL
 
   echo "Starting Data API (PostgREST) on $REST_PORT"
-  docker run -d --name chronicle-rest --network host \
+  docker run -d --label "chronicle.local.owner=$OWNER" --name chronicle-rest --network host \
     -e PGRST_DB_URI="postgres://authenticator@127.0.0.1:$PG_PORT/postgres" \
     -e PGRST_DB_SCHEMAS=public -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET="$secret" \
     -e PGRST_DB_USE_LEGACY_GUCS=false -e PGRST_SERVER_PORT="$REST_PORT" -e PGRST_SERVER_HOST=127.0.0.1 \

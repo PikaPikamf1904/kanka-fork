@@ -1,4 +1,4 @@
-// Stage, re-run and roll back the Dragonlance lore pack against the LOCAL stack, and check that
+// Stage, re-run and roll back a synthetic lore pack against the LOCAL stack, and check that
 // nothing in it is visible to a player by any route. Never runs against a hosted project.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,7 +11,7 @@ const env = Object.fromEntries(
     .split('\n').filter((l) => l.includes('=') && !l.startsWith('#'))
     .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
 );
-const pack = readPack(path.resolve(import.meta.dirname, '../../lore/dragonlance/pack.json'));
+const pack = readPack(path.resolve(import.meta.dirname, '../fixtures/lore-pack.json'));
 const apply = () => applyPack(pack, env.SUPABASE_URL!, env.SUPABASE_SECRET_KEY!);
 
 beforeAll(resetFixtures);
@@ -26,7 +26,7 @@ describe('lore pack against the local stack', () => {
     });
     const { rows } = await admin<{ n: string; unsafe: string }>(
       `select count(*) as n, count(*) filter (where visibility <> 'dm' or status <> 'draft') as unsafe
-       from public.articles where source_ref like 'lore:dragonlance:%'`,
+       from public.articles where source_ref like 'lore:test-pack:%'`,
     );
     expect(rows[0]).toEqual({ n: String(pack.articles.length), unsafe: '0' });
     const parts = await admin<{ sections: string; fields: string; relations: string; notes: string }>(
@@ -48,40 +48,40 @@ describe('lore pack against the local stack', () => {
     const probes = await as<{ search: string; suggest: string; sections: string; relations: string; links: string; notes: string; resolve: string }>(
       'player',
       `select
-         (select count(*) from public.search_wiki('dragon OR eggs OR Jenna OR pendant OR Gears OR Vogler OR Pelican')) as search,
-         (select count(*) from public.suggest_articles('Operation')) + (select count(*) from public.suggest_articles('The four')) as suggest,
-         (select count(*) from public.article_sections where body ilike '%Not played.%') as sections,
-         (select count(*) from public.relations where kind in ('member_of', 'part_of', 'subject_of')) as relations,
-         (select count(*) from public.article_links where target_slug in ('metallic-dragon-eggs', 'operation-dragon-nest', 'jenna')) as links,
+         (select count(*) from public.search_wiki('Brassoracleword')) as search,
+         (select count(*) from public.suggest_articles('Synthetic Alpha')) + (select count(*) from public.suggest_articles('Synthetic Beta')) as suggest,
+         (select count(*) from public.article_sections where body ilike '%Brassoracleword%') as sections,
+         (select count(*) from public.relations where kind = 'located_in') as relations,
+         (select count(*) from public.article_links where target_slug = 'synthetic-beta') as links,
          (select count(*) from public.dm_notes) as notes,
-         (select count(*) from public.resolve_slug('metallic-dragon-eggs')) as resolve`,
+         (select count(*) from public.resolve_slug('synthetic-beta')) as resolve`,
     );
     expect(probes.rows[0]).toEqual({ search: '0', suggest: '0', sections: '0', relations: '0', links: '0', notes: '0', resolve: '0' });
   });
 
   it('the DM sees all of it', async () => {
-    const dm = await as<{ n: string }>('dm', "select count(*) as n from public.articles where source_ref like 'lore:dragonlance:%'");
+    const dm = await as<{ n: string }>('dm', "select count(*) as n from public.articles where source_ref like 'lore:test-pack:%'");
     expect(dm.rows[0]!.n).toBe(String(pack.articles.length));
   });
 
   it('running it again creates nothing and overwrites nothing', async () => {
-    await admin("update public.articles set title = 'Edited by the DM' where source_ref = 'lore:dragonlance:gears'");
+    await admin("update public.articles set title = 'Edited by the DM' where source_ref = 'lore:test-pack:alpha'");
     const again = await apply();
     expect(again.articlesCreated).toBe(0);
     expect(again.articlesSkipped).toBe(pack.articles.length);
     expect(again.relationsCreated).toBe(0);
-    const { rows } = await admin<{ title: string }>("select title from public.articles where source_ref = 'lore:dragonlance:gears'");
+    const { rows } = await admin<{ title: string }>("select title from public.articles where source_ref = 'lore:test-pack:alpha'");
     expect(rows[0]!.title).toBe('Edited by the DM');
   });
 
   it('never replaces or duplicates a page the DM already wrote at the same address', async () => {
     await rollbackPack(pack.pack, env.SUPABASE_URL!, env.SUPABASE_SECRET_KEY!);
-    await admin("insert into public.articles (slug, title) values ('vogler', 'My own Vogler page')");
+    await admin("insert into public.articles (slug, title) values ('synthetic-beta', 'My own synthetic page')");
     const summary = await apply();
-    expect(summary.slugConflicts).toEqual(['vogler']);
+    expect(summary.slugConflicts).toEqual(['synthetic-beta']);
     expect(summary.articlesCreated).toBe(pack.articles.length - 1);
-    const { rows } = await admin<{ title: string; n: string }>("select min(title) as title, count(*) as n from public.articles where slug like 'vogler%'");
-    expect(rows[0]).toEqual({ title: 'My own Vogler page', n: '1' });
+    const { rows } = await admin<{ title: string; n: string }>("select min(title) as title, count(*) as n from public.articles where slug like 'synthetic-beta%'");
+    expect(rows[0]).toEqual({ title: 'My own synthetic page', n: '1' });
   });
 
   it('rollback removes only what the pack created', async () => {
@@ -89,7 +89,7 @@ describe('lore pack against the local stack', () => {
     expect(deleted.articles).toBe(pack.articles.length - 1);
     const left = await admin<{ lore: string; mine: string; fixtures: string }>(
       `select (select count(*) from public.articles where source_ref like 'lore:%') as lore,
-              (select count(*) from public.articles where slug = 'vogler') as mine,
+              (select count(*) from public.articles where slug = 'synthetic-beta') as mine,
               (select count(*) from public.articles where slug like 'public-%') as fixtures`,
     );
     expect(left.rows[0]).toEqual({ lore: '0', mine: '1', fixtures: '3' });
