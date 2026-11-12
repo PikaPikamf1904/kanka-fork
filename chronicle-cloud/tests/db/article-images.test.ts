@@ -55,6 +55,20 @@ describe('pictures in article text', () => {
     expect((await playerFiles()).rows).toEqual([]);
   });
 
+  it('resynchronizes a picture when its section moves between public and private articles', async () => {
+    const section = (await addSection(A, img(FILE))).rows[0]!.id as string;
+    expect(await playerFiles()).toEqual({ rows: [FILE], objects: [FILE] });
+    await admin('update public.article_sections set article_id = $1 where id = $2', [C, section]);
+    expect(await playerFiles()).toEqual({ rows: [], objects: [] });
+    await admin('update public.article_sections set article_id = $1 where id = $2', [A, section]);
+    expect(await playerFiles()).toEqual({ rows: [FILE], objects: [FILE] });
+    const second = (await addSection(A, img(FILE, 'Shared'))).rows[0]!.id as string;
+    await admin('update public.article_sections set article_id = $1 where id = $2', [C, section]);
+    expect(await playerFiles()).toEqual({ rows: [FILE], objects: [FILE] });
+    await admin('update public.article_sections set article_id = $1 where id = $2', [C, second]);
+    expect(await playerFiles()).toEqual({ rows: [], objects: [] });
+  });
+
   it('a gallery shares exactly the pictures it contains', async () => {
     await addSection(A, `![one](media:${FILE} "One")\n![two](media:${OTHER} "Two")`);
     expect((await playerFiles()).rows).toEqual([FILE, OTHER].sort());
