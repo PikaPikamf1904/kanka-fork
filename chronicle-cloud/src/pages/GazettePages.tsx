@@ -278,7 +278,7 @@ export function GazetteArticle() {
     const s = await getNewsStory(slug);
     if (!s) return null;
     const body = s.bundle.sections.map((x) => x.body).join('\n\n');
-    const linked = await articlesBySlugs(wikiLinkTargets(`${s.bundle.article.summary}\n${body}`).map((t) => slugify(t)));
+    const linked = await articlesBySlugs(wikiLinkTargets(`${s.bundle.article.summary}\n${body}`));
     const related = [...new Map([...linked.map((a) => ({ slug: a.slug, title: a.title, type: a.type })), ...s.bundle.relations.map((r) => r.other)]
       .filter((a) => a.type !== 'news').map((a) => [a.slug, a])).values()];
     let corrects: { slug: string; title: string } | null = null;

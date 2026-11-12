@@ -3,7 +3,8 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useIsDm } from '../lib/session.tsx';
 import { TEMPLATES } from '../lib/templates.ts';
-import { pageIndex, type IndexEntry } from './api.ts';
+import type { ArticleRef } from '../lib/types.ts';
+import { pageIndex } from './api.ts';
 import { rank } from './fuzzy.ts';
 
 interface Item { key: string; label: string; hint: string; to: string; glyph: string }
@@ -71,7 +72,7 @@ function Palette({ onClose }: { onClose(): void }) {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
-  const [pages, setPages] = useState<IndexEntry[] | null>(null);
+  const [pages, setPages] = useState<ArticleRef[] | null>(null);
   const [failed, setFailed] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();

@@ -3,7 +3,8 @@ import { Link } from 'react-router';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { useSession } from '../lib/session.tsx';
 import { TEMPLATES } from '../lib/templates.ts';
-import { getPreview, pageIndex, type IndexEntry, type Preview } from './api.ts';
+import type { ArticleRef } from '../lib/types.ts';
+import { getPreview, pageIndex, type Preview } from './api.ts';
 import { d20, describe, roll, type RollResult } from './dice.ts';
 import { rank } from './fuzzy.ts';
 import * as I from './initiative.ts';
@@ -171,7 +172,7 @@ function Dice({ storeKey }: { storeKey: string }) {
 function Pins({ storeKey }: { storeKey: string }) {
   const [pins, setPins] = usePersistent<string[]>(storeKey, [], (r) => (Array.isArray(r) ? r.filter((x): x is string => typeof x === 'string').slice(0, 24) : []));
   const [q, setQ] = useState('');
-  const [index, setIndex] = useState<IndexEntry[]>([]);
+  const [index, setIndex] = useState<ArticleRef[]>([]);
   const [cards, setCards] = useState<Map<string, Preview | null>>(new Map());
   useEffect(() => {
     let live = true;

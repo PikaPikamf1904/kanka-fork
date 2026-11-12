@@ -154,3 +154,32 @@ describe('packageToChangeSet', () => {
     expect(parsePackage({ articles: [article({ sections: big })] }).errors[0]!.message).toContain('limit per page');
   });
 });
+
+describe('repository lore packs (facts, questions, relations)', () => {
+  it('imports facts and questions as private notes and keeps relations, all as DM-only drafts', () => {
+    const p = parsePackage({
+      pack: 'synthetic', version: 2,
+      articles: [
+        {
+          slug: 'harbour-ledger', title: 'Harbour Ledger', type: 'item', summary: 'A synthetic ledger.',
+          sections: [{ heading: 'Known', body: 'Kept by [[Captain Merrin Vael]].' }],
+          facts: [{ level: 'dm-secret', text: 'Synthetic secret.', source: 'DM brief' }, { level: 'confirmed', text: 'Seen at the table.', source: '' }],
+          questions: ['Who wrote the last page?'],
+        },
+        { slug: 'old-harbourmaster', title: 'Old Harbourmaster', type: 'character', sections: [{ heading: '', body: 'Retired.' }] },
+      ],
+      relations: [
+        { source: 'old-harbourmaster', target: 'harbour-ledger', kind: 'owns', label: '', level: 'confirmed' },
+        { source: 'harbour-ledger', target: 'captain-merrin-vael', kind: 'knows', label: '', level: 'confirmed' },
+      ],
+    });
+    expect(p.errors).toEqual([]);
+    const [a] = p.articles;
+    expect(a!.notes.map((n) => n.title)).toEqual(['Provenance', 'Questions for the DM']);
+    expect(a!.notes[0]!.body).toContain('**dm-secret**: Synthetic secret. _(DM brief)_');
+    expect(a!.notes[1]!.body).toBe('- Who wrote the last page?');
+    expect(p.relations).toEqual([{ source: 'old-harbourmaster', target: 'harbour-ledger', kind: 'owns', label: '' }]);
+    expect(p.warnings.map((w) => w.name)).toEqual(['Connection 2']); // its target is not in the package
+    expect(danglingLinks(p.articles, new Set())).toEqual([{ slug: 'harbour-ledger', targets: ['captain-merrin-vael'] }]);
+  });
+});

@@ -8,6 +8,7 @@
 // Whatever the file says, an import creates DM-only drafts. Visibility and status fields in a
 // package are never honoured; they are reported so the DM knows the file asked for them.
 import type { ChangeSet, ChangeOp } from './changeSetTypes.ts';
+import { wikiLinkTargets } from './slug.ts';
 import type { ArticleType } from './types.ts';
 
 export const PACKAGE_LIMITS = {
@@ -70,10 +71,6 @@ const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 /** Characters that have no business in wiki text: control codes other than tab and newline. */
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
-
-export function wikiLinkTargets(body: string): string[] {
-  return [...body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g)].map((m) => m[1]!.trim());
-}
 
 function hasUnsafeFlags(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(hasUnsafeFlags);
@@ -229,7 +226,7 @@ export function danglingLinks(articles: PackageArticle[], existingSlugs: Readonl
   return articles
     .map((a) => ({
       slug: a.slug,
-      targets: [...new Set(a.sections.flatMap((s) => wikiLinkTargets(s.body)).map((t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')))]
+      targets: [...new Set(a.sections.flatMap((s) => wikiLinkTargets(s.body)))]
         .filter((t) => t && !inPack.has(t) && !existingSlugs.has(t)),
     }))
     .filter((x) => x.targets.length > 0);
