@@ -1,6 +1,7 @@
 // Data access. Every read goes through Row Level Security: the browser receives only rows the
 // signed-in user may see, so nothing here filters secrets client-side.
 import { toChronicleError } from './changeSets.ts';
+import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
 import { MEDIA_BUCKET, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
@@ -33,11 +34,77 @@ const ARTICLE_COLUMNS =
   'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at, version';
 
 export async function getSettings(): Promise<CampaignSettings | null> {
-  return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id').maybeSingle());
+  // The location page is embedded through Row Level Security: a page the reader may not see comes back null.
+  return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)').maybeSingle());
 }
 
 export async function updateSettings(patch: Partial<CampaignSettings>) {
-  must(await supabase.from('campaign_settings').update(patch).eq('id', true).select('title'));
+  const { current_location: _ignored, ...row } = patch;
+  void _ignored;
+  must(await supabase.from('campaign_settings').update(row).eq('id', true).select('title'));
+}
+
+/** Readable pages with these addresses (unknown or hidden ones are simply absent). */
+export async function articlesBySlugs(slugs: string[]): Promise<(ArticleRef & { id: string; hero_media_id: string | null; summary: string })[]> {
+  const unique = [...new Set(slugs)].filter((x) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x)).slice(0, 200);
+  if (unique.length === 0) return [];
+  return must(await supabase.from('articles').select('id, slug, title, type, hero_media_id, summary').in('slug', unique));
+}
+
+/** Session journals in play order: by play date, then by when they were written. */
+export async function listSessions(): Promise<Pick<Article, 'id' | 'slug' | 'title' | 'summary' | 'session_date' | 'status' | 'visibility' | 'updated_at'>[]> {
+  const rows = must(await supabase.from('articles').select('id, slug, title, summary, session_date, status, visibility, updated_at, created_at').eq('type', 'session').limit(500)) as (Article & { created_at: string })[];
+  return rows.sort((a, b) => (a.session_date ?? '9999').localeCompare(b.session_date ?? '9999') || a.created_at.localeCompare(b.created_at));
+}
+
+// ---------- The Goblin Gazette ----------
+export interface NewsDetails {
+  section: NewsSection;
+  reliability: NewsReliability;
+  reporter: string;
+  dateline: string;
+  in_world_date: string;
+  issue_number: number | null;
+  is_lead: boolean;
+  corrects_article_id: string | null;
+  review_state: NewsReviewState;
+  reviewed_at: string | null;
+}
+export type NewsStory = Article & { news: NewsDetails | null };
+
+/** Every story the reader may see: players get published stories only (Row Level Security). */
+export async function listNews(): Promise<NewsStory[]> {
+  const raw = must(await supabase.from('articles').select(`${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey(*)`).eq('type', 'news').limit(500)) as unknown as (Article & { news: NewsDetails | NewsDetails[] | null })[];
+  // One story row per page; PostgREST may return it as an object or a one-element list.
+  const rows: NewsStory[] = raw.map((r) => ({ ...r, news: Array.isArray(r.news) ? r.news[0] ?? null : r.news }));
+  return rows.sort((a, b) => (b.news?.issue_number ?? 0) - (a.news?.issue_number ?? 0) || (b.published_at ?? b.updated_at).localeCompare(a.published_at ?? a.updated_at));
+}
+
+export async function getNewsStory(slug: string): Promise<{ bundle: ArticleBundle; news: NewsDetails | null } | null> {
+  const bundle = await getArticle(slug);
+  if (!bundle || bundle.article.type !== 'news') return null;
+  const news = must(await supabase.from('news_stories').select('*').eq('article_id', bundle.article.id).maybeSingle()) as NewsDetails | null;
+  return { bundle, news };
+}
+
+export interface NewsDraft {
+  article: { id?: string; slug: string; title: string; subtitle: string; summary: string; hero_media_id: string | null };
+  sections: { id?: string; heading: string; body: string; visibility: 'players'; status: 'published' }[];
+  details: Omit<NewsDetails, 'review_state' | 'reviewed_at'>;
+}
+
+/** Saves story and details in one transaction (website, DM only). Never publishes. */
+export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string): Promise<Article> {
+  const { data, error } = await supabase.rpc('save_news_story', { p_story: draft, p_expected_version: expectedVersion ?? null });
+  if (error) throw toChronicleError(error);
+  return data as Article;
+}
+
+export type NewsAction = 'submit' | 'approve' | 'return' | 'publish' | 'unpublish';
+export async function newsTransition(articleId: string, action: NewsAction) {
+  const { data, error } = await supabase.rpc('news_transition', { p_article: articleId, p_action: action });
+  if (error) throw toChronicleError(error);
+  return data as { review_state: NewsReviewState; status: Article['status']; visibility: Article['visibility'] };
 }
 
 export async function listArticles(opts: {
@@ -65,11 +132,11 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
 export async function listCharacterFacts(ids: string[]): Promise<Map<string, { race?: string; class?: string; status?: string }>> {
   const out = new Map<string, { race?: string; class?: string; status?: string }>();
   for (let i = 0; i < ids.length; i += 150) {
-    const rows = must(await supabase.from('infobox_fields').select('article_id, label, value').in('article_id', ids.slice(i, i + 150)).in('label', ['Race', 'Class', 'Status'])) as { article_id: string; label: string; value: string }[];
+    const rows = must(await supabase.from('infobox_fields').select('article_id, label, value').in('article_id', ids.slice(i, i + 150)).in('label', ['Race', 'Species', 'Class', 'Status'])) as { article_id: string; label: string; value: string }[];
     for (const r of rows) {
       if (!r.value.trim()) continue;
       const entry = out.get(r.article_id) ?? {};
-      entry[r.label.toLowerCase() as 'race' | 'class' | 'status'] = r.value.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1');
+      entry[(r.label === 'Species' ? 'race' : r.label.toLowerCase()) as 'race' | 'class' | 'status'] = r.value.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1');
       out.set(r.article_id, entry);
     }
   }

@@ -100,7 +100,9 @@ const contentTables = [
 /** Wipe local test data and load the fixture world. */
 export async function resetFixtures() {
   await admin(`truncate ${contentTables.map((t) => `public.${t}`).join(', ')} cascade`);
-  await admin(`update public.campaign_settings set banner_media_id = null`);
+  // The settings row references articles (current location), so the cascade above can remove it.
+  await admin(`insert into public.campaign_settings (id) values (true) on conflict (id) do nothing`);
+  await admin(`update public.campaign_settings set banner_media_id = null, current_location_id = null, current_status = ''`);
   await admin(`delete from storage.objects where bucket_id = 'chronicle-media'`);
   await admin(`delete from public.media`);
   await admin(`delete from auth.mfa_factors where user_id = any($1::uuid[])`, [Object.values(ids)]);
