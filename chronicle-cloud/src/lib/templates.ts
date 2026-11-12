@@ -90,6 +90,12 @@ export const TEMPLATES: Record<ArticleType, Template> = {
     ],
     defaultVisibility: 'dm',
   },
+  news: {
+    type: 'news', label: 'Gazette story', plural: 'The Goblin Gazette', glyph: '✒',
+    infobox: [],
+    sections: [{ heading: '' }],
+    defaultVisibility: 'dm',
+  },
   lore: {
     type: 'lore', label: 'Lore', plural: 'Lore', glyph: '❦',
     infobox: [],

@@ -17,6 +17,7 @@ export const SAMPLE_SECRETS = [
   'Nest intelligence', 'betray the party', 'unseen moon', 'rigged to sink', 'Ambush at the docks',
   'invisible writing', 'blackmail', 'safehouse', 'the-firestarter', 'Inside the Dragon Nest',
   'Pacing', 'Campaign arc', 'two young dragons', 'Into the Caldera',
+  'GAZETTEDRAFT', 'Secret Talks',
 ];
 
 export const shotDir = path.join(root, '..', 'docs', 'chronicle-cloud', 'screenshots');

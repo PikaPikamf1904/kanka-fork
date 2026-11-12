@@ -2,7 +2,7 @@ import { TEMPLATES } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
 
 const HUES: Record<ArticleType, number> = {
-  character: 222, location: 150, faction: 2, item: 38, quest: 280, session: 195, event: 20, dossier: 340, lore: 60,
+  character: 222, location: 150, faction: 2, item: 38, quest: 280, session: 195, event: 20, dossier: 340, lore: 60, news: 100,
 };
 
 /** An original heraldic placeholder used when an entry has no artwork. */

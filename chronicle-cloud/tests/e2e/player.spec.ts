@@ -27,6 +27,7 @@ test.describe('player', () => {
       '/wiki/silver-quill-society', '/wiki/lantern-of-seven-stars', '/wiki/the-three-moons',
       '/browse/character', '/browse/location', '/browse/session', '/categories', '/category/port-vellmoor',
       '/timeline', '/connections', '/maps', '/maps/ember-coast', '/search?q=broker', '/search?q=harbour',
+      '/news', '/news/archive', '/news?section=breaking', '/news/fires-on-the-coast-road', '/news/harbourmaster-secret-talks', '/search?q=talks',
     ];
     for (const path of visits) {
       await page.goto(path);

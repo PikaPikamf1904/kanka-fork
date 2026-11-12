@@ -1,7 +1,7 @@
 export type Visibility = 'players' | 'dm';
 export type PublishStatus = 'draft' | 'published';
 export type ArticleType =
-  | 'lore' | 'character' | 'location' | 'faction' | 'item' | 'quest' | 'session' | 'event' | 'dossier';
+  | 'lore' | 'character' | 'location' | 'faction' | 'item' | 'quest' | 'session' | 'event' | 'dossier' | 'news';
 
 export interface Article {
   id: string;
@@ -153,6 +153,11 @@ export interface CampaignSettings {
   tagline: string;
   overview: string;
   banner_media_id: string | null;
+  /** The DM's "where the party is now" (a location page) and a short note for the home page. */
+  current_location_id?: string | null;
+  current_status?: string;
+  /** Filled by getSettings when the reader may see that page. */
+  current_location?: ArticleRef | null;
 }
 
 export interface Member {

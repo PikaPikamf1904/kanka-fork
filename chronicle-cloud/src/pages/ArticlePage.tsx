@@ -1,18 +1,13 @@
 import { useEffect } from 'react';
-import { longDate } from '../lib/dates.ts';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { StatusBadge, VisibilityBadge } from '../components/Badges.tsx';
-import { Infobox } from '../components/Infobox.tsx';
-import { Markdown } from '../components/Markdown.tsx';
-import { sectionAnchor, Toc } from '../components/Toc.tsx';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { CharacterProfile, EncyclopediaPage, SessionJournal } from './ArticleViews.tsx';
 import { getArticle, previewAsPlayer, resolveSlug, type ArticleBundle } from '../lib/api.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
-import { relationLabel, TEMPLATES } from '../lib/templates.ts';
 import type { ArticleRef, ArticleType, Visibility } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 import { NotFound } from './NotFound.tsx';
 
-interface ViewModel {
+export interface ViewModel {
   id: string;
   slug: string;
   type: ArticleType;
@@ -21,6 +16,8 @@ interface ViewModel {
   summary: string;
   heroMediaId: string | null;
   updatedAt: string;
+  sessionDate?: string | null;
+  isPartyMember?: boolean;
   status?: ArticleBundle['article']['status'];
   visibility?: Visibility;
   sections: { id: string; heading: string; body: string; visibility?: Visibility; status?: ArticleBundle['article']['status'] }[];
@@ -34,6 +31,7 @@ function fromBundle(b: ArticleBundle): ViewModel {
   return {
     id: b.article.id, slug: b.article.slug, type: b.article.type, title: b.article.title, subtitle: b.article.subtitle,
     summary: b.article.summary, heroMediaId: b.article.hero_media_id, updatedAt: b.article.updated_at,
+    sessionDate: b.article.session_date, isPartyMember: b.article.is_party_member,
     status: b.article.status, visibility: b.article.visibility,
     sections: b.sections,
     infobox: b.infobox,
@@ -75,7 +73,9 @@ export function ArticlePage() {
   const data = page.data;
   useEffect(() => {
     if (data && 'redirect' in data) navigate(`/wiki/${data.redirect}?from=${encodeURIComponent(slug)}`, { replace: true });
-  }, [data, navigate, slug]);
+    // Gazette stories have their own newspaper page.
+    else if (data && data.type === 'news' && !playerPreview) navigate(`/news/${data.slug}`, { replace: true });
+  }, [data, navigate, slug, playerPreview]);
   useEffect(() => {
     if (data && !('redirect' in data)) document.title = `${data.title} · Chronicle`;
   }, [data]);
@@ -87,123 +87,8 @@ export function ArticlePage() {
 
   // A heading with nothing under it is noise for readers; the editor still shows it.
   const v = { ...data, sections: data.sections.filter((x) => x.body.trim()) };
-  const isCharacter = v.type === 'character';
-  const journalMentions = isCharacter ? v.backlinks.filter((b) => b.type === 'session') : [];
-  const otherBacklinks = isCharacter ? v.backlinks.filter((b) => b.type !== 'session') : v.backlinks;
   const from = params.get('from');
-  const relationsByKind = new Map<string, ViewModel['relations']>();
-  for (const r of v.relations) relationsByKind.set(r.kind, [...(relationsByKind.get(r.kind) ?? []), r]);
-
-  return (
-    <article className={isCharacter ? 'article article-character' : 'article'}>
-      <div className="article-meta-top">
-        <Link to={`/browse/${v.type}`} className="article-kind">{TEMPLATES[v.type].plural}</Link>
-        {isDm && (
-          <div className="article-dm-tools">
-            {v.status && <StatusBadge status={v.status} />}
-            {v.visibility && <VisibilityBadge visibility={v.visibility} />}
-            <Link className="button small" to={`/dm/edit/${v.slug}`}>Edit</Link>
-          </div>
-        )}
-      </div>
-      <h1 className="article-title">{v.title}</h1>
-      {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
-      {from && <p className="redirect-note">(Redirected from {from})</p>}
-      {isCharacter && (
-        <nav className="character-page-nav" aria-label="On this character page">
-          <span className="character-page-nav-label">On this page</span>
-          {v.summary && <a href="#character-overview">Overview</a>}
-          {v.sections.map((section, i) => (
-            <a key={section.id} href={`#${sectionAnchor(section.heading, i)}`}>{section.heading || `Section ${i + 1}`}</a>
-          ))}
-          {relationsByKind.size > 0 && <a href="#connections">Connections</a>}
-          {journalMentions.length > 0 && <a href="#character-journals">Session journals</a>}
-          {otherBacklinks.length > 0 && <a href="#what-links-here">Other mentions</a>}
-        </nav>
-      )}
-
-      <div className="article-layout">
-        <Infobox title={v.title} type={v.type} heroMediaId={v.heroMediaId} fields={v.infobox} showVisibility={isDm} />
-        <div className="article-body">
-          {v.summary && <p className="article-lead" id={isCharacter ? 'character-overview' : undefined}>{v.summary}</p>}
-          {!isCharacter && <Toc headings={v.sections.map((s) => s.heading)} />}
-          {v.sections.map((s, i) => {
-            const hidden = isDm && (s.visibility === 'dm' || s.status === 'draft');
-            return (
-              <section key={s.id} className={hidden ? 'article-section dm-only' : 'article-section'} aria-labelledby={sectionAnchor(s.heading, i)}>
-                {s.heading && (
-                  <h2 id={sectionAnchor(s.heading, i)}>
-                    {s.heading}
-                    {isDm && s.visibility === 'dm' && <VisibilityBadge visibility="dm" />}
-                    {isDm && s.status === 'draft' && <StatusBadge status="draft" />}
-                  </h2>
-                )}
-                <Markdown text={s.body} />
-              </section>
-            );
-          })}
-
-          {relationsByKind.size > 0 && (
-            <section className="article-section">
-              <h2 id="connections">Connections</h2>
-              <dl className="connections">
-                {[...relationsByKind.entries()].map(([kind, rels]) => (
-                  <div key={kind}>
-                    <dt>{relationLabel(kind)}</dt>
-                    <dd>
-                      {rels.map((r, i) => (
-                        <span key={r.key}>
-                          {i > 0 && ', '}
-                          <Link to={`/wiki/${r.other.slug}`}>{r.other.title}</Link>
-                          {r.label && r.label !== relationLabel(kind) && <span className="muted"> ({r.label})</span>}
-                          {isDm && r.visibility === 'dm' && <VisibilityBadge visibility="dm" />}
-                        </span>
-                      ))}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-
-          {journalMentions.length > 0 && (
-            <section className="article-section character-journals">
-              <h2 id="character-journals">In the session journals</h2>
-              <ul>
-                {journalMentions.map((b) => (
-                  <li key={b.slug}><Link to={`/wiki/${b.slug}`}>{b.title}</Link></li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {otherBacklinks.length > 0 && (
-            <section className="article-section what-links-here">
-              <h2 id="what-links-here">What links here</h2>
-              <ul>
-                {otherBacklinks.map((b) => (
-                  <li key={b.slug}><Link to={`/wiki/${b.slug}`}>{b.title}</Link> <span className="muted">· {TEMPLATES[b.type].label}</span></li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <footer className="article-footer">
-            {v.categories.length > 0 && (
-              <div className="category-bar">
-                <span className="category-bar-label">Categories:</span>
-                {v.categories.map((c) => (
-                  <Link key={c.slug} to={`/category/${c.slug}`} className={c.kind === 'tag' ? 'chip chip-tag' : 'chip'}>
-                    {c.name}
-                    {isDm && c.visibility === 'dm' && ' 🔒'}
-                  </Link>
-                ))}
-              </div>
-            )}
-            <p className="muted">Last updated {longDate(v.updatedAt)}</p>
-          </footer>
-        </div>
-      </div>
-    </article>
-  );
+  if (v.type === 'character') return <CharacterProfile v={v} isDm={isDm} from={from} />;
+  if (v.type === 'session') return <SessionJournal v={v} isDm={isDm} from={from} />;
+  return <EncyclopediaPage v={v} isDm={isDm} from={from} />;
 }

@@ -1,6 +1,7 @@
 // Data access. Every read goes through Row Level Security: the browser receives only rows the
 // signed-in user may see, so nothing here filters secrets client-side.
 import { toChronicleError } from './changeSets.ts';
+import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
 import { MEDIA_BUCKET, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
@@ -33,11 +34,90 @@ const ARTICLE_COLUMNS =
   'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at, version';
 
 export async function getSettings(): Promise<CampaignSettings | null> {
-  return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id').maybeSingle());
+  // The location page is embedded through Row Level Security: a page the reader may not see comes back null.
+  return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)').maybeSingle());
 }
 
 export async function updateSettings(patch: Partial<CampaignSettings>) {
-  must(await supabase.from('campaign_settings').update(patch).eq('id', true).select('title'));
+  const { current_location: _ignored, ...row } = patch;
+  void _ignored;
+  must(await supabase.from('campaign_settings').update(row).eq('id', true).select('title'));
+}
+
+/** Readable pages with these addresses (unknown or hidden ones are simply absent). */
+export async function articlesBySlugs(slugs: string[]): Promise<(ArticleRef & { id: string; hero_media_id: string | null; summary: string })[]> {
+  const unique = [...new Set(slugs)].filter((x) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x)).slice(0, 200);
+  if (unique.length === 0) return [];
+  return must(await supabase.from('articles').select('id, slug, title, type, hero_media_id, summary').in('slug', unique));
+}
+
+/** Session journals in play order: by play date, then by when they were written. */
+export async function listSessions(): Promise<Pick<Article, 'id' | 'slug' | 'title' | 'summary' | 'session_date' | 'status' | 'visibility' | 'updated_at'>[]> {
+  const rows = must(await supabase.from('articles').select('id, slug, title, summary, session_date, status, visibility, updated_at, created_at').eq('type', 'session').limit(500)) as (Article & { created_at: string })[];
+  return rows.sort((a, b) => (a.session_date ?? '9999').localeCompare(b.session_date ?? '9999') || a.created_at.localeCompare(b.created_at));
+}
+
+// ---------- The Goblin Gazette ----------
+export interface NewsDetails {
+  section: NewsSection;
+  reliability: NewsReliability;
+  reporter: string;
+  dateline: string;
+  in_world_date: string;
+  issue_number: number | null;
+  is_lead: boolean;
+  corrects_article_id: string | null;
+  review_state: NewsReviewState;
+  reviewed_at: string | null;
+}
+export type NewsStory = Article & { news: NewsDetails | null };
+
+/** Every story the reader may see: players get published stories only (Row Level Security). */
+export async function listNews(): Promise<NewsStory[]> {
+  const raw = must(await supabase.from('articles').select(`${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey(*)`).eq('type', 'news').limit(500)) as unknown as (Article & { news: NewsDetails | NewsDetails[] | null })[];
+  // One story row per page; PostgREST may return it as an object or a one-element list.
+  const rows: NewsStory[] = raw.map((r) => ({ ...r, news: Array.isArray(r.news) ? r.news[0] ?? null : r.news }));
+  return rows.sort((a, b) => (b.news?.issue_number ?? 0) - (a.news?.issue_number ?? 0) || (b.published_at ?? b.updated_at).localeCompare(a.published_at ?? a.updated_at));
+}
+
+/** A revision of a printed story, waiting for the DM (only the DM can read these). */
+export interface NewsPending { article_id: string; story: NewsDraft; review_state: NewsReviewState; updated_at: string }
+
+export async function getNewsStory(slug: string): Promise<{ bundle: ArticleBundle; news: NewsDetails | null; pending: NewsPending | null } | null> {
+  const bundle = await getArticle(slug);
+  if (!bundle || bundle.article.type !== 'news') return null;
+  const [news, pending] = await Promise.all([
+    supabase.from('news_stories').select('*').eq('article_id', bundle.article.id).maybeSingle(),
+    supabase.from('news_pending').select('*').eq('article_id', bundle.article.id).maybeSingle(),
+  ]);
+  return { bundle, news: must(news) as NewsDetails | null, pending: (pending.error ? null : pending.data) as NewsPending | null };
+}
+
+/** Which printed stories have a waiting revision, and in what state (DM only; players get none). */
+export async function listNewsPending(): Promise<Map<string, NewsReviewState>> {
+  const { data } = await supabase.from('news_pending').select('article_id, review_state');
+  return new Map((data ?? []).map((r: { article_id: string; review_state: NewsReviewState }) => [r.article_id, r.review_state]));
+}
+
+export interface NewsDraft {
+  article: { id?: string; slug: string; title: string; subtitle: string; summary: string; hero_media_id: string | null };
+  sections: { id?: string; heading: string; body: string; visibility: 'players'; status: 'published' }[];
+  details: Omit<NewsDetails, 'review_state' | 'reviewed_at'>;
+}
+
+/** Saves story and details in one transaction (website, DM only). Never publishes. A printed story
+ *  is not changed: the save becomes its waiting revision (`pending: true`). */
+export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string): Promise<Article & { pending: boolean }> {
+  const { data, error } = await supabase.rpc('save_news_story', { p_story: draft, p_expected_version: expectedVersion ?? null });
+  if (error) throw toChronicleError(error);
+  return data as Article & { pending: boolean };
+}
+
+export type NewsAction = 'submit' | 'approve' | 'return' | 'publish' | 'unpublish' | 'discard';
+export async function newsTransition(articleId: string, action: NewsAction) {
+  const { data, error } = await supabase.rpc('news_transition', { p_article: articleId, p_action: action });
+  if (error) throw toChronicleError(error);
+  return data as { review_state: NewsReviewState; status: Article['status']; visibility: Article['visibility']; pending: NewsReviewState | null };
 }
 
 export async function listArticles(opts: {
@@ -65,11 +145,11 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
 export async function listCharacterFacts(ids: string[]): Promise<Map<string, { race?: string; class?: string; status?: string }>> {
   const out = new Map<string, { race?: string; class?: string; status?: string }>();
   for (let i = 0; i < ids.length; i += 150) {
-    const rows = must(await supabase.from('infobox_fields').select('article_id, label, value').in('article_id', ids.slice(i, i + 150)).in('label', ['Race', 'Class', 'Status'])) as { article_id: string; label: string; value: string }[];
+    const rows = must(await supabase.from('infobox_fields').select('article_id, label, value').in('article_id', ids.slice(i, i + 150)).in('label', ['Race', 'Species', 'Class', 'Status'])) as { article_id: string; label: string; value: string }[];
     for (const r of rows) {
       if (!r.value.trim()) continue;
       const entry = out.get(r.article_id) ?? {};
-      entry[r.label.toLowerCase() as 'race' | 'class' | 'status'] = r.value.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1');
+      entry[(r.label === 'Species' ? 'race' : r.label.toLowerCase()) as 'race' | 'class' | 'status'] = r.value.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1');
       out.set(r.article_id, entry);
     }
   }
@@ -262,20 +342,110 @@ export async function mediaUrlForPath(path: string): Promise<string | null> {
 }
 
 
-/** DM only. Upload an already-resized image and register it (private by default). */
+/** DM only. Uploads an already-resized image and registers it in the media library. */
 /** Uploads start DM-only (enforced by policy); the page that shows the image decides who sees it. */
-export async function uploadMedia(blob: Blob, info: { alt: string; width: number; height: number }): Promise<Media> {
+export async function uploadMedia(
+  blob: Blob,
+  info: { alt: string; width: number; height: number; credit?: string; originalName?: string },
+): Promise<Media> {
   const path = `media/${crypto.randomUUID()}.webp`;
   must(await supabase.storage.from(MEDIA_BUCKET).upload(path, blob, { contentType: 'image/webp', upsert: false }));
   return must(
     await supabase
       .from('media')
-      .insert({ path, alt: info.alt, width: info.width, height: info.height, bytes: blob.size, content_type: 'image/webp' })
+      .insert({
+        path, alt: info.alt.slice(0, 500), width: info.width, height: info.height, bytes: blob.size, content_type: 'image/webp',
+        credit: (info.credit ?? '').slice(0, 200), original_name: (info.originalName ?? '').slice(0, 200),
+      })
       .select('id, path, alt, width, height, visibility')
       .single(),
   );
 }
 
+export interface MediaItem extends Media {
+  credit: string;
+  original_name: string;
+  bytes: number | null;
+  created_at: string;
+}
+
+/** DM: every file in the library, newest first. */
+export async function listMedia(): Promise<MediaItem[]> {
+  return must(
+    await supabase
+      .from('media')
+      .select('id, path, alt, width, height, visibility, credit, original_name, bytes, created_at')
+      .order('created_at', { ascending: false })
+      .limit(1000),
+  ) as MediaItem[];
+}
+
+export async function getMediaItem(id: string): Promise<MediaItem | null> {
+  return must(
+    await supabase.from('media').select('id, path, alt, width, height, visibility, credit, original_name, bytes, created_at').eq('id', id).maybeSingle(),
+  ) as MediaItem | null;
+}
+
+export async function updateMedia(id: string, patch: { alt?: string; credit?: string }): Promise<void> {
+  must(await supabase.from('media').update(patch).eq('id', id).select('id').single());
+}
+
+/** The file itself, for adjusting a library picture. Only works for files the reader may see. */
+export async function downloadMedia(path: string): Promise<Blob> {
+  return must(await supabase.storage.from(MEDIA_BUCKET).download(path));
+}
+
+export interface MediaUse {
+  label: string;
+  to: string;
+}
+
+/** DM: where each library file is used (by media id), so nothing in use can be deleted by mistake. */
+export async function mediaUsage(): Promise<Map<string, MediaUse[]>> {
+  const [heroes, maps, settings, sections, pending, media] = await Promise.all([
+    supabase.from('articles').select('slug, title, type, hero_media_id').not('hero_media_id', 'is', null),
+    supabase.from('maps').select('slug, title, media_id').not('media_id', 'is', null),
+    supabase.from('campaign_settings').select('banner_media_id').limit(1),
+    supabase.from('article_sections').select('body, article:articles!inner(slug, title, type)').like('body', '%media:%'),
+    supabase.from('news_pending').select('story, article:articles!inner(slug, title)'),
+    supabase.from('media').select('id, path'),
+  ]);
+  for (const r of [heroes, maps, settings, sections, pending, media]) if (r.error) throw new Error(r.error.message);
+  const byPath = new Map((media.data ?? []).map((m: { id: string; path: string }) => [m.path, m.id]));
+  const out = new Map<string, MediaUse[]>();
+  const add = (id: string | null | undefined, use: MediaUse) => {
+    if (!id) return;
+    const list = out.get(id) ?? [];
+    if (!list.some((u) => u.label === use.label)) list.push(use);
+    out.set(id, list);
+  };
+  const pageLink = (a: { slug: string; type?: string }) => (a.type === 'news' ? `/news/${a.slug}` : `/wiki/${a.slug}`);
+  for (const a of (heroes.data ?? []) as { slug: string; title: string; type: string; hero_media_id: string }[]) {
+    add(a.hero_media_id, { label: `Main picture of “${a.title}”`, to: pageLink(a) });
+  }
+  for (const m of (maps.data ?? []) as { slug: string; title: string; media_id: string }[]) {
+    add(m.media_id, { label: `Map “${m.title}”`, to: `/maps/${m.slug}` });
+  }
+  add((settings.data?.[0] as { banner_media_id: string | null } | undefined)?.banner_media_id, { label: 'Main page banner', to: '/' });
+  const pathsIn = (text: string) => [...text.matchAll(/media:([a-z0-9][a-z0-9/_.-]*[a-z0-9])/g)].map((m) => m[1]!);
+  for (const s of (sections.data ?? []) as unknown as { body: string; article: { slug: string; title: string; type: string } }[]) {
+    for (const p of pathsIn(s.body)) add(byPath.get(p), { label: `In the text of “${s.article.title}”`, to: pageLink(s.article) });
+  }
+  for (const r of (pending.data ?? []) as unknown as { story: unknown; article: { slug: string; title: string } }[]) {
+    const story = r.story as { article?: { hero_media_id?: string | null } };
+    add(story.article?.hero_media_id, { label: `Waiting revision of “${r.article.title}”`, to: `/dm/news/edit/${r.article.slug}` });
+    for (const p of pathsIn(JSON.stringify(r.story))) add(byPath.get(p), { label: `Waiting revision of “${r.article.title}”`, to: `/dm/news/edit/${r.article.slug}` });
+  }
+  return out;
+}
+
+/** DM: removes a library file that nothing uses. Callers check mediaUsage first. */
+export async function deleteMedia(item: { id: string; path: string }): Promise<void> {
+  must(await supabase.from('media').delete().eq('id', item.id).select('id').single());
+  signedCache.delete(item.path);
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([item.path]);
+  if (error) throw new Error(`The library entry was removed, but the stored file could not be: ${error.message}`);
+}
 
 // ---------------------------------------------------------------------------------------------
 // DM writes. RLS refuses all of these for players; the UI only offers them to the DM.
