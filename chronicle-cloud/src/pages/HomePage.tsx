@@ -7,6 +7,7 @@ import { SearchBox } from '../components/SearchBox.tsx';
 import { getSettings, listArticles, listCharacterFacts, listMaps, listNews, listSessions } from '../lib/api.ts';
 import { longDate } from '../lib/dates.ts';
 import { GAZETTE, reporter, sectionLabel } from '../lib/gazette.ts';
+import { latestDatedSession } from '../lib/home.ts';
 import { useIsDm } from '../lib/session.tsx';
 import { TEMPLATES } from '../lib/templates.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -38,10 +39,9 @@ export function HomePage() {
       listNews(),
     ]);
     const facts = await listCharacterFacts(party.map((p) => p.id));
-    // In play order the newest is last; for the DM, prefer the newest one players can also read.
-    const latestSession = sessions.at(-1) ?? null;
+    const latestSession = latestDatedSession(sessions);
     const headline = news.find((s) => s.status === 'published' && s.visibility === 'players') ?? null;
-    return { settings, featured, recent: recent.filter((a) => a.type !== 'news'), party, facts, latestSession, quests, maps, headline };
+    return { settings, featured, hasContent: recent.length > 0, recent: recent.filter((a) => a.type !== 'news'), party, facts, latestSession, quests, maps, headline };
   }, [isDm]);
 
   if (home.error) return <p className="form-error">{home.error}</p>;
@@ -49,7 +49,7 @@ export function HomePage() {
   const title = d?.settings?.title || 'Chronicle';
   const intro = d?.settings?.overview ? firstParagraph(d.settings.overview) : '';
   // Nothing this reader can see yet: say so plainly instead of showing a row of empty panels.
-  const empty = d !== undefined && d !== null && d.recent.length === 0;
+  const empty = d !== undefined && d !== null && !d.hasContent;
   const where = d?.settings?.current_location ?? null;
   const status = d?.settings?.current_status ?? '';
 
@@ -101,7 +101,7 @@ export function HomePage() {
             </section>
             {d.latestSession && (
               <section className="now-card now-session" aria-labelledby="now-session">
-                <h2 id="now-session">Latest session</h2>
+                <h2 id="now-session">Latest dated session</h2>
                 <p className="now-big"><Link to={`/wiki/${d.latestSession.slug}`}>{d.latestSession.title}</Link></p>
                 {longDate(d.latestSession.session_date) && <p className="muted">Played {longDate(d.latestSession.session_date)}</p>}
                 {d.latestSession.summary && <p className="now-summary">{plain(d.latestSession.summary)}</p>}
@@ -135,7 +135,7 @@ export function HomePage() {
             <div className="home-main">
               {d.quests.length > 0 && (
                 <section className="panel">
-                  <h2>Open threads</h2>
+                  <h2>Recently updated quests</h2>
                   <ul className="thread-list">
                     {d.quests.map((a) => (
                       <li key={a.id}>
@@ -161,7 +161,7 @@ export function HomePage() {
               )}
             </div>
             <aside className="home-side">
-              <section className="panel">
+              {d.recent.length > 0 && <section className="panel">
                 <h2>Recently updated</h2>
                 <ul className="recent-list">
                   {d.recent.map((a) => (
@@ -171,7 +171,7 @@ export function HomePage() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </section>}
               <section className="panel">
                 <h2>Explore</h2>
                 <ul className="explore-list">
