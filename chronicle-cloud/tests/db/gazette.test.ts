@@ -83,6 +83,20 @@ describe('Goblin Gazette workflow', () => {
     }
   });
 
+  it('prevents retyping news at every review stage and prevents converting an ordinary article into news', async () => {
+    const id = await created();
+    for (const stage of ['draft', 'approved', 'printed'] as const) {
+      if (stage === 'approved') { await step(id, 'submit'); await step(id, 'approve'); }
+      if (stage === 'printed') await step(id, 'publish');
+      const attempt = await as('dm', "update public.articles set type = 'lore', status = 'draft' where id = $1", [id]);
+      expect(attempt.error?.message, stage).toBe('FORBIDDEN');
+      const current = await admin('select type from public.articles where id = $1', [id]);
+      expect(current.rows[0]!.type).toBe('news');
+    }
+    const convert = await as('dm', "update public.articles set type = 'news' where slug = 'public-article'");
+    expect(convert.error?.message).toBe('FORBIDDEN');
+  });
+
   it('publishing is refused until the DM approves, by every route', async () => {
     const id = await created();
     expect((await transition(id, 'publish')).error?.message).toBe('FORBIDDEN');
