@@ -66,6 +66,18 @@ async function loadArticle(db: Db, slug: string, type?: string): Promise<Article
   return rows[0]!;
 }
 
+const idArg = (v: unknown, name = 'id'): string => {
+  const s = str(v, name, 64);
+  return UUID.test(s) ? s : bad(`${name} is not a valid id.`);
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function loadArticleById(db: Db, id: string): Promise<ArticleRow> {
+  const rows = await db.get<ArticleRow>(`articles?select=${ARTICLE}&id=eq.${id}`);
+  if (rows.length === 0) throw new ToolError('NOT_FOUND', 'No such page.');
+  return rows[0]!;
+}
+
 async function bundle(db: Db, a: ArticleRow, withRelations: boolean) {
   const [sections, infobox, cats, relations] = await Promise.all([
     db.get<Json>(`article_sections?select=id,heading,body,position,visibility,status&article_id=eq.${a.id}&order=position,id`),
@@ -139,11 +151,12 @@ export const TOOLS: Tool[] = [
   },
   {
     name: 'chronicle_get_article', scope: 'chronicle:read', dmOnly: false, annotations: RO,
-    description: 'One wiki page with its sections, infobox fields, tags and connections, as far as you may read them. Includes the version needed to propose changes.',
-    inputSchema: { type: 'object', required: ['slug'], additionalProperties: false, properties: {
-      slug: { type: 'string' }, include_relations: { type: 'boolean', default: true }, include_revision_summary: { type: 'boolean', default: false } } },
+    description: 'One wiki page by its address (slug) or its stable id, with its sections, infobox fields, tags and connections, as far as you may read them. Includes the version needed to propose changes. Use this after chronicle_search to read a result in full.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {
+      slug: { type: 'string', description: 'Page address, for example "port-vellmoor".' }, id: { type: 'string', description: 'Stable page id (uuid) from a search result.' },
+      include_relations: { type: 'boolean', default: true }, include_revision_summary: { type: 'boolean', default: false } } },
     async run(a, ctx) {
-      const art = await loadArticle(ctx.db, slugArg(a.slug));
+      const art = a.id !== undefined && a.id !== null && a.id !== '' ? await loadArticleById(ctx.db, idArg(a.id)) : await loadArticle(ctx.db, slugArg(a.slug));
       const b = await bundle(ctx.db, art, a.include_relations !== false);
       if (a.include_revision_summary === true && ctx.who.is_dm) {
         const revs = await ctx.db.get<Json>(`revisions?select=id,created_at,note&article_id=eq.${art.id}&order=created_at.desc&limit=5`);
@@ -253,6 +266,102 @@ export const TOOLS: Tool[] = [
         }
       }
       return { ...out, next_cursor: sections.length > limit ? `o${offset + limit}` : null };
+    },
+  },
+  {
+    name: 'chronicle_list_sessions', scope: 'chronicle:read', dmOnly: false, annotations: RO,
+    description: 'Session journal pages (recaps) you may read, newest first, with their play date and summary. Use chronicle_get_article on a result to read the full recap.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 }, cursor: { type: ['string', 'null'] } } },
+    async run(a, ctx) {
+      const limit = limitArg(a.limit);
+      const offset = cursorArg(a.cursor);
+      const rows = await ctx.db.get<ArticleRow & { session_date: string | null }>(`articles?select=${ARTICLE},session_date&type=eq.session&order=session_date.desc.nullslast,title.asc,id&limit=${limit + 1}&offset=${offset}`);
+      return page(rows.map((r) => ({ id: r.id, slug: r.slug, title: r.title, session_date: r.session_date, summary: r.summary, visibility: r.visibility, status: r.status, version: version(r.version) })), offset, limit);
+    },
+  },
+  {
+    name: 'chronicle_get_timeline', scope: 'chronicle:read', dmOnly: false, annotations: RO,
+    description: 'The campaign timeline you may read, in story order: each event with its in-world date label, text and the page it belongs to (if you may read that page).',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 }, cursor: { type: ['string', 'null'] } } },
+    async run(a, ctx) {
+      const limit = limitArg(a.limit, 50);
+      const offset = cursorArg(a.cursor);
+      const rows = await ctx.db.get<{ id: string; title: string; date_label: string; sort_key: number; body: string; visibility: string; status: string; article: { slug: string; title: string } | null }>(
+        `timeline_events?select=id,title,date_label,sort_key,body,visibility,status,article:articles(slug,title)&order=sort_key,id&limit=${limit + 1}&offset=${offset}`);
+      return page(rows.map((r) => ({ id: r.id, title: r.title, date_label: r.date_label, sort_key: r.sort_key, body: r.body, visibility: r.visibility, status: r.status, page_slug: r.article?.slug ?? null, page_title: r.article?.title ?? null })), offset, limit);
+    },
+  },
+  {
+    name: 'chronicle_list_drafts', scope: 'chronicle:read', dmOnly: true, annotations: RO,
+    description: 'DM only. Unpublished draft pages (newest change first) and your change previews that still wait for approval in Chronicle. Use this to see what is pending review.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { type: { type: 'string', maxLength: 20 }, limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 }, cursor: { type: ['string', 'null'] } } },
+    async run(a, ctx) {
+      const limit = limitArg(a.limit);
+      const offset = cursorArg(a.cursor);
+      const type = str(a.type, 'type', 20, false);
+      if (type && !SLUG.test(type)) bad('type is not valid.');
+      const [rows, previews] = await Promise.all([
+        ctx.db.get<ArticleRow>(`articles?select=${ARTICLE}&status=eq.draft${type ? `&type=eq.${type}` : ''}&order=updated_at.desc,id&limit=${limit + 1}&offset=${offset}`),
+        offset === 0 ? ctx.db.get<{ id: string; label: string; created_at: string; expires_at: string }>(`change_previews?select=id,label,created_at,expires_at&approved_at=is.null&consumed_at=is.null&expires_at=gt.${enc(new Date().toISOString())}&order=created_at.desc&limit=20`) : Promise.resolve([]),
+      ]);
+      return {
+        drafts: page(rows.map((r) => ({ id: r.id, slug: r.slug, title: r.title, type: r.type, summary: r.summary, visibility: r.visibility, updated_at: r.updated_at, version: version(r.version) })), offset, limit),
+        previews_awaiting_approval: previews.map((p) => ({ preview_id: p.id, label: p.label, created_at: p.created_at, expires_at: p.expires_at, review_url: reviewUrl(ctx, p.id) })),
+      };
+    },
+  },
+  {
+    name: 'chronicle_get_provenance', scope: 'chronicle:read', dmOnly: true, annotations: RO,
+    description: 'DM only. Where the recorded facts of one page came from: for each section or infobox field, its source kind (table_confirmed, dm_confirmed, official_reference, planned_unplayed, transcript_uncertain) and reference, such as a transcript timestamp.',
+    inputSchema: { type: 'object', required: ['slug'], additionalProperties: false, properties: { slug: { type: 'string' } } },
+    async run(a, ctx) {
+      const art = await loadArticle(ctx.db, slugArg(a.slug));
+      const [rows, sections, fields] = await Promise.all([
+        ctx.db.get<{ id: string; section_id: string | null; field_id: string | null; kind: string; reference: string; change_set_id: string | null; created_at: string }>(`provenance?select=id,section_id,field_id,kind,reference,change_set_id,created_at&article_id=eq.${art.id}&order=created_at,id`),
+        ctx.db.get<{ id: string; heading: string }>(`article_sections?select=id,heading&article_id=eq.${art.id}`),
+        ctx.db.get<{ id: string; label: string }>(`infobox_fields?select=id,label&article_id=eq.${art.id}`),
+      ]);
+      const heading = new Map(sections.map((x) => [x.id, x.heading]));
+      const label = new Map(fields.map((x) => [x.id, x.label]));
+      return { slug: art.slug, version: version(art.version), records: rows.map((r) => ({
+        kind: r.kind, reference: r.reference, created_at: r.created_at, change_set_id: r.change_set_id,
+        applies_to: r.section_id ? { section: heading.get(r.section_id) ?? '(section no longer present)' } : r.field_id ? { field: label.get(r.field_id) ?? '(field no longer present)' } : { page: art.title },
+      })) };
+    },
+  },
+  {
+    name: 'chronicle_find_duplicates', scope: 'chronicle:read', dmOnly: true, annotations: RO,
+    description: 'DM only. Before proposing new pages, checks each candidate name against existing pages and redirects: exact address, redirect, similar title, or a strong search match. Use it so a person or place is not created twice.',
+    inputSchema: { type: 'object', required: ['names'], additionalProperties: false, properties: { names: { type: 'array', minItems: 1, maxItems: 25, items: { type: 'string', maxLength: 200 } }, type: { type: 'string', maxLength: 20 } } },
+    async run(a, ctx) {
+      if (!Array.isArray(a.names) || a.names.length < 1 || a.names.length > 25) bad('names must list 1 to 25 names.');
+      const type = str(a.type, 'type', 20, false);
+      if (type && !SLUG.test(type)) bad('type is not valid.');
+      const out: Json[] = [];
+      for (const raw of a.names as unknown[]) {
+        const name = str(raw, 'name', 200).trim();
+        const slug = name.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        const words = name.replace(/[*%,()]/g, ' ').trim();
+        const [exact, redirect, similar, hits] = await Promise.all([
+          SLUG.test(slug) ? ctx.db.get<ArticleRow>(`articles?select=${ARTICLE}&slug=eq.${slug}`) : Promise.resolve([]),
+          SLUG.test(slug) ? ctx.db.get<{ from_slug: string; article: { slug: string; title: string } | null }>(`redirects?select=from_slug,article:articles(slug,title)&from_slug=eq.${slug}`) : Promise.resolve([]),
+          words ? ctx.db.get<ArticleRow>(`articles?select=${ARTICLE}&title=ilike.${enc(`*${words}*`)}${type ? `&type=eq.${type}` : ''}&limit=10`) : Promise.resolve([]),
+          words ? ctx.db.rpc<{ article_id: string; slug: string; title: string; type: string }[]>('search_wiki', { q: words, max_results: 5 }) : Promise.resolve([]),
+        ]);
+        const seen = new Set<string>();
+        const candidates: Json[] = [];
+        const add = (slugX: string, title: string, typeX: string | null, why: string, strength: 'exact' | 'strong' | 'possible') => {
+          if (seen.has(slugX)) return;
+          seen.add(slugX);
+          candidates.push({ slug: slugX, title, type: typeX, why, strength });
+        };
+        for (const e of exact) add(e.slug, e.title, e.type, 'A page already has this address.', 'exact');
+        for (const r of redirect) if (r.article) add(r.article.slug, r.article.title, null, `"${r.from_slug}" redirects to this page.`, 'exact');
+        for (const s of similar) add(s.slug, s.title, s.type, 'The title contains this name.', s.title.toLowerCase() === name.toLowerCase() ? 'exact' : 'strong');
+        for (const h of hits) if (!type || h.type === type) add(h.slug, h.title, h.type, 'Search finds this page for the name.', 'possible');
+        out.push({ name, proposed_slug: SLUG.test(slug) ? slug : null, likely_duplicate: candidates.some((c) => c.strength !== 'possible'), candidates: candidates.slice(0, 8) });
+      }
+      return { results: out };
     },
   },
   {

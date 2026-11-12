@@ -107,6 +107,18 @@ export interface WikiMap {
   article_id: string | null;
   visibility: Visibility;
   status: PublishStatus;
+  /** Cover the map with fog except for revealed fog areas. */
+  fog_enabled: boolean;
+}
+
+/** An area the DM drew on a map: 'players' = revealed, 'dm' = still fogged for players. */
+export interface MapFogArea {
+  id: string;
+  map_id: string;
+  label: string;
+  /** Polygon corners in image pixels, x from the left and y from the top (as markers). */
+  points: [number, number][];
+  visibility: Visibility;
 }
 
 export interface MapMarker {

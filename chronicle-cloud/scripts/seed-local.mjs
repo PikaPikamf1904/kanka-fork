@@ -85,9 +85,19 @@ await db.query(
   [map.rows[0].id],
 );
 await db.query(
-  `insert into public.maps (slug, title, description, width, height, parent_map_id, visibility, status)
-   values ('dragon-nest-interior', 'Inside the Dragon Nest', 'DM planning map', 1600, 1100, $1, 'dm', 'draft')`,
+  `insert into public.maps (slug, title, description, width, height, parent_map_id, article_id, visibility, status)
+   values ('dragon-nest-interior', 'Inside the Dragon Nest', 'DM planning map', 1600, 1100, $1, 'a1000000-0000-4000-8000-000000000007', 'dm', 'draft')`,
   [map.rows[0].id],
+);
+const town = await db.query(
+  `insert into public.maps (slug, title, description, width, height, parent_map_id, article_id, visibility, status)
+   values ('port-vellmoor-town', 'Port Vellmoor (town)', 'Sample town map', 1200, 900, $1, 'a1000000-0000-4000-8000-000000000005', 'players', 'published') returning id`,
+  [map.rows[0].id],
+);
+await db.query(
+  `insert into public.map_markers (map_id, x, y, label, description, visibility) values
+     ($1, 600, 450, 'Harbourmaster''s office', 'Where ships register', 'players')`,
+  [town.rows[0].id],
 );
 await db.end();
 

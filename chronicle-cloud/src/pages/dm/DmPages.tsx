@@ -399,7 +399,7 @@ export function MapEditor() {
   const maps = useLoad(listMaps, []);
   const articles = useLoad(listAllArticleRefs, []);
   const [form, setForm] = useState<Omit<WikiMap, 'id'> & { id?: string }>({
-    slug: '', title: '', description: '', media_id: null, width: 2000, height: 1500, parent_map_id: null, article_id: null, visibility: 'dm', status: 'draft',
+    slug: '', title: '', description: '', media_id: null, width: 2000, height: 1500, parent_map_id: null, article_id: null, visibility: 'dm', status: 'draft', fog_enabled: false,
   });
   const [error, setError] = useState<string | null>(null);
   const [loadedFrom, setLoadedFrom] = useState<unknown>(null);

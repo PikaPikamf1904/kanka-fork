@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
+import pg from 'pg';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
@@ -42,7 +43,24 @@ export function recordApi(context: BrowserContext) {
   return bodies;
 }
 
+/**
+ * Every synthetic player enrols from 127.0.0.1, so a full run would reach the real 20-per-hour
+ * enrolment limit (tested separately in tests/db). Clear the LOCAL attempt log before each one.
+ */
+async function resetLocalEnrollmentLimit() {
+  const url = fs.readFileSync(path.join(root, '.local/env'), 'utf8').match(/^DATABASE_URL=(.*)$/m)?.[1] ?? '';
+  if (!/@(127\.0\.0\.1|localhost):/.test(url)) throw new Error('Refusing to touch a non-local database.');
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    await client.query('delete from public.enrollment_attempts');
+  } finally {
+    await client.end();
+  }
+}
+
 export async function enrollAsPlayer(page: Page, name = 'Test Player') {
+  await resetLocalEnrollmentLimit();
   const { playerCode } = localCredentials();
   await page.goto('/');
   await page.getByLabel('Access code').fill(playerCode);
