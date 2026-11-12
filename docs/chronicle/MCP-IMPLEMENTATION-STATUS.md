@@ -25,7 +25,7 @@ hosted project**). One path for structured edits, for the website now and the MC
 
 - `preview_change_set(change_set)`: validates against the database, per-field diff, warnings
   (missing source, broken links, ignored visibility requests), conflicts. Stores a private preview
-  for 20 minutes and returns `preview_id` and a server-computed `digest`. Writes no content.
+  until the DM decides (no time limit since migration `…1200`) and returns `preview_id` and a server-computed `digest`. Writes no content.
 - `approve_change_preview(preview_id)`: a human approval, refused for any request whose token
   carries an OAuth client id. An OAuth client cannot approve its own preview.
 - `apply_change_set(preview_id, digest, idempotency_key)`: checks owner, client, expiry, digest,

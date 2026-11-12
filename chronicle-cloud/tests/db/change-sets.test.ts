@@ -226,6 +226,14 @@ describe('idempotency (DATA-07, DATA-08, DATA-09)', () => {
 });
 
 describe('preview rules (DATA-10 to DATA-13)', () => {
+  it('a preview has no time limit: an old preview still applies when nothing changed', async () => {
+    const p = await preview(newHero());
+    expect(p.data!.expires_at).toBe('infinity');
+    await admin("update public.change_previews set created_at = now() - interval '45 days'");
+    expect((await apply(p, 'key-old-preview-01')).error).toBeUndefined();
+    expect((await admin("select count(*) n from public.articles where slug = 'synthetic-hero'")).rows[0]!.n).toBe('1');
+  });
+
   it('an expired preview is refused', async () => {
     const p = await preview(newHero());
     await admin("update public.change_previews set expires_at = now() - interval '1 second'");

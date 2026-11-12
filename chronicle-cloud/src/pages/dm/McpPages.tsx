@@ -29,7 +29,9 @@ export function ChangeReviewPage() {
     const { data, error } = await supabase.from('change_previews').select('id, client_id, label, result, created_at, expires_at, approved_at, consumed_at').eq('id', previewId).maybeSingle();
     if (error) throw new Error('Could not load this review.');
     const row = data as StoredPreview | null;
-    return row ? { ...row, expired: new Date(row.expires_at).getTime() <= Date.now() } : null;
+    // New proposals never expire ('infinity'); only a proposal with a past end date counts as expired.
+    const ends = new Date(row?.expires_at ?? '').getTime();
+    return row ? { ...row, expired: Number.isFinite(ends) && ends <= Date.now() } : null;
   }, [previewId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -63,7 +65,7 @@ export function ChangeReviewPage() {
           all together, as private drafts. Nothing is published, and you can undo each page from its history.
         </p>
         <p className="muted" data-testid="review-status">
-          {p.consumed_at ? 'These changes have been saved.' : p.approved_at ? 'Approved. Waiting for the assistant to save them.' : expired ? 'This review has expired. Ask the assistant to propose the changes again.' : `Waiting for your decision · expires ${new Date(p.expires_at).toLocaleTimeString()}`}
+          {p.consumed_at ? 'These changes have been saved.' : p.approved_at ? 'Approved. Waiting for the assistant to save them.' : expired ? 'This review has expired. Ask the assistant to propose the changes again.' : 'Waiting for your decision. There is no time limit.'}
         </p>
         {r.warnings.length > 0 && (
           <ul className="fine-print">{r.warnings.map((w, i) => <li key={i}>{w.message}</li>)}</ul>
@@ -95,7 +97,7 @@ export function ChangeReviewPage() {
       {!p.approved_at && !p.consumed_at && !expired && (
         <p>
           <button type="button" className="button" disabled={busy} onClick={() => void approve()}>{busy ? 'Approving…' : 'Approve these changes'}</button>{' '}
-          <span className="muted">To refuse, simply leave this page. The proposal expires by itself.</span>
+          <span className="muted">To refuse, leave it unapproved: nothing is saved without your approval. If a page changes before you approve, saving is refused and the assistant must propose again.</span>
         </p>
       )}
     </div>

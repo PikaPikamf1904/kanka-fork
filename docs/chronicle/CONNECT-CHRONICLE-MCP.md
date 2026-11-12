@@ -71,7 +71,8 @@ only before a save. There is no publish, delete, member, access-code, SQL or URL
 1. The assistant calls a propose tool and receives a diff, a `preview_id`, a `digest` and a
    `review_url`.
 2. The DM opens the review link in Chronicle (`/dm/review/<id>`), reads the before/after table and
-   clicks **Approve these changes**. Closing the page refuses; the proposal expires in 20 minutes.
+   clicks **Approve these changes**. There is no time limit; leaving it unapproved refuses it. If a page
+   changes before approval is used, saving is refused with a conflict.
 3. The assistant calls `chronicle_apply_changes`. Without step 2 it is refused, whatever it claims.
    Everything is saved in one transaction as DM-only drafts, or not at all.
 
