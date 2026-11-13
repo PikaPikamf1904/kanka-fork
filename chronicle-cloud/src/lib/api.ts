@@ -2,7 +2,7 @@
 // signed-in user may see, so nothing here filters secrets client-side.
 import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
-import { MEDIA_BUCKET, supabase } from './supabase.ts';
+import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
   InfoboxField, MapFogArea, MapMarker, Media, Member, Relation, Revision, SearchHit, Section, TimelineEvent, WikiMap,
@@ -305,6 +305,11 @@ export function clearMediaUrlCache() {
   signedCache.clear();
 }
 
+/** Drops a link that stopped working (expired, or the file's visibility changed). */
+export function forgetMediaUrl(url: string) {
+  for (const [path, hit] of signedCache) if (hit.url === url) signedCache.delete(path);
+}
+
 export async function mediaUrls(ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const wanted = [...new Set(ids.filter(Boolean))];
@@ -342,24 +347,104 @@ export async function mediaUrlForPath(path: string): Promise<string | null> {
 }
 
 
-/** DM only. Uploads an already-resized image and registers it in the media library. */
-/** Uploads start DM-only (enforced by policy); the page that shows the image decides who sees it. */
-export async function uploadMedia(
-  blob: Blob,
-  info: { alt: string; width: number; height: number; credit?: string; originalName?: string },
-): Promise<Media> {
-  const path = `media/${crypto.randomUUID()}.webp`;
-  must(await supabase.storage.from(MEDIA_BUCKET).upload(path, blob, { contentType: 'image/webp', upsert: false }));
-  return must(
-    await supabase
-      .from('media')
-      .insert({
-        path, alt: info.alt.slice(0, 500), width: info.width, height: info.height, bytes: blob.size, content_type: 'image/webp',
-        credit: (info.credit ?? '').slice(0, 200), original_name: (info.originalName ?? '').slice(0, 200),
-      })
-      .select('id, path, alt, width, height, visibility')
-      .single(),
-  );
+// ---------------------------------------------------------------------------------------------
+// Photos. Every new photo is stored twice: an optimized, uncropped "source" (sources/<id>.webp,
+// always DM-only, kept for cropping again later) and the picture pages show (media/<id>.webp).
+// Both files are uploaded first; register_photo then records them in one transaction and only if
+// the files really arrived. If anything fails, the uploaded files are removed again.
+// ---------------------------------------------------------------------------------------------
+export interface PhotoCrop { x: number; y: number; w: number; h: number; aspect: string }
+export interface UploadProgress { stage: 'uploading' | 'saving'; fraction: number }
+
+/** Uploads one file to the private bucket, reporting progress (supabase-js cannot). */
+async function uploadFile(path: string, blob: Blob, onProgress?: (fraction: number) => void): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('You are signed out. Sign in again and retry.');
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/${MEDIA_BUCKET}/${path}`);
+    xhr.setRequestHeader('authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('apikey', SUPABASE_PUBLISHABLE_KEY);
+    xhr.setRequestHeader('content-type', 'image/webp');
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.setRequestHeader('cache-control', 'max-age=3600');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      let message = '';
+      try {
+        message = (JSON.parse(xhr.responseText) as { message?: string }).message ?? '';
+      } catch {
+        /* not JSON */
+      }
+      reject(new Error(xhr.status === 413 || /size/i.test(message) ? 'This picture is too large to upload.' : `The upload was refused${message ? `: ${message}` : ''}.`));
+    };
+    xhr.onerror = () => reject(new Error('The upload failed. Check the connection and try again.'));
+    xhr.ontimeout = xhr.onerror;
+    xhr.timeout = 120_000;
+    xhr.send(blob);
+  });
+}
+
+/** Removes files that were uploaded but never registered. Best effort: never throws. */
+async function discardFiles(paths: string[]) {
+  if (paths.length) await supabase.storage.from(MEDIA_BUCKET).remove(paths).catch(() => undefined);
+}
+
+export interface SavePhotoInput {
+  display: { blob: Blob; width: number; height: number };
+  /** A new full-frame source, or the id of the existing one when cropping again. */
+  source?: { blob: Blob; width: number; height: number } | { id: string };
+  crop?: PhotoCrop;
+  alt: string;
+  credit?: string;
+  originalName?: string;
+  onProgress?: (p: UploadProgress) => void;
+}
+
+/** DM, website only: uploads and registers a photo. Starts DM-only; pages decide who sees it. */
+export async function savePhoto(input: SavePhotoInput): Promise<Media & { source_id: string | null }> {
+  const displayPath = `media/${crypto.randomUUID()}.webp`;
+  const newSource = input.source && 'blob' in input.source ? input.source : null;
+  const sourcePath = newSource ? `sources/${crypto.randomUUID()}.webp` : null;
+  const total = input.display.blob.size + (newSource?.blob.size ?? 0);
+  let done = 0;
+  const uploaded: string[] = [];
+  const progress = (bytes: number) => (f: number) => input.onProgress?.({ stage: 'uploading', fraction: total ? (done + f * bytes) / total : 1 });
+  try {
+    if (newSource && sourcePath) {
+      await uploadFile(sourcePath, newSource.blob, progress(newSource.blob.size));
+      uploaded.push(sourcePath);
+      done += newSource.blob.size;
+    }
+    await uploadFile(displayPath, input.display.blob, progress(input.display.blob.size));
+    uploaded.push(displayPath);
+    input.onProgress?.({ stage: 'saving', fraction: 1 });
+    const { data, error } = await supabase.rpc('register_photo', {
+      p: {
+        display: { path: displayPath, alt: input.alt.slice(0, 500), width: input.display.width, height: input.display.height, bytes: input.display.blob.size },
+        ...(newSource && sourcePath ? { source: { path: sourcePath, width: newSource.width, height: newSource.height, bytes: newSource.blob.size } } : {}),
+        ...(input.source && 'id' in input.source ? { source_id: input.source.id } : {}),
+        ...(input.crop ? { crop: input.crop } : {}),
+        credit: (input.credit ?? '').slice(0, 200),
+        original_name: (input.originalName ?? '').slice(0, 200),
+      },
+    });
+    if (error) throw toChronicleError(error);
+    return data as Media & { source_id: string | null };
+  } catch (err) {
+    // Nothing refers to these files yet, so Storage allows removing them.
+    await discardFiles(uploaded);
+    throw err;
+  }
+}
+
+/** DM: an already-resized image without a separate source (map images). */
+export async function uploadMedia(blob: Blob, info: { alt: string; width: number; height: number }): Promise<Media> {
+  return savePhoto({ display: { blob, width: info.width, height: info.height }, alt: info.alt });
 }
 
 export interface MediaItem extends Media {
@@ -367,27 +452,42 @@ export interface MediaItem extends Media {
   original_name: string;
   bytes: number | null;
   created_at: string;
+  source: { id: string; path: string; width: number | null; height: number | null } | null;
+  crop: PhotoCrop | null;
 }
 
-/** DM: every file in the library, newest first. */
+const ITEM_COLUMNS =
+  'id, path, alt, width, height, visibility, bytes, created_at, private:media_private!media_private_media_id_fkey(credit, original_name, crop, source:media!media_private_source_media_id_fkey(id, path, width, height))';
+interface RawPrivate { credit: string; original_name: string; crop: PhotoCrop | null; source: MediaItem['source'] }
+type RawItem = Omit<MediaItem, 'credit' | 'original_name' | 'source' | 'crop'> & { private: RawPrivate | RawPrivate[] | null };
+const toItem = (r: RawItem): MediaItem => {
+  const p = Array.isArray(r.private) ? r.private[0] : r.private;
+  const { private: _omit, ...rest } = r;
+  void _omit;
+  return { ...rest, credit: p?.credit ?? '', original_name: p?.original_name ?? '', crop: p?.crop ?? null, source: p?.source ?? null };
+};
+
+/** DM: every picture in the library (not the private full-frame sources), newest first. */
 export async function listMedia(): Promise<MediaItem[]> {
-  return must(
-    await supabase
-      .from('media')
-      .select('id, path, alt, width, height, visibility, credit, original_name, bytes, created_at')
-      .order('created_at', { ascending: false })
-      .limit(1000),
-  ) as MediaItem[];
+  const rows = must(await supabase.from('media').select(ITEM_COLUMNS).eq('role', 'display').order('created_at', { ascending: false }).limit(1000)) as unknown as RawItem[];
+  return rows.map(toItem);
 }
 
 export async function getMediaItem(id: string): Promise<MediaItem | null> {
-  return must(
-    await supabase.from('media').select('id, path, alt, width, height, visibility, credit, original_name, bytes, created_at').eq('id', id).maybeSingle(),
-  ) as MediaItem | null;
+  const row = must(await supabase.from('media').select(ITEM_COLUMNS).eq('id', id).maybeSingle()) as unknown as RawItem | null;
+  return row ? toItem(row) : null;
+}
+
+export async function getMediaByPath(path: string): Promise<MediaItem | null> {
+  const row = must(await supabase.from('media').select(ITEM_COLUMNS).eq('path', path).maybeSingle()) as unknown as RawItem | null;
+  return row ? toItem(row) : null;
 }
 
 export async function updateMedia(id: string, patch: { alt?: string; credit?: string }): Promise<void> {
-  must(await supabase.from('media').update(patch).eq('id', id).select('id').single());
+  if (patch.alt !== undefined) must(await supabase.from('media').update({ alt: patch.alt.slice(0, 500) }).eq('id', id).select('id').single());
+  if (patch.credit !== undefined) {
+    must(await supabase.from('media_private').upsert({ media_id: id, credit: patch.credit.slice(0, 200) }, { onConflict: 'media_id' }).select('media_id').single());
+  }
 }
 
 /** The file itself, for adjusting a library picture. Only works for files the reader may see. */
@@ -439,12 +539,19 @@ export async function mediaUsage(): Promise<Map<string, MediaUse[]>> {
   return out;
 }
 
-/** DM: removes a library file that nothing uses. Callers check mediaUsage first. */
-export async function deleteMedia(item: { id: string; path: string }): Promise<void> {
-  must(await supabase.from('media').delete().eq('id', item.id).select('id').single());
+/**
+ * DM: removes a library picture that nothing uses, then its full-frame source if no other
+ * picture still uses it. The database refuses deleting anything in use, whatever the caller.
+ */
+export async function deleteMedia(item: { id: string; path: string; source?: { id: string; path: string } | null }): Promise<void> {
+  const { error } = await supabase.from('media').delete().eq('id', item.id);
+  if (error) throw toChronicleError(error);
   signedCache.delete(item.path);
-  const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([item.path]);
-  if (error) throw new Error(`The library entry was removed, but the stored file could not be: ${error.message}`);
+  await discardFiles([item.path]);
+  if (item.source) {
+    const { error: sourceError } = await supabase.from('media').delete().eq('id', item.source.id);
+    if (!sourceError) await discardFiles([item.source.path]);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------

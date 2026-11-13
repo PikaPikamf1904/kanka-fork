@@ -20,3 +20,6 @@ export const supabase = createClient(url, publishableKey, {
 });
 
 export const MEDIA_BUCKET = 'chronicle-media';
+// Public values (see above), used by the photo upload, which needs progress events.
+export const SUPABASE_URL: string = url;
+export const SUPABASE_PUBLISHABLE_KEY: string = publishableKey;

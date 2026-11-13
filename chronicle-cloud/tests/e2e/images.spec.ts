@@ -38,7 +38,7 @@ test.describe('Pictures', () => {
 
     // 1. Portrait: Upload → Adjust (drag, zoom) → Save.
     const portrait = page.getByTestId('main-picture');
-    await portrait.getByRole('button', { name: /^(Add|Change) image$/ }).click();
+    await portrait.getByRole('button', { name: /^(Add|Change) photo$/ }).click();
     await expect(dialog(page).getByText('1. Choose')).toBeVisible();
     await dialog(page).getByTestId('image-file-input').setInputFiles(await picture(page, 'Portrait', 900, 1200, '#2e5c8a'));
     const frame = dialog(page).getByTestId('crop-frame');
@@ -52,18 +52,18 @@ test.describe('Pictures', () => {
     await page.mouse.up();
     await dialog(page).getByLabel('Description for screen readers').fill('A sea captain in a blue coat (synthetic)');
     await screenshot(page, 'images-desktop-crop');
-    await dialog(page).getByRole('button', { name: 'Save picture' }).click();
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(dialog(page)).toHaveCount(0);
     await expect(portrait.locator('img')).toBeVisible();
-    await expect(portrait.getByRole('button', { name: 'Change image' })).toBeVisible();
+    await expect(portrait.getByRole('button', { name: 'Change photo' })).toBeVisible();
 
     // 2. A captioned picture in a player section, placed without typing Markdown.
     const history = page.getByRole('toolbar', { name: 'Known history text: pictures' });
-    await history.getByRole('button', { name: /Add image/ }).click();
+    await history.getByRole('button', { name: /Add photo/ }).click();
     await dialog(page).getByTestId('image-file-input').setInputFiles(await picture(page, `Harbour ${tag}`));
     await dialog(page).getByLabel('Caption (shown under the picture)').fill(`The harbour after the fire ${tag}`);
     await dialog(page).getByLabel('Description for screen readers').fill('Smoke over a harbour');
-    await dialog(page).getByRole('button', { name: 'Save picture' }).click();
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(dialog(page)).toHaveCount(0);
     const historyText = page.getByRole('textbox', { name: 'Known history text', exact: true });
     await expect(historyText).toHaveValue(new RegExp(`!\\[Smoke over a harbour\\]\\(media:media/[0-9a-f-]+\\.webp "The harbour after the fire ${tag}"\\)`));
@@ -71,10 +71,10 @@ test.describe('Pictures', () => {
     // 3. A gallery of two uploads, dropped in together.
     await history.getByRole('button', { name: 'Add gallery' }).click();
     await dialog(page).getByTestId('image-file-input').setInputFiles([await picture(page, 'Ship', 800, 600, '#3b7a57'), await picture(page, 'Ledger', 600, 800, '#7a6a3b')]);
-    await expect(dialog(page).getByRole('button', { name: 'Save 2 pictures' })).toBeVisible();
+    await expect(dialog(page).getByRole('button', { name: 'Save 2 photos' })).toBeVisible();
     await dialog(page).getByLabel('Caption (shown under the picture)').nth(0).fill(`The ship ${tag}`);
     await dialog(page).getByLabel('Caption (shown under the picture)').nth(1).fill(`The ledger ${tag}`);
-    await dialog(page).getByRole('button', { name: 'Save 2 pictures' }).click();
+    await dialog(page).getByRole('button', { name: 'Save 2 photos' }).click();
     await expect(dialog(page)).toHaveCount(0);
     const cards = page.getByRole('list', { name: 'Pictures in Known history text' }).getByRole('listitem');
     await expect(cards).toHaveCount(3);
@@ -83,12 +83,12 @@ test.describe('Pictures', () => {
     await expect(historyText).toHaveValue(new RegExp(`"The ledger, closed ${tag}"`));
 
     // 4. A picture in the DM-only "Secrets" section, re-used from the library (no new copy).
-    await page.getByRole('toolbar', { name: 'Secrets text: pictures' }).getByRole('button', { name: /Add image/ }).click();
-    await dialog(page).getByRole('tab', { name: 'Media library' }).click();
+    await page.getByRole('toolbar', { name: 'Secrets text: pictures' }).getByRole('button', { name: /Add photo/ }).click();
+    await dialog(page).getByRole('button', { name: 'Choose from library' }).click();
     await dialog(page).getByRole('button', { name: 'Smoke over a harbour' }).first().click();
-    await expect(dialog(page).getByRole('button', { name: 'Whole picture', pressed: true })).toBeVisible();
+    await expect(dialog(page).getByRole('button', { name: 'Use as is', pressed: true })).toBeVisible();
     await dialog(page).getByLabel('Caption (shown under the picture)').fill(`Secret plan ${tag}`);
-    await dialog(page).getByRole('button', { name: 'Save picture' }).click();
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(dialog(page)).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Save' }).first().click();
@@ -152,8 +152,8 @@ test.describe('Pictures', () => {
     await page.goto('/dm/news/new');
     await page.getByLabel('Headline', { exact: true }).fill(headline);
 
-    await page.getByTestId('story-picture').getByRole('button', { name: 'Add image' }).click();
-    await expect(dialog(page).getByText('Drag a picture here, or')).toBeHidden(); // touch screens get the button only
+    await page.getByTestId('story-picture').getByRole('button', { name: 'Add photo' }).click();
+    await expect(dialog(page).getByText('Drop a photo here')).toBeHidden(); // touch screens get the button only
     await dialog(page).getByTestId('image-file-input').setInputFiles(await picture(page, 'Lanterns', 1200, 700, '#a8742a'));
     const frame = dialog(page).getByTestId('crop-frame');
     await expect(frame).toBeVisible();
@@ -164,14 +164,14 @@ test.describe('Pictures', () => {
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('+');
     await screenshot(page, 'images-phone-crop');
-    await dialog(page).getByRole('button', { name: 'Save picture' }).click();
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(dialog(page)).toHaveCount(0);
     await expect(page.getByTestId('story-picture').locator('img')).toBeVisible();
 
-    await page.getByRole('toolbar', { name: 'Story: pictures' }).getByRole('button', { name: /Add image/ }).click();
+    await page.getByRole('toolbar', { name: 'Story: pictures' }).getByRole('button', { name: /Add photo/ }).click();
     await dialog(page).getByTestId('image-file-input').setInputFiles(await picture(page, 'Witness', 700, 700));
     await dialog(page).getByLabel('Caption (shown under the picture)').fill('A witness, sketched by our reporter');
-    await dialog(page).getByRole('button', { name: 'Save picture' }).click();
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(dialog(page)).toHaveCount(0);
     await expect(page.getByRole('list', { name: 'Pictures in Story' }).getByRole('listitem')).toHaveCount(1);
     await noHorizontalOverflow(page);

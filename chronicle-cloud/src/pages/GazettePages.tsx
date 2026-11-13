@@ -88,11 +88,11 @@ export function Masthead({ issue, compact = false }: { issue?: number | null; co
 
 /** A story's picture, engraved-plate style. Nothing at all when there is none or it may not be shown. */
 function LeadArt({ id, alt, caption }: { id: string | null | undefined; alt: string; caption?: string }) {
-  const url = useMediaUrl(id);
+  const { url, onError } = useMediaUrl(id);
   if (!id || !url) return null;
   return (
     <figure className="gz-art">
-      <img src={url} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+      <img src={url} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={onError} />
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   );
@@ -444,6 +444,7 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
 
   async function save(ev: FormEvent) {
     ev.preventDefault();
+    if (busy) return; // a double tap must not save twice
     setBusy(true); setMessage(null);
     try {
       const saved = await saveNewsStory({
@@ -572,7 +573,7 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
           <div className="span-2 gz-story-field">
             <span className="field-label">Story</span>
             <MarkdownField label="Story" rows={16} value={form.body} onChange={(body) => set({ body })} />
-            <span className="fine-print">Markdown. Link Chronicle pages with [[page-address]] or [[page-address|shown text]]; they appear under “In the Chronicle”. Use <strong>Add image</strong> for pictures. Only write what players may know: printing makes the whole story public to them.</span>
+            <span className="fine-print">Markdown. Link Chronicle pages with [[page-address]] or [[page-address|shown text]]; they appear under “In the Chronicle”. Use <strong>Add photo</strong> for pictures. Only write what players may know: printing makes the whole story public to them.</span>
           </div>
           <div className="form-actions">
             <button type="submit" className="button" disabled={busy || !form.title.trim()}>{busy ? 'Saving…' : 'Save story'}</button>

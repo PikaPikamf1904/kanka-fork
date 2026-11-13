@@ -23,9 +23,9 @@ const A = 'a0000000-0000-4000-8000-00000000000a';
 const WEBP = Buffer.from('UklGRjAAAABXRUJQVlA4ICQAAACyAgCdASoBAAEALmmUSqQAAAMAAAAAAAD+/8nYPC8Ht2AAAA==', 'base64'); // 1x1 synthetic
 
 const uuid = () => crypto.randomUUID();
-const upload = (name: string, token: string, body: Uint8Array = WEBP, type = 'image/webp') =>
+const upload = (name: string, token: string, body: Uint8Array = WEBP, type = 'image/webp'): Promise<Response> =>
   fetch(`${BASE}/storage/v1/object/chronicle-media/${name}`, {
-    method: 'POST', headers: { apikey: KEY, authorization: `Bearer ${token}`, 'content-type': type, 'x-upsert': 'false' }, body,
+    method: 'POST', headers: { apikey: KEY, authorization: `Bearer ${token}`, 'content-type': type, 'x-upsert': 'false' }, body: body as unknown as BodyInit,
   });
 const download = (name: string, token: string) =>
   fetch(`${BASE}/storage/v1/object/authenticated/chronicle-media/${name}`, { headers: { apikey: KEY, authorization: `Bearer ${token}` } });

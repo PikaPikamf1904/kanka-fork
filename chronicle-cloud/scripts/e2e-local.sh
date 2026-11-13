@@ -24,9 +24,16 @@ chmod 600 .dev.vars
 
 VITE_SUPABASE_URL=$SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY npm run build >/dev/null
 
-npx wrangler pages dev dist --port 8788 --ip 127.0.0.1 --compatibility-date 2026-10-01 > .local/wrangler.log 2>&1 &
+# A server left on the port (for example from an interrupted run) would answer the tests with
+# old keys and data; refuse to start rather than test the wrong thing.
+if curl -fs -o /dev/null http://127.0.0.1:8788/; then
+  echo 'Port 8788 is already serving something; stop it before running the browser tests.' >&2
+  exit 1
+fi
+# Own process group, so stopping it also stops the workerd children npx starts.
+setsid npx wrangler pages dev dist --port 8788 --ip 127.0.0.1 --compatibility-date 2026-10-01 > .local/wrangler.log 2>&1 &
 WRANGLER=$!
-trap 'kill $WRANGLER 2>/dev/null || true' EXIT
+trap 'kill -- -$WRANGLER 2>/dev/null || kill $WRANGLER 2>/dev/null || true' EXIT
 for _ in $(seq 1 60); do curl -fs -o /dev/null http://127.0.0.1:8788/ && break; sleep 1; done
 
 npx playwright test "$@"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../../components/Badges.tsx';
 import { Markdown } from '../../components/Markdown.tsx';
@@ -58,6 +58,7 @@ export function ArticleEditor() {
 
   const [draft, setDraft] = useState<ArticleDraft>(() => blankDraft(initialType));
   const [dirty, setDirty] = useState(false);
+  const saveInFlight = useRef(false);
   const [slugTouched, setSlugTouched] = useState(Boolean(slug));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -137,6 +138,7 @@ export function ArticleEditor() {
 
   async function save(e?: FormEvent) {
     e?.preventDefault();
+    if (saveInFlight.current) return; // a double tap must not save twice
     setError(null);
     setMessage(null);
     if (!draft.article.title.trim() || !draft.article.slug) {
@@ -146,6 +148,7 @@ export function ArticleEditor() {
     const wasPublic = existing.data?.article.status === 'published' && existing.data.article.visibility === 'players';
     const nowPublic = draft.article.status === 'published' && draft.article.visibility === 'players';
     if (wasPublic && !nowPublic && !window.confirm('This hides the article from players. Continue?')) return;
+    saveInFlight.current = true;
     setSaving(true);
     try {
       const saved = await saveArticle(draft, 'Before save', existing.data?.article.version);
@@ -158,6 +161,7 @@ export function ArticleEditor() {
         ? 'This article was changed somewhere else (another tab, or an import) since you opened it. Nothing was saved. Copy your text, reload the page, and apply your changes again.'
         : err instanceof Error ? err.message : 'Could not save.');
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   }
@@ -271,7 +275,7 @@ export function ArticleEditor() {
 
       <section className="panel">
         <h2>Sections</h2>
-        <p className="fine-print">Write in Markdown. Link to other pages with [[Page title]] or [[slug|shown text]]. Use <strong>Add image</strong> to place a picture where the cursor is; players see it only in a published, player-visible section.</p>
+        <p className="fine-print">Write in Markdown. Link to other pages with [[Page title]] or [[slug|shown text]]. Use <strong>Add photo</strong> to place a picture where the cursor is; players see it only in a published, player-visible section.</p>
         {draft.sections.map((s, i) => (
           <div key={s.id ?? `new-${i}`} className={s.visibility === 'dm' || s.status === 'draft' ? 'section-editor dm-only' : 'section-editor'}>
             <div className="row">
@@ -311,6 +315,9 @@ export function ArticleEditor() {
           </button>
           <button type="button" className="button secondary small" onClick={() => { setDirty(true); setDraft((d) => ({ ...d, sections: [...d.sections, { position: d.sections.length + 1, heading: 'DM secrets', body: '', visibility: 'dm', status: 'draft' }] })); }}>
             Add DM-only section
+          </button>
+          <button type="button" className="button secondary small" onClick={() => { setDirty(true); setDraft((d) => ({ ...d, sections: [...d.sections, { position: d.sections.length + 1, heading: 'Gallery', body: '', visibility: 'players', status: 'draft' }] })); }}>
+            Add gallery section
           </button>
         </div>
       </section>

@@ -327,7 +327,8 @@ export function SettingsPage() {
           purpose="banner"
           mediaId={form.banner_media_id}
           onChange={(id) => setForm((f) => ({ ...f, banner_media_id: id }))}
-          hint="The wide picture at the top of the main page; every player sees it. Remove it to use the built-in banner. Save settings to keep the change."
+          hint="The wide picture at the top of the main page. Remove it to use the built-in banner. Save settings to keep the change."
+          warning="Every player can see the banner as soon as you save settings. Don’t use a picture that gives anything away."
           testId="banner-picture"
         />
       </div>
