@@ -191,6 +191,65 @@ test.describe('Photos', () => {
     await expect.poll(() => loaded(page, '.infobox img')).toBe(1);
   });
 
+  test('ambiguous failures: an upload that arrived but lost its answer is cleaned up; a lost registration answer still succeeds', async ({ page }) => {
+    const tag = Date.now().toString(36);
+    await signInAsDm(page);
+    await openEditor(page, 'lantern-of-seven-stars', 'Lantern of Seven Stars');
+    const before = await storageFiles();
+
+    // 1. The full-size copy really reaches Storage, but the browser sees a network error.
+    await page.route('**/storage/v1/object/chronicle-media/sources/**', async (route) => {
+      await route.fetch(); // the file arrives
+      await route.abort('failed'); // the answer is lost
+    });
+    await page.getByTestId('main-picture').getByRole('button', { name: /^(Add|Change) photo$/ }).click();
+    await dialog(page).getByTestId('image-file-input').setInputFiles(await photo(page, `Ambiguous ${tag}`, 1000, 800));
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog(page).getByRole('alert').filter({ hasText: 'upload failed' })).toBeVisible();
+    await expect.poll(async () => (await storageFiles()).length).toBe(before.length); // nothing left behind
+    await page.unroute('**/storage/v1/object/chronicle-media/sources/**');
+
+    // 2. The registration commits, but its answer is lost: the photo is found and used, not deleted.
+    await page.route('**/rest/v1/rpc/register_photo', async (route) => {
+      await route.fetch();
+      await route.abort('failed');
+    });
+    await dialog(page).getByRole('button', { name: 'Try again' }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await page.unroute('**/rest/v1/rpc/register_photo');
+    await saveArticle(page);
+    const [row] = await db<{ path: string }>(`select m.path from public.articles a join public.media m on m.id = a.hero_media_id where a.slug = 'lantern-of-seven-stars'`);
+    expect(await storageFiles()).toContain(row!.path);
+    expect((await db("select 1 from public.media_private where original_name = $1 and source_media_id is not null", [`ambiguous ${tag}`])).length).toBe(1);
+  });
+
+  test('a cleanup that Storage refuses is reported, and the Media Library removes the leftover later', async ({ page }) => {
+    const tag = Date.now().toString(36);
+    await signInAsDm(page);
+    await openEditor(page, 'lantern-of-seven-stars', 'Lantern of Seven Stars');
+    const before = await storageFiles();
+    await page.route('**/rest/v1/rpc/register_photo', (route) => route.fulfill({ status: 503, body: '{"message":"unavailable"}' }));
+    // Storage answers the cleanup with an error result (not a thrown exception).
+    await page.route('**/storage/v1/object/chronicle-media', (route) =>
+      route.request().method() === 'DELETE' ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"statusCode":"500","error":"Internal","message":"synthetic failure"}' }) : route.continue());
+    await page.getByTestId('main-picture').getByRole('button', { name: /^(Add|Change) photo$/ }).click();
+    await dialog(page).getByTestId('image-file-input').setInputFiles(await photo(page, `Leftover ${tag}`, 900, 700));
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog(page).getByRole('alert').filter({ hasText: 'Unfinished uploads can remove it later' })).toBeVisible();
+    const leftover = (await storageFiles()).filter((f) => !before.includes(f));
+    expect(leftover.length).toBe(2); // the full-size copy and the picture, neither in the library
+    await page.unroute('**/rest/v1/rpc/register_photo');
+    await page.unroute('**/storage/v1/object/chronicle-media');
+    // Age them past the ten-minute safety window, then clean up from the library.
+    await db(`update storage.objects set created_at = now() - interval '1 hour' where name = any($1)`, [leftover]);
+    await page.goto('/dm/media');
+    const panel = page.getByRole('region', { name: 'Unfinished uploads' });
+    await expect(panel).toContainText('2 stored files');
+    await panel.getByRole('button', { name: 'Remove unfinished uploads' }).click();
+    await expect(page.getByText('Unfinished uploads removed.')).toBeVisible();
+    expect(await storageFiles()).toEqual(before);
+  });
+
   test('non-pictures and unreadable files get a clear message, and nothing is uploaded', async ({ page }) => {
     await signInAsDm(page);
     await openEditor(page, 'lantern-of-seven-stars', 'Lantern of Seven Stars');
