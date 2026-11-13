@@ -1,5 +1,30 @@
 # Chronicle implementation status
 
+## 2026-11-13 — CH-101 to CH-104 closed locally (branch `claude/chronicle-p0-security`)
+
+Local and pushed only; nothing applied to production. Release bundle, hashes, gates and checklist:
+[`RELEASE-BUNDLE-2026-11-13.md`](RELEASE-BUNDLE-2026-11-13.md).
+
+- CH-101 — **Fixed locally** (`20261113000200`): statement guard refuses assistant (OAuth) writes
+  to all 17 campaign tables unless an approved change set is being applied (transaction-local
+  marker set only inside `apply_change_set`, not settable through the Data API). Website DM and
+  approved MCP apply preserved. `tests/db/oauth-write-boundary.test.ts`, Codex's 15 expectations pass.
+- CH-102 — **Fixed locally** (`20261113000400`): any assistant change touching player-visible
+  content (fields, connections, categories, sections, restore of a published page) is refused and
+  the change set rolls back; a client literally named "web" is not the website.
+  `tests/db/mcp-public-content.test.ts`.
+- CH-103 — **Fixed locally** (`20261113000500`, plus Terra's type guard): direct API, general
+  editor, section or metadata changes to an approved story send it back to review; printing then
+  needs a new approval. Players never receive pending revisions. `tests/db/gazette-review-integrity.test.ts`.
+- CH-104 / photo defects — **Fixed locally** (`20261113000300`, client cleanup in `src/lib/api.ts`):
+  Storage tamper (move, overwrite, re-upload) reproduced and closed through the real Storage API;
+  in-use covers history, proposals, maps, galleries, Gazette revisions; attach/delete races locked;
+  assistant connections cannot read files or private photo details.
+- Verification: unit 98/98, DB 260/260 (21 files, includes real Auth/Data API/Storage tests),
+  e2e 45/45 (includes phone-size tests), lint and typecheck clean, production build in the e2e run,
+  fresh-vs-upgrade-from-13 schema identical, data unchanged by upgrade. 0 skipped.
+
+
 Updated 2026-11-12. Production unchanged; no remote writes, production tests, migrations, or deployments. No real campaign content or credentials are recorded here.
 
 - Branch `terra/chronicle-stabilization-20261112`. Original base `22324015ba47b591eb6ed25beca574b5cfcfce32`; resumed at `c8c41ddb468467d4c947518499c9dd1f5207ef17` with a clean tree. Current SHA: `git rev-parse HEAD`. The separate full Sol report remains unavailable; use the owner's instructions and this record, without inventing details.

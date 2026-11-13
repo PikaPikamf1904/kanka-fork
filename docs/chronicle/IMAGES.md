@@ -85,11 +85,20 @@ removing the picture, hides it again at once.
     - `register_photo` (atomic, only for files that really exist in Storage);
     - delete guard for pictures in use, and assistant-connection guards;
     - Storage rules: website DM only, `media/` and `sources/` folders, no deleting registered files.
+  - `20261113000300_photo_integrity.sql`: registered files cannot be moved, renamed, overwritten or
+    re-uploaded; page history, pending proposals and waiting Gazette revisions count as "in use";
+    attaching and deleting at the same moment never leaves a page pointing at a deleted file;
+    assistant connections cannot read stored files or private photo details.
+- Unfinished uploads: if an upload's answer is lost or its cleanup fails, the Media Library lists
+  files older than 10 minutes that have no library entry under "Unfinished uploads", with a button
+  to remove them. Nothing registered is ever listed there.
 - Code: `src/components/images/` (picker, cropper, fields), `src/pages/dm/MediaLibrary.tsx`,
   `src/lib/api.ts` (`savePhoto`), `src/lib/image.ts`, `src/lib/mediaMarkdown.ts`.
 - Tests:
   - `tests/db/photo-library.test.ts`: registration, privacy, delete guard, assistant and Storage rules.
-  - `tests/db/photo-storage-api.test.ts`: real GoTrue, Storage and Data API.
+  - `tests/db/photo-storage-api.test.ts`: real GoTrue, Storage and Data API (including move,
+    overwrite and re-upload attempts, and assistant tokens).
+  - `tests/db/photo-integrity.test.ts`: in-use rules and two-session attach/delete races.
   - `tests/db/article-images.test.ts`: pictures in text.
   - `tests/e2e/photos.spec.ts` and `tests/e2e/images.spec.ts`: desktop and phone.
   - `src/components/images/crop.test.ts`, `src/lib/mediaMarkdown.test.ts`.
