@@ -157,9 +157,12 @@ describe('restoring a revision never publishes anything', () => {
     await dmTx(async (c) => {
       await c.query('update public.articles set hero_media_id = $1 where id = $2', [media, A]);
       const snap = await c.query<{ id: string }>("select public.snapshot_article($1, 'with image') as id", [A]);
-      // A picture in use cannot be deleted (20261113000100), so detach it first, as the DM would.
+      // The DM cannot delete a picture still in the page's history (20261113000300), so this is
+      // the project owner deleting it directly; the restore must still cope.
       await c.query('update public.articles set hero_media_id = null where id = $1', [A]);
+      await c.query('reset role');
       await c.query('delete from public.media where id = $1', [media]);
+      await c.query('set local role authenticated');
       await c.query('select public.restore_revision($1)', [snap.rows[0]!.id]);
       const { rows } = await c.query<{ hero_media_id: string | null }>('select hero_media_id from public.articles where id = $1', [A]);
       expect(rows[0]!.hero_media_id).toBeNull();

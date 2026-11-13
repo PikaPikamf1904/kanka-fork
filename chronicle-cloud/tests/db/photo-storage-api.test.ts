@@ -138,3 +138,46 @@ describe('photos through the real Storage and Data APIs', () => {
     expect((await upload(`media/${uuid()}.svg`, dm, Buffer.from('<svg/>'), 'image/svg+xml')).status).not.toBe(200);
   });
 });
+
+describe('registered files cannot be tampered with through Storage (20261113000300)', () => {
+  const move = (from: string, to: string, token: string) =>
+    fetch(`${BASE}/storage/v1/object/move`, { method: 'POST', headers: { apikey: KEY, authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ bucketId: 'chronicle-media', sourceKey: from, destinationKey: to }) });
+  const overwrite = (name: string, token: string) =>
+    fetch(`${BASE}/storage/v1/object/chronicle-media/${name}`, { method: 'PUT', headers: { apikey: KEY, authorization: `Bearer ${token}`, 'content-type': 'image/webp', 'x-upsert': 'true' }, body: Buffer.from('replaced') as unknown as BodyInit });
+
+  it('a registered file cannot be moved, renamed, overwritten, or replaced after a move', async () => {
+    const name = `media/${uuid()}.webp`;
+    expect((await upload(name, dm)).status).toBe(200);
+    expect((await rpc('register_photo', { p: { display: { path: name, alt: '', width: 1, height: 1, bytes: WEBP.length } } }, dm)).status).toBe(200);
+    expect((await move(name, `media/${uuid()}.webp`, dm)).status).not.toBe(200);
+    expect((await overwrite(name, dm)).status).not.toBe(200);
+    expect((await upload(name, dm)).status).not.toBe(200); // re-upload at the registered path
+    const kept = await download(name, dm);
+    expect(kept.status).toBe(200);
+    expect(Buffer.from(await kept.arrayBuffer()).equals(WEBP)).toBe(true); // content unchanged
+  });
+
+  it('an unregistered leftover can still be tidied (moved within the folders or removed)', async () => {
+    const name = `media/${uuid()}.webp`;
+    expect((await upload(name, dm)).status).toBe(200);
+    expect((await move(name, `media/${uuid()}.webp`, dm)).status).toBe(200);
+    expect((await move(`media/${uuid()}.webp`, `elsewhere/${uuid()}.webp`, dm)).status).not.toBe(200);
+  });
+
+  it('assistant connections cannot read stored files, even DM-only ones they could otherwise see', async () => {
+    const name = `media/${uuid()}.webp`;
+    expect((await upload(name, dm)).status).toBe(200);
+    expect((await rpc('register_photo', { p: { display: { path: name, alt: '', width: 1, height: 1, bytes: WEBP.length } } }, dm)).status).toBe(200);
+    const assistant = oauthToken(dmId);
+    expect((await download(name, assistant)).status).not.toBe(200);
+    const sign = await fetch(`${BASE}/storage/v1/object/sign/chronicle-media/${name}`, { method: 'POST', headers: { apikey: KEY, authorization: `Bearer ${assistant}`, 'content-type': 'application/json' }, body: '{"expiresIn":60}' });
+    expect(sign.status).not.toBe(200);
+    expect(await (await rest('media_private?select=*', assistant)).json()).toEqual([]);
+    expect((await download(name, dm)).status).toBe(200); // the website keeps working
+  });
+
+  it('the Data API exposes no way to set the change-set apply marker', async () => {
+    const res = await fetch(`${BASE}/rest/v1/rpc/set_config`, { method: 'POST', headers: { apikey: KEY, authorization: `Bearer ${oauthToken(dmId)}`, 'content-type': 'application/json' }, body: JSON.stringify({ setting_name: 'chronicle.change_set_apply', new_value: 'on', is_local: true }) });
+    expect(res.status).toBe(404);
+  });
+});

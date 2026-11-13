@@ -159,7 +159,11 @@ describe('assistant connections and players cannot touch the library', () => {
   it('an OAuth client cannot add, change or delete library entries, details or files', async () => {
     const r = await register(photo());
     expect((await as('dm', `update public.media set alt = 'x' where id = $1`, [r.id], oauth)).error?.code).toBe('42501');
-    expect((await as('dm', `update public.media_private set credit = 'x' where media_id = $1`, [r.id], oauth)).error?.code).toBe('42501');
+    // Private details are not even visible to an assistant (20261113000300): nothing to change.
+    const details = await as('dm', `update public.media_private set credit = 'x' where media_id = $1 returning media_id`, [r.id], oauth);
+    expect(Boolean(details.error) || details.rowCount === 0).toBe(true);
+    expect((await as('dm', 'select * from public.media_private', [], oauth)).rowCount).toBe(0);
+    expect((await as('dm', 'select name from storage.objects where name = $1', [DISP], oauth)).rowCount).toBe(0);
     expect((await as('dm', `delete from public.media where id = $1`, [r.id], oauth)).error?.code).toBe('42501');
     expect((await as('dm', `insert into storage.objects (bucket_id, name) values ('chronicle-media', 'media/oauth.webp')`, [], oauth)).error?.code).toBe('42501');
     expect((await as('dm', `delete from storage.objects where name = 'orphan/x' returning name`, [], oauth)).rowCount).toBe(0);
