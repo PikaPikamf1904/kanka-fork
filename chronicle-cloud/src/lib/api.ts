@@ -389,10 +389,34 @@ async function uploadFile(path: string, blob: Blob, onProgress?: (fraction: numb
   });
 }
 
-/** Removes files that were uploaded but never registered. Best effort: never throws. */
-async function discardFiles(paths: string[]) {
-  if (paths.length) await supabase.storage.from(MEDIA_BUCKET).remove(paths).catch(() => undefined);
+/**
+ * Removes files that were (or may have been) uploaded but are not in the library. Never throws.
+ * Storage reports failures in its result rather than by throwing, so both are checked, and a path
+ * counts as handled only when it was removed or is confirmed absent. Returns what is left over.
+ */
+async function discardFiles(paths: string[]): Promise<string[]> {
+  if (!paths.length) return [];
+  const bucket = supabase.storage.from(MEDIA_BUCKET);
+  let removed = new Set<string>();
+  try {
+    const { data, error } = await bucket.remove(paths);
+    if (!error) removed = new Set((data ?? []).map((o) => o.name));
+  } catch {
+    /* fall through: check each path below */
+  }
+  const left: string[] = [];
+  for (const path of paths.filter((p) => !removed.has(p))) {
+    try {
+      const { data: there, error } = await bucket.exists(path);
+      if (error || there) left.push(path); // an unknown answer counts as still there
+    } catch {
+      left.push(path);
+    }
+  }
+  return left;
 }
+
+const LEFTOVER_NOTE = ' A partly uploaded file could not be removed; Media library › Unfinished uploads can remove it later.';
 
 export interface SavePhotoInput {
   display: { blob: Blob; width: number; height: number };
@@ -412,16 +436,18 @@ export async function savePhoto(input: SavePhotoInput): Promise<Media & { source
   const sourcePath = newSource ? `sources/${crypto.randomUUID()}.webp` : null;
   const total = input.display.blob.size + (newSource?.blob.size ?? 0);
   let done = 0;
-  const uploaded: string[] = [];
+  // Every path is recorded BEFORE its upload starts: a timeout or network error does not prove
+  // the file did not arrive, so cleanup must consider every attempted path.
+  const attempted: string[] = [];
   const progress = (bytes: number) => (f: number) => input.onProgress?.({ stage: 'uploading', fraction: total ? (done + f * bytes) / total : 1 });
   try {
     if (newSource && sourcePath) {
+      attempted.push(sourcePath);
       await uploadFile(sourcePath, newSource.blob, progress(newSource.blob.size));
-      uploaded.push(sourcePath);
       done += newSource.blob.size;
     }
+    attempted.push(displayPath);
     await uploadFile(displayPath, input.display.blob, progress(input.display.blob.size));
-    uploaded.push(displayPath);
     input.onProgress?.({ stage: 'saving', fraction: 1 });
     const { data, error } = await supabase.rpc('register_photo', {
       p: {
@@ -436,8 +462,15 @@ export async function savePhoto(input: SavePhotoInput): Promise<Media & { source
     if (error) throw toChronicleError(error);
     return data as Media & { source_id: string | null };
   } catch (err) {
-    // Nothing refers to these files yet, so Storage allows removing them.
-    await discardFiles(uploaded);
+    // The registration may have succeeded even though its answer was lost: then it is a success.
+    const registered = await supabase.from('media').select('id, path, alt, width, height, visibility').eq('path', displayPath).maybeSingle();
+    if (registered.data) {
+      const source = sourcePath ? await supabase.from('media').select('id').eq('path', sourcePath).maybeSingle() : null;
+      return { ...(registered.data as Media), source_id: (source?.data as { id: string } | null)?.id ?? null };
+    }
+    // Nothing refers to these files, so Storage allows removing them.
+    const left = await discardFiles(attempted);
+    if (left.length) throw new Error(`${err instanceof Error ? err.message : 'The upload failed.'}${LEFTOVER_NOTE}`, { cause: err });
     throw err;
   }
 }
@@ -543,15 +576,42 @@ export async function mediaUsage(): Promise<Map<string, MediaUse[]>> {
  * DM: removes a library picture that nothing uses, then its full-frame source if no other
  * picture still uses it. The database refuses deleting anything in use, whatever the caller.
  */
-export async function deleteMedia(item: { id: string; path: string; source?: { id: string; path: string } | null }): Promise<void> {
+export async function deleteMedia(item: { id: string; path: string; source?: { id: string; path: string } | null }): Promise<{ leftover: number }> {
   const { error } = await supabase.from('media').delete().eq('id', item.id);
   if (error) throw toChronicleError(error);
   signedCache.delete(item.path);
-  await discardFiles([item.path]);
+  const left = await discardFiles([item.path]);
   if (item.source) {
+    // Refused (and kept) while another picture still uses this full-size copy.
     const { error: sourceError } = await supabase.from('media').delete().eq('id', item.source.id);
-    if (!sourceError) await discardFiles([item.source.path]);
+    if (!sourceError) left.push(...(await discardFiles([item.source.path])));
   }
+  return { leftover: left.length };
+}
+
+/** DM: files in the bucket that are not in the library and older than ten minutes (interrupted uploads). */
+export async function listUnfinishedUploads(): Promise<string[]> {
+  const cutoff = Date.now() - 10 * 60_000;
+  const found: string[] = [];
+  for (const folder of ['media', 'sources']) {
+    const { data, error } = await supabase.storage.from(MEDIA_BUCKET).list(folder, { limit: 1000, sortBy: { column: 'created_at', order: 'asc' } });
+    if (error) throw new Error(error.message);
+    for (const o of data ?? []) {
+      if (o.id && Date.parse(o.created_at ?? '') < cutoff) found.push(`${folder}/${o.name}`);
+    }
+  }
+  if (!found.length) return [];
+  const known = new Set<string>();
+  for (let i = 0; i < found.length; i += 200) {
+    const { data } = await supabase.from('media').select('path').in('path', found.slice(i, i + 200));
+    for (const r of (data ?? []) as { path: string }[]) known.add(r.path);
+  }
+  return found.filter((p) => !known.has(p));
+}
+
+/** DM: removes unfinished uploads; returns how many could not be removed. */
+export async function removeUnfinishedUploads(paths: string[]): Promise<number> {
+  return (await discardFiles(paths)).length;
 }
 
 // ---------------------------------------------------------------------------------------------

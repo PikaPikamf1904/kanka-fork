@@ -2,7 +2,7 @@ import '../../styles/images.css';
 import { useRef, useState, type DragEvent } from 'react';
 import { Link } from 'react-router';
 import { MediaImage } from '../../components/MediaImage.tsx';
-import { deleteMedia, listMedia, mediaUrls, mediaUsage, savePhoto, updateMedia, type MediaItem, type MediaUse } from '../../lib/api.ts';
+import { deleteMedia, listMedia, listUnfinishedUploads, mediaUrls, mediaUsage, removeUnfinishedUploads, savePhoto, updateMedia, type MediaItem, type MediaUse } from '../../lib/api.ts';
 import { IMAGE_TYPES, MAX_ARTICLE_IMAGE, MAX_SOURCE_IMAGE, readImageSize, renderImage } from '../../lib/image.ts';
 import { useLoad } from '../../lib/useLoad.ts';
 
@@ -12,9 +12,9 @@ const nameOf = (m: MediaItem) => m.original_name || m.alt || 'Untitled picture';
 /** DM: every uploaded picture, where it is used, and who can see it. */
 export function MediaLibrary() {
   const data = useLoad(async () => {
-    const [items, usage] = await Promise.all([listMedia(), mediaUsage()]);
+    const [items, usage, unfinished] = await Promise.all([listMedia(), mediaUsage(), listUnfinishedUploads().catch(() => [] as string[])]);
     await mediaUrls(items.slice(0, 200).map((m) => m.id));
-    return { items, usage };
+    return { items, usage, unfinished };
   }, []);
   const [over, setOver] = useState(false);
   const busy = useRef(false);
@@ -100,6 +100,25 @@ export function MediaLibrary() {
       </div>
       {!data.data && !data.error && <p className="muted">Loading…</p>}
       {data.data && data.data.items.length === 0 && <p className="muted">No pictures yet.</p>}
+      {(data.data?.unfinished.length ?? 0) > 0 && (
+        <section className="panel unfinished-uploads" aria-labelledby="unfinished-title">
+          <h2 id="unfinished-title">Unfinished uploads</h2>
+          <p className="fine-print">
+            {data.data!.unfinished.length} stored file{data.data!.unfinished.length === 1 ? '' : 's'} from interrupted or failed uploads {data.data!.unfinished.length === 1 ? 'is' : 'are'} not in the library and not used anywhere. Removing them frees space; nothing in the wiki changes.
+          </p>
+          <button
+            type="button"
+            className="button secondary small"
+            onClick={async () => {
+              const left = await removeUnfinishedUploads(data.data!.unfinished);
+              setStatus(left ? `${left} file${left === 1 ? '' : 's'} could not be removed yet. Try again later.` : 'Unfinished uploads removed.');
+              data.reload();
+            }}
+          >
+            Remove unfinished uploads
+          </button>
+        </section>
+      )}
       <ul className="media-cards">
         {shown.map((m) => (
           <MediaCard key={m.id} item={m} uses={data.data?.usage.get(m.id) ?? []} onChanged={data.reload} />
@@ -146,7 +165,8 @@ function MediaCard({ item, uses, onChanged }: { item: MediaItem; uses: MediaUse[
             onClick={async () => {
               if (!window.confirm(`Delete “${nameOf(item)}” from the library? This cannot be undone.`)) return;
               try {
-                await deleteMedia(item);
+                const { leftover } = await deleteMedia(item);
+                if (leftover) window.alert('Deleted from the library. A stored file could not be removed yet; “Unfinished uploads” at the top of the library will offer to remove it later.');
                 onChanged();
               } catch (err) {
                 setMsg(err instanceof Error ? err.message : 'Could not delete.');
