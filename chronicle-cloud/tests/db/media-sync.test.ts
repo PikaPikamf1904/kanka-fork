@@ -111,16 +111,19 @@ describe('trigger behaviour', () => {
     expect(await visibility(m)).toBe('dm');
   });
 
-  it('a new article created already published reveals its image; deleting the media row is safe', async () => {
+  it('a new article created already published reveals its image; an image in use cannot be deleted until detached', async () => {
     const m = await newMedia('media/new-article.webp');
     await asDm(
       "insert into public.articles (slug, title, visibility, status, hero_media_id) values ('fresh-page', 'Fresh', 'players', 'published', $1)",
       [m],
     );
     expect(await visibility(m)).toBe('players');
+    // 20261113000100: deleting a picture a page still shows is refused, so the page never loses it silently.
+    await expect(asDm('delete from public.media where id = $1', [m])).rejects.toThrow(/CONFLICT/);
+    expect((await admin('select 1 from public.media where id = $1', [m])).rowCount).toBe(1);
+    await asDm("update public.articles set hero_media_id = null where slug = 'fresh-page'");
     await asDm('delete from public.media where id = $1', [m]);
-    const { rows } = await admin<{ hero_media_id: string | null }>("select hero_media_id from public.articles where slug = 'fresh-page'");
-    expect(rows[0]!.hero_media_id).toBeNull();
+    expect((await admin('select 1 from public.media where id = $1', [m])).rowCount).toBe(0);
   });
 
   it('two transactions unpublishing two pages that share an image leave it hidden', async () => {

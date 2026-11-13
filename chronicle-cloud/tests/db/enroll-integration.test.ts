@@ -122,14 +122,14 @@ describe('enrollment against the local Supabase services', () => {
         headers: { apikey: env.SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${token}` },
       });
 
-    expect((await upload('public/it-town.png', dmSession.access_token)).status).toBe(200);
-    expect((await upload('dm/it-plan.png', dmSession.access_token)).status).toBe(200);
-    await admin("delete from public.media where path in ('public/it-town.png', 'dm/it-plan.png')");
-    await admin("insert into public.media (path, visibility) values ('public/it-town.png', 'players'), ('dm/it-plan.png', 'dm')");
+    expect((await upload('media/it-town.png', dmSession.access_token)).status).toBe(200);
+    expect((await upload('media/it-plan.png', dmSession.access_token)).status).toBe(200);
+    await admin("delete from public.media where path in ('media/it-town.png', 'media/it-plan.png')");
+    await admin("insert into public.media (path, visibility) values ('media/it-town.png', 'players'), ('media/it-plan.png', 'dm')");
 
-    expect((await download('public/it-town.png', playerToken)).status).toBe(200);
-    expect((await download('dm/it-plan.png', playerToken)).status).not.toBe(200);
-    expect((await download('dm/it-plan.png', dmSession.access_token)).status).toBe(200);
+    expect((await download('media/it-town.png', playerToken)).status).toBe(200);
+    expect((await download('media/it-plan.png', playerToken)).status).not.toBe(200);
+    expect((await download('media/it-plan.png', dmSession.access_token)).status).toBe(200);
     // Players cannot upload, list the DM folder, or mint a signed URL for a DM file.
     expect((await upload('public/evil.png', playerToken)).status).not.toBe(200);
     const list = await fetch(`${env.SUPABASE_URL}/storage/v1/object/list/chronicle-media`, {
@@ -138,14 +138,14 @@ describe('enrollment against the local Supabase services', () => {
       body: JSON.stringify({ prefix: 'dm', limit: 100 }),
     });
     expect(await list.json()).toEqual([]);
-    const signed = await fetch(`${env.SUPABASE_URL}/storage/v1/object/sign/chronicle-media/dm/it-plan.png`, {
+    const signed = await fetch(`${env.SUPABASE_URL}/storage/v1/object/sign/chronicle-media/media/it-plan.png`, {
       method: 'POST',
       headers: { apikey: env.SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${playerToken}`, 'content-type': 'application/json' },
       body: JSON.stringify({ expiresIn: 60 }),
     });
     expect(signed.status).not.toBe(200);
     // Anyone without a session gets nothing.
-    expect((await download('public/it-town.png', env.SUPABASE_PUBLISHABLE_KEY)).status).not.toBe(200);
+    expect((await download('media/it-town.png', env.SUPABASE_PUBLISHABLE_KEY)).status).not.toBe(200);
     // SVG uploads are refused by the bucket.
     const svg = await fetch(`${env.SUPABASE_URL}/storage/v1/object/chronicle-media/public/x.svg`, {
       method: 'POST',
