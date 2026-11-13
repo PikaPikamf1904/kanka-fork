@@ -38,3 +38,57 @@ Applied only to disposable SQL-only test databases. Fresh and upgrade schema/gra
 - Added CH-101 *regression expectations*, not a fix, for direct OAuth writes to 15 synthetic content/settings surfaces, their website-session controls, and OAuth snapshot creation. They are expected to reveal existing gaps when first run; no DB test result is claimed.
 - `git diff --check` and the Node syntax check for the changed test file passed. This executor has no `docker`, `psql`, PostgreSQL binaries, or installed Chronicle npm dependencies. No database, API, Storage, unit, or browser tests ran in this follow-up. Its separate disk has ample free space; earlier test-container availability did not carry over.
 - No migrations were added or applied. No remote branch was pushed by this follow-up, and no production content, settings, or permissions changed. Resume CH-101 only with a verified disposable PostgreSQL/Auth/Data API environment. Keep migration 14 and all production changes gated.
+
+## Photo import, 2026-11-13 UTC (branch `claude/chronicle-photo-import`)
+
+- Based on `origin/codex/chronicle-ch101-local` at `02e3f946f`, which contains Terra's `0f9e879b5` and the Gazette branch `22324015b`. Terra's commits and the CH-101 tests are unchanged.
+- Environment: the full local stack with real GoTrue, PostgREST and Storage services, started with Terra's ownership-checked `local-stack.sh`.
+- `local-stack.sh` had two bugs in its never-tested full start; both are fixed:
+  - `.local` is now created with mode 711, so the `postgres` user can reach `.local/pg`.
+  - A database folder that was never initialised no longer blocks a restart.
+- `e2e-local.sh` now stops the whole `wrangler`/`workerd` process group, and refuses to start if port 8788 is already serving. A stale server from an interrupted run had answered a full browser run with old keys (29 false failures).
+- **CH-200 / CH-201 / CH-202 — Done locally (not deployed)**, plus CH-104 private media metadata. Migration `20261113000100_photo_library.sql`:
+  - private `media_private` details (credit, original name, crop, source link);
+  - private full-frame sources (`media.role = 'source'`, always DM-only);
+  - atomic `register_photo`, which accepts only files that exist in Storage;
+  - pictures in use cannot be deleted;
+  - assistant (OAuth) connections cannot write photos;
+  - Storage policies: website DM only, `media/` and `sources/` folders only, no deleting registered files.
+- Website: phone-first picker:
+  - *Choose from device* / *Choose from library*, drag-and-drop;
+  - HEIC and other unreadable files explained;
+  - upload progress; one save per click;
+  - partial-batch recovery; failed uploads cleaned up.
+- Adjusting:
+  - re-crops from the private full-frame copy, starting at the saved crop;
+  - works for pictures in text too;
+  - expired signed links are refreshed once.
+- Pages:
+  - session journals now show their main picture;
+  - banner warning;
+  - *Add gallery section* button.
+- Phone layout fixes:
+  - page editor section rows and infobox rows wrap;
+  - Media Library cards no longer overflow;
+  - the picker dialog fits its content.
+- Existing tests updated for the new intended behaviour:
+  - `media-sync`: deleting a picture in use is now refused;
+  - `audit`: the restore test detaches the picture first;
+  - `enroll-integration`: uploads use `media/` paths.
+
+| Migration | SHA-256 |
+| --- | --- |
+| `20261113000100_photo_library.sql` | `62a43851cc030fa7fe22b04bc1b01d939f6040b8382bac4bb5eb038d182cc687` |
+
+Verification (local disposable stack, synthetic data):
+- `npm test`: 98 passed.
+- `npm run lint` and `npm run typecheck`: clean.
+- `bash scripts/local-stack-safety.test.sh` and `node --test scripts/local-targets.test.mjs`: passed.
+- `npm run test:db`: 211 passed, 15 failed. The 15 failures are the pre-existing CH-101 direct-write expectations for non-media content, which were also failing before this work. The media expectation now passes.
+- Fresh install of every migration in order, followed by 59 photo, media and privacy tests: all passed.
+- `bash scripts/e2e-local.sh`: 43 passed, including 5 new photo tests (desktop and phone).
+
+Production remains unchanged. Do not apply migration 14, Terra's four migrations or `20261113000100` to production until all of these hold:
+- a complete current backup is verified in permanent private storage;
+- a restore test succeeds;
+- the owner approves the exact bundle.

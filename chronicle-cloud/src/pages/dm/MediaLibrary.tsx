@@ -1,9 +1,9 @@
 import '../../styles/images.css';
-import { useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import { Link } from 'react-router';
 import { MediaImage } from '../../components/MediaImage.tsx';
-import { deleteMedia, listMedia, mediaUrls, mediaUsage, updateMedia, uploadMedia, type MediaItem, type MediaUse } from '../../lib/api.ts';
-import { IMAGE_TYPES, prepareImage } from '../../lib/image.ts';
+import { deleteMedia, listMedia, mediaUrls, mediaUsage, savePhoto, updateMedia, type MediaItem, type MediaUse } from '../../lib/api.ts';
+import { IMAGE_TYPES, MAX_ARTICLE_IMAGE, MAX_SOURCE_IMAGE, readImageSize, renderImage } from '../../lib/image.ts';
 import { useLoad } from '../../lib/useLoad.ts';
 
 const kb = (n: number | null) => (n ? `${Math.max(1, Math.round(n / 1024))} KB` : '');
@@ -17,6 +17,7 @@ export function MediaLibrary() {
     return { items, usage };
   }, []);
   const [over, setOver] = useState(false);
+  const busy = useRef(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -24,20 +25,29 @@ export function MediaLibrary() {
 
   async function upload(list: FileList | null) {
     const files = [...(list ?? [])];
-    if (!files.length) return;
+    if (!files.length || busy.current) return;
+    busy.current = true;
     setError(null);
     let done = 0;
     const failed: string[] = [];
-    for (const file of files) {
-      setStatus(`Uploading ${done + 1} of ${files.length}…`);
+    for (const [i, file] of files.entries()) {
+      const label = files.length > 1 ? `${i + 1} of ${files.length}: ` : '';
       try {
-        const p = await prepareImage(file);
-        await uploadMedia(p.blob, { alt: '', width: p.width, height: p.height, originalName: file.name.replace(/\.[a-z0-9]+$/i, '') });
+        setStatus(`${label}Preparing…`);
+        await readImageSize(file);
+        const display = await renderImage(file, null, MAX_ARTICLE_IMAGE);
+        const source = await renderImage(file, null, MAX_SOURCE_IMAGE, 0.85);
+        await savePhoto({
+          display, source, crop: { x: 0, y: 0, w: 1, h: 1, aspect: 'original' }, alt: '',
+          originalName: file.name.replace(/\.[a-z0-9]+$/i, ''),
+          onProgress: (p) => setStatus(p.stage === 'saving' ? `${label}Saving…` : `${label}Uploading ${Math.round(p.fraction * 100)}%`),
+        });
         done += 1;
       } catch (err) {
         failed.push(`${file.name}: ${err instanceof Error ? err.message : 'failed'}`);
       }
     }
+    busy.current = false;
     setStatus(`${done} picture${done === 1 ? '' : 's'} added. They stay private until you use them on a page players can read.`);
     if (failed.length) setError(failed.join(' · '));
     data.reload();
@@ -63,7 +73,7 @@ export function MediaLibrary() {
       <p className="fine-print">
         Every picture you have uploaded. A picture is private (DM only) until it is used on something players can read: the main
         picture or text of a published, player-visible page, a published map, or the main-page banner. To add a picture to a page,
-        open the page’s editor and use <strong>Add image</strong>.
+        open the page’s editor and use <strong>Add photo</strong>.
       </p>
       <div
         className={over ? 'drop-zone drop-over' : 'drop-zone'}
@@ -71,9 +81,9 @@ export function MediaLibrary() {
         onDragLeave={() => setOver(false)}
         onDrop={drop}
       >
-        <p className="drop-desktop">Drag pictures here, or</p>
+        <p className="drop-desktop">Drop photos here, or</p>
         <label className="button">
-          Upload pictures
+          Choose from device
           <input type="file" accept={IMAGE_TYPES} multiple hidden data-testid="library-file-input" onChange={(e) => { void upload(e.target.files); e.target.value = ''; }} />
         </label>
       </div>

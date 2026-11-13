@@ -23,11 +23,35 @@ export interface CropRect {
   height: number;
 }
 
-export const IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/gif';
+// Phones hand over JPEG, PNG, WebP or HEIC; "image/*" lets the photo gallery and camera open.
+export const IMAGE_TYPES = 'image/*';
+export const MAX_SOURCE_IMAGE = 2560;
 
-export function checkImageType(file: Blob) {
-  if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) {
-    throw new Error('Use a PNG, JPEG, WebP or GIF image.');
+const READABLE = /^image\/(png|jpe?g|webp|gif|avif|heic|heif|bmp)$/;
+const EXTENSION = /\.(png|jpe?g|webp|gif|avif|heic|heif|bmp)$/i;
+const isHeic = (file: { type: string; name?: string }) => /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name ?? '');
+
+/** Refuses files that are plainly not pictures (before trying to read them). */
+export function checkImageType(file: Blob & { name?: string }) {
+  if (file.type === 'image/svg+xml') throw new Error('SVG drawings cannot be used. Use a photo (JPEG, PNG, WebP or HEIC).');
+  if (!READABLE.test(file.type) && !EXTENSION.test(file.name ?? '')) {
+    throw new Error(`“${file.name ?? 'This file'}” is not a picture Chronicle can use. Choose a JPEG, PNG, WebP or HEIC photo.`);
+  }
+}
+
+/** Opens a picture and returns its size, or a plain explanation of why it cannot be read here. */
+export async function readImageSize(file: Blob & { name?: string }): Promise<{ width: number; height: number }> {
+  checkImageType(file);
+  try {
+    const bitmap = await createImageBitmap(file);
+    const size = { width: bitmap.width, height: bitmap.height };
+    bitmap.close();
+    return size;
+  } catch {
+    if (isHeic(file)) {
+      throw new Error('This browser cannot open HEIC photos. On an iPhone choose the photo again from the Photos app (it is converted automatically), or set Camera › Formats to “Most Compatible”.');
+    }
+    throw new Error(`“${file.name ?? 'This file'}” could not be opened as a picture. It may be damaged.`);
   }
 }
 
@@ -63,6 +87,6 @@ export function clampCrop(c: CropRect, width: number, height: number): CropRect 
 }
 
 export async function prepareImage(file: File, max = MAX_ARTICLE_IMAGE, quality = 0.82): Promise<PreparedImage> {
-  checkImageType(file);
+  await readImageSize(file);
   return renderImage(file, null, max, quality);
 }

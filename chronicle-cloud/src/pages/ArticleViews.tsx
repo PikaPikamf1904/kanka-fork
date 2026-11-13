@@ -289,6 +289,7 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
         {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
         {from && <p className="redirect-note">(Redirected from {from})</p>}
       </header>
+      {v.heroMediaId && <MediaImage id={v.heroMediaId} alt={`Picture for ${v.title}`} className="journal-hero" />}
       {v.summary && (
         <div className="journal-recap">
           <h2 className="visually-hidden">In short</h2>

@@ -8,12 +8,14 @@ import { ImagePicker, type Purpose } from './ImagePicker.tsx';
  * One picture for a page, story or the main-page banner: Add, Change, Adjust (crop again) and
  * Remove. Removing only takes it off this page; the file stays in the media library.
  */
-export function ImageField({ label, mediaId, purpose, onChange, hint, testId }: {
+export function ImageField({ label, mediaId, purpose, onChange, hint, warning, testId }: {
   label: string;
   mediaId: string | null;
   purpose: Extract<Purpose, 'portrait' | 'landscape' | 'banner'>;
   onChange(id: string | null): void;
   hint?: string;
+  /** Shown prominently, e.g. that every player sees the banner. */
+  warning?: string;
   testId?: string;
 }) {
   const [open, setOpen] = useState<null | 'pick' | MediaItem>(null);
@@ -26,8 +28,9 @@ export function ImageField({ label, mediaId, purpose, onChange, hint, testId }: 
       <div className="image-field-side">
         <strong>{label}</strong>
         {hint && <span className="fine-print">{hint}</span>}
+        {warning && <span className="image-warning" role="note">{warning}</span>}
         <div className="row-wrap">
-          <button type="button" className="button small" onClick={() => setOpen('pick')}>{mediaId ? 'Change image' : 'Add image'}</button>
+          <button type="button" className="button small" onClick={() => setOpen('pick')}>{mediaId ? 'Change photo' : 'Add photo'}</button>
           {mediaId && (
             <button
               type="button"
@@ -46,7 +49,7 @@ export function ImageField({ label, mediaId, purpose, onChange, hint, testId }: 
               Adjust
             </button>
           )}
-          {mediaId && <button type="button" className="button secondary small" onClick={() => onChange(null)}>Remove image</button>}
+          {mediaId && <button type="button" className="button secondary small" onClick={() => onChange(null)}>Remove photo</button>}
         </div>
         {error && <span className="form-error" role="alert">{error}</span>}
       </div>

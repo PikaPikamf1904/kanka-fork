@@ -54,9 +54,9 @@ export function insertImages(
 }
 
 /** Changes a picture's alt text and caption, or removes it (next = null), tidying blank lines. */
-export function replaceImage(text: string, img: InlineImage, next: { alt: string; caption: string } | null): string {
+export function replaceImage(text: string, img: InlineImage, next: { alt: string; caption: string; path?: string } | null): string {
   if (text.slice(img.start, img.end).indexOf(`media:${img.path}`) === -1) return text;
-  if (next) return text.slice(0, img.start) + imageMarkdown({ path: img.path, ...next }) + text.slice(img.end);
+  if (next) return text.slice(0, img.start) + imageMarkdown({ ...next, path: next.path ?? img.path }) + text.slice(img.end);
   let before = text.slice(0, img.start);
   let after = text.slice(img.end);
   // Removing a picture that had its own line removes the line too.

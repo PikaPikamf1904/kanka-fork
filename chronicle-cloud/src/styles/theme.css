@@ -176,6 +176,7 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .button.small { min-height: 36px; padding: 0.3rem 0.8rem; font-size: 0.95rem; }
 .badge { display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.5rem; border-radius: 999px; font-family: var(--font-ui); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em; vertical-align: middle; }
 .badge-dm { background: var(--crimson); color: #fff; }
+.badge-ok { background: #3f7a52; color: #fff; }
 .badge-players { background: #2c6e73; color: #fff; }
 .badge-draft { background: #8a6a26; color: #fff; }
 .badge-published { background: #3f6d3a; color: #fff; }
@@ -634,3 +635,11 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .thread-list li { padding: 0.45rem 0; border-bottom: 1px solid var(--line); }
 .thread-list li:last-child { border-bottom: 0; }
 .thread-list a { font-family: var(--font-display); font-weight: 600; }
+.journal-hero { display: block; width: 100%; max-height: 360px; object-fit: cover; border-radius: 12px; border: 1px solid var(--gold); margin: 0.5rem 0 1rem; }
+/* Phones: a section's heading, visibility, status and buttons wrap instead of running off screen. */
+.section-editor > .row { flex-wrap: wrap; }
+@media (max-width: 560px) { .section-editor > .row > .grow { flex-basis: 100%; } }
+@media (max-width: 560px) {
+  .rows > .row { flex-wrap: wrap; }
+  .rows > .row > input { flex: 1 1 100%; }
+}

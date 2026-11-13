@@ -84,7 +84,8 @@ down() {
     if [ -d "/proc/$pid" ]; then kill "$pid" || return 1; fi
     rm -f "$LOCAL/gateway.pid"
   fi
-  if [ -d "$LOCAL/pg" ]; then
+  # A folder without PG_VERSION was never initialised (e.g. initdb failed): nothing to stop.
+  if [ -f "$LOCAL/pg/PG_VERSION" ]; then
     local pg_status
     if su postgres -s /bin/bash -c 'exec "$@"' -- bash "$PGBIN/pg_ctl" -D "$LOCAL/pg" status >/dev/null 2>&1; then
       su postgres -s /bin/bash -c 'exec "$@"' -- bash "$PGBIN/pg_ctl" -D "$LOCAL/pg" -m fast -w stop >/dev/null
@@ -97,7 +98,8 @@ down() {
 
 up() {
   if [ ! -e "$LOCAL" ]; then
-    mkdir -m 700 "$LOCAL"
+    # 711: the postgres user must traverse into .local/pg; it still cannot list the folder.
+    mkdir -m 711 "$LOCAL"
     openssl rand -hex 32 > "$LOCAL/stack-owner"
     chmod 600 "$LOCAL/stack-owner"
   fi

@@ -46,3 +46,15 @@ export function clampView(v: View, iw: number, ih: number, ratio: number | null)
 export function isWholePicture(v: View, ratio: number | null) {
   return ratio === null && v.zoom === 1;
 }
+
+/** A crop as fractions of the picture (what the database keeps), from a crop in pixels. */
+export function cropFractions(rect: CropRect, iw: number, ih: number) {
+  return { x: rect.x / iw, y: rect.y / ih, w: rect.width / iw, h: rect.height / ih };
+}
+
+/** The view that shows a saved crop again, so "Adjust" starts where the DM left it. */
+export function viewFromCrop(c: { x: number; y: number; w: number; h: number }, iw: number, ih: number, ratio: number | null): View {
+  const r = ratio ?? iw / ih;
+  const zoom = iw / ih >= r ? 1 / Math.max(c.h, 1e-6) : 1 / Math.max(c.w, 1e-6);
+  return clampView({ zoom, cx: c.x + c.w / 2, cy: c.y + c.h / 2 }, iw, ih, ratio);
+}
