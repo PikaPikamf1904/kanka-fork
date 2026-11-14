@@ -392,9 +392,13 @@ export function ArticleEditor() {
               onClick={async () => {
                 const typed = window.prompt(`Type the title “${draft.article.title}” to delete this article permanently.`);
                 if (typed === draft.article.title) {
-                  await deleteArticle(articleId);
-                  setDirty(false);
-                  navigate('/dm');
+                  try {
+                    await deleteArticle(articleId);
+                    setDirty(false);
+                    navigate('/dm');
+                  } catch (err) {
+                    setError(err instanceof Error ? `Not deleted: ${err.message}` : 'Not deleted. Check your connection and try again.');
+                  }
                 }
               }}
             >
@@ -571,7 +575,15 @@ function RedirectsEditor({ articleId, redirects, onChange }: { articleId: string
       <ul>
         {redirects.map((r) => (
           <li key={r.from_slug}>/wiki/{r.from_slug} <VisibilityBadge visibility={r.visibility} />{' '}
-            <button type="button" className="link-button" onClick={async () => { await deleteRedirect(r.from_slug); onChange(); }}>Remove</button>
+            <button type="button" className="link-button" onClick={async () => {
+              setError(null);
+              try {
+                await deleteRedirect(r.from_slug);
+                onChange();
+              } catch (err) {
+                setError(err instanceof Error ? `Not removed: ${err.message}` : 'Not removed. Try again.');
+              }
+            }}>Remove</button>
           </li>
         ))}
       </ul>

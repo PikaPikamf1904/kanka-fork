@@ -110,8 +110,12 @@ export function MediaLibrary() {
             type="button"
             className="button secondary small"
             onClick={async () => {
-              const left = await removeUnfinishedUploads(data.data!.unfinished);
-              setStatus(left ? `${left} file${left === 1 ? '' : 's'} could not be removed yet. Try again later.` : 'Unfinished uploads removed.');
+              try {
+                const left = await removeUnfinishedUploads(data.data!.unfinished);
+                setStatus(left ? `${left} file${left === 1 ? '' : 's'} could not be removed yet. Try again later.` : 'Unfinished uploads removed.');
+              } catch {
+                setStatus('The unfinished uploads could not be removed. Check your connection and try again.');
+              }
               data.reload();
             }}
           >

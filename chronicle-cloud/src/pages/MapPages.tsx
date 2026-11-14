@@ -215,12 +215,28 @@ export function MapPage() {
     };
   }, [drawing, isDm, data.data]);
 
+  // A map change that fails must say so: a fog area the DM believes is hidden again, or a marker
+  // believed deleted, would otherwise stay visible to players without anyone noticing.
+  const [failed, setFailed] = useState<string | null>(null);
+  async function attempt(what: string, work: () => Promise<void>) {
+    setFailed(null);
+    try {
+      await work();
+    } catch (err) {
+      setFailed(`${what} did NOT happen${err instanceof Error ? `: ${err.message}` : ''}. Check your connection and try again.`);
+    }
+  }
+
   async function submitFogArea(e: FormEvent) {
     e.preventDefault();
-    if (!fogEditing?.map_id || !fogEditing.points) return;
-    await saveFogArea({ id: fogEditing.id, map_id: fogEditing.map_id, label: fogEditing.label ?? '', points: fogEditing.points, visibility: (fogEditing.visibility ?? 'dm') as Visibility });
-    setFogEditing(null);
-    data.reload();
+    const f = fogEditing;
+    if (!f?.map_id || !f.points) return;
+    const { map_id, points } = f;
+    await attempt('Saving the fog area', async () => {
+      await saveFogArea({ id: f.id, map_id, label: f.label ?? '', points, visibility: (f.visibility ?? 'dm') as Visibility });
+      setFogEditing(null);
+      data.reload();
+    });
   }
 
   // DM: click the map to place a new marker.
@@ -242,14 +258,18 @@ export function MapPage() {
 
   async function submitMarker(e: FormEvent) {
     e.preventDefault();
-    if (!editing?.map_id || !editing.label) return;
-    await saveMarker({
-      id: editing.id, map_id: editing.map_id, x: editing.x ?? 0, y: editing.y ?? 0, label: editing.label,
-      description: editing.description ?? '', icon: editing.icon ?? 'pin', article_id: editing.article_id ?? null,
-      visibility: (editing.visibility ?? 'dm') as Visibility,
+    const m = editing;
+    if (!m?.map_id || !m.label) return;
+    const { map_id, label } = m;
+    await attempt('Saving the marker', async () => {
+      await saveMarker({
+        id: m.id, map_id, x: m.x ?? 0, y: m.y ?? 0, label,
+        description: m.description ?? '', icon: m.icon ?? 'pin', article_id: m.article_id ?? null,
+        visibility: (m.visibility ?? 'dm') as Visibility,
+      });
+      setEditing(null);
+      data.reload();
     });
-    setEditing(null);
-    data.reload();
   }
 
   if (data.error) return <p className="form-error">{data.error}</p>;
@@ -258,6 +278,7 @@ export function MapPage() {
 
   return (
     <div className="map-page">
+      {failed && <p className="form-error" role="alert">{failed}</p>}
       <nav className="breadcrumbs" aria-label="Breadcrumbs">
         <Link to="/maps">Maps</Link>
         {d?.parent && <> › <Link to={`/maps/${d.parent.slug}`}>{d.parent.title}</Link></>}
@@ -275,10 +296,10 @@ export function MapPage() {
               type="button"
               className="button secondary"
               aria-pressed={d.map.fog_enabled}
-              onClick={async () => {
+              onClick={() => attempt('Changing fog of war', async () => {
                 await setMapFog(d.map.id, !d.map.fog_enabled);
                 data.reload();
-              }}
+              })}
             >
               {d.map.fog_enabled ? 'Fog of war: on' : 'Fog of war: off'}
             </button>
@@ -325,7 +346,7 @@ export function MapPage() {
                       <span>{a.label || 'Unnamed area'}</span>{' '}
                       {a.visibility === 'players' ? <span className="badge">revealed</span> : <VisibilityBadge visibility="dm" />}
                       {' · '}
-                      <button type="button" className="link-button" onClick={async () => { await saveFogArea({ ...a, visibility: a.visibility === 'players' ? 'dm' : 'players' }); data.reload(); }}>
+                      <button type="button" className="link-button" onClick={() => attempt(a.visibility === 'players' ? 'Hiding the area' : 'Revealing the area', async () => { await saveFogArea({ ...a, visibility: a.visibility === 'players' ? 'dm' : 'players' }); data.reload(); })}>
                         {a.visibility === 'players' ? 'hide again' : 'reveal'}
                       </button>
                       {' · '}
@@ -362,11 +383,14 @@ export function MapPage() {
                 <button
                   type="button"
                   className="button danger"
-                  onClick={async () => {
-                    if (fogEditing.id && window.confirm('Delete this fog area?')) {
-                      await deleteFogArea(fogEditing.id);
-                      setFogEditing(null);
-                      data.reload();
+                  onClick={() => {
+                    const id = fogEditing.id;
+                    if (id && window.confirm('Delete this fog area?')) {
+                      void attempt('Deleting the fog area', async () => {
+                        await deleteFogArea(id);
+                        setFogEditing(null);
+                        data.reload();
+                      });
                     }
                   }}
                 >
@@ -406,11 +430,14 @@ export function MapPage() {
                 <button
                   type="button"
                   className="button danger"
-                  onClick={async () => {
-                    if (editing.id && window.confirm(`Delete the marker “${editing.label}”?`)) {
-                      await deleteMarker(editing.id);
-                      setEditing(null);
-                      data.reload();
+                  onClick={() => {
+                    const id = editing.id;
+                    if (id && window.confirm(`Delete the marker “${editing.label}”?`)) {
+                      void attempt('Deleting the marker', async () => {
+                        await deleteMarker(id);
+                        setEditing(null);
+                        data.reload();
+                      });
                     }
                   }}
                 >

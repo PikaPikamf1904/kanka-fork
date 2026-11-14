@@ -171,9 +171,21 @@ export function AccessAdmin() {
     }
   }
 
+  // Removing access must never fail quietly: the DM would believe a device is locked out when it is not.
+  const [failed, setFailed] = useState<string | null>(null);
+  async function attempt(what: string, work: () => Promise<void>) {
+    setFailed(null);
+    try {
+      await work();
+    } catch (err) {
+      setFailed(`${what} did NOT happen${err instanceof Error ? `: ${err.message}` : ''}. Check your connection and try again.`);
+    }
+  }
+
   return (
     <div>
       <h1 className="page-title">Player access</h1>
+      {failed && <p className="form-error" role="alert">{failed}</p>}
       <section className="panel">
         <h2>Access codes</h2>
         <p className="fine-print">
@@ -197,7 +209,7 @@ export function AccessAdmin() {
                 <td>{new Date(c.created_at).toLocaleDateString()}</td>
                 <td>{c.use_count}{c.max_uses ? ` / ${c.max_uses}` : ''}</td>
                 <td>{c.revoked_at ? 'Revoked' : c.expires_at && new Date(c.expires_at) < new Date() ? 'Expired' : 'Active'}</td>
-                <td>{!c.revoked_at && <button type="button" className="link-button" onClick={async () => { if (window.confirm('Revoke this code?')) { await revokeAccessCode(c.id); codes.reload(); } }}>Revoke</button>}</td>
+                <td>{!c.revoked_at && <button type="button" className="link-button" onClick={() => { if (window.confirm('Revoke this code?')) void attempt('Revoking the code', async () => { await revokeAccessCode(c.id); codes.reload(); }); }}>Revoke</button>}</td>
               </tr>
             ))}
           </tbody>
@@ -218,8 +230,8 @@ export function AccessAdmin() {
                 <td>
                   {m.role === 'player' && !m.revoked_at && (
                     <>
-                      <button type="button" className="link-button" onClick={async () => { const n = window.prompt('New display name', m.display_name); if (n) { await renameMember(m.user_id, n); members.reload(); } }}>Rename</button>{' · '}
-                      <button type="button" className="link-button" onClick={async () => { if (window.confirm(`Remove ${m.display_name}'s access? Their device is signed out of the wiki immediately.`)) { await revokeMember(m.user_id); members.reload(); } }}>Remove</button>
+                      <button type="button" className="link-button" onClick={() => { const n = window.prompt('New display name', m.display_name); if (n) void attempt('The rename', async () => { await renameMember(m.user_id, n); members.reload(); }); }}>Rename</button>{' · '}
+                      <button type="button" className="link-button" onClick={() => { if (window.confirm(`Remove ${m.display_name}'s access? Their device is signed out of the wiki immediately.`)) void attempt(`Removing ${m.display_name}'s access`, async () => { await revokeMember(m.user_id); members.reload(); }); }}>Remove</button>
                     </>
                   )}
                 </td>
@@ -230,11 +242,13 @@ export function AccessAdmin() {
         <button
           type="button"
           className="button danger small"
-          onClick={async () => {
+          onClick={() => {
             if (window.confirm('Remove EVERY player device? Everyone will need a new code.')) {
-              const n = await revokeAllPlayers();
-              members.reload();
-              window.alert(`${n} device(s) removed.`);
+              void attempt('Removing all player devices', async () => {
+                const n = await revokeAllPlayers();
+                members.reload();
+                window.alert(`${n} device(s) removed.`);
+              });
             }
           }}
         >

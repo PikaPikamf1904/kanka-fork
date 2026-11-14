@@ -22,6 +22,7 @@ Defects found, reproduced and fixed in this pass:
 | H-3 | Medium (integrity) | Gazette: a stale tab could approve or print text saved elsewhere that the DM had not seen. | Migration `20261114000100`: `news_transition(uuid, text, text, timestamptz)` binds to the page version and waiting-revision timestamp; the website passes both. | `tests/db/hardening.test.ts` (incl. a two-session race) |
 | H-4 | Medium (integrity) | An assistant connection could insert, change or delete `public.provenance` rows directly. | Same migration: the OAuth write guard now covers `provenance`. | `tests/db/hardening.test.ts` |
 | H-10 | Medium (reliability) | Timeline editor, notes page and the article editor's connection and note panels: a failed save or delete showed nothing; the timeline's Edit button replaced an event being typed. | Failures are shown and the text kept; unsaved-changes prompts. | `tests/e2e/unsaved-work.spec.ts` |
+| H-11 | Medium (security-relevant reliability) | Player access page and map page: removing a device, revoking a code, hiding a revealed fog area, switching fog, saving or deleting markers failed silently, so the DM could believe access or visibility was removed when it was not. Also article delete, redirect removal and unfinished-upload cleanup. | Every one reports "did NOT happen" and leaves the true state on screen. | `tests/e2e/failures.spec.ts` |
 | H-5 | Low (tooling) | `scripts/e2e-local.sh` exited silently when the build failed. | Prints the build log and says the tests did not run. | — |
 | H-6 | Medium (accessibility) | Keyboard focus could Tab out of the photo dialog onto the covered page. | Focus stays inside the dialog; Escape returns focus to the button. | `tests/e2e/interaction.spec.ts` (fails on old code) |
 | H-7 | Low (correctness) | Search box: a slow answer for earlier typing could replace the current suggestions. | Only the latest request fills the list. | `tests/e2e/interaction.spec.ts` (fails on old code) |
@@ -62,6 +63,7 @@ deployed site between migration and deploy, so it must ship with a site release)
 
 Later the same day: browser tests were added to the CI `db` job; after the tooling upgrade and
 H-10 the local results were unit 98/98, database 272/272, browser 53/53 (PostgreSQL 16.15).
+H-11 added 2 browser tests (55 in total); the related suites were re-run locally and pass.
 
 Final verification (2026-11-14, final code, fresh install of all 25 migrations on PostgreSQL
 17.12 with real Auth, Data API and Storage; synthetic data): lint clean; typecheck clean; unit
