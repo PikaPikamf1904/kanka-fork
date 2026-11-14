@@ -107,4 +107,52 @@ test.describe('Unsaved work', () => {
     await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
     await expect(page.getByText('Unsaved changes')).toHaveCount(0);
   });
+
+  test('timeline and notes: a failed save is reported and keeps the text; switching events asks first', async ({ page }) => {
+    const tag = Date.now().toString(36);
+    await signInAsDm(page);
+    await page.goto('/dm/timeline');
+    await page.getByLabel('Title').fill(`Synthetic event ${tag}`);
+    await expect(page.getByText('Unsaved changes')).toBeVisible();
+
+    // Opening another event must not silently replace what is being typed.
+    page.once('dialog', (d) => void d.dismiss());
+    await page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+    await expect(page.getByLabel('Title')).toHaveValue(`Synthetic event ${tag}`);
+
+    let outage = true;
+    await page.route('**/rest/v1/timeline_events*', (route) => {
+      if (outage && route.request().method() !== 'GET') {
+        outage = false;
+        return route.abort();
+      }
+      return route.continue();
+    });
+    await page.getByRole('button', { name: 'Save event' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Not saved' })).toBeVisible();
+    await expect(page.getByLabel('Title')).toHaveValue(`Synthetic event ${tag}`);
+    await page.getByRole('button', { name: 'Save event' }).click();
+    await expect(page.getByRole('heading', { name: new RegExp(`Synthetic event ${tag}`) })).toBeVisible();
+    await expect(page.getByLabel('Title')).toHaveValue('');
+
+    await page.goto('/dm/notes');
+    await page.getByRole('textbox', { name: 'Note', exact: true }).fill(`Synthetic table note ${tag}.`);
+    let noteOutage = true;
+    await page.route('**/rest/v1/dm_notes*', (route) => {
+      if (noteOutage && route.request().method() !== 'GET') {
+        noteOutage = false;
+        return route.abort();
+      }
+      return route.continue();
+    });
+    await page.getByRole('button', { name: 'Save note' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Not saved' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Note', exact: true })).toHaveValue(`Synthetic table note ${tag}.`);
+    page.once('dialog', (d) => void d.dismiss());
+    await page.getByRole('link', { name: 'DM desk' }).first().click();
+    await expect(page).toHaveURL(/\/dm\/notes$/);
+    await page.getByRole('button', { name: 'Save note' }).click();
+    await expect(page.getByText(`Synthetic table note ${tag}.`)).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Note', exact: true })).toHaveValue('');
+  });
 });

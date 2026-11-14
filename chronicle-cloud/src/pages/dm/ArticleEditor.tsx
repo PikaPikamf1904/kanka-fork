@@ -469,6 +469,20 @@ function CategoryPicker({ selected, categories, onChange, onCreated }: {
   );
 }
 
+/** Runs a small save or delete and keeps its failure message, so nothing fails silently. */
+function useAttempt(): [string | null, (work: () => Promise<void>) => Promise<void>] {
+  const [error, setError] = useState<string | null>(null);
+  const attempt = async (work: () => Promise<void>) => {
+    setError(null);
+    try {
+      await work();
+    } catch (err) {
+      setError(err instanceof Error ? `That did not work: ${err.message}` : 'That did not work. Check your connection and try again.');
+    }
+  };
+  return [error, attempt];
+}
+
 function RelationsEditor({ articleId, relations, articles, onChange }: {
   articleId: string;
   relations: { id: string; kind: string; label: string; visibility: Visibility; direction: 'out' | 'in'; other: { slug: string; title: string } }[];
@@ -479,6 +493,7 @@ function RelationsEditor({ articleId, relations, articles, onChange }: {
   const [kind, setKind] = useState(RELATION_KINDS[0]!.kind);
   const [label, setLabel] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('dm');
+  const [error, attempt] = useAttempt();
   return (
     <section className="panel">
       <h2>Connections</h2>
@@ -487,7 +502,7 @@ function RelationsEditor({ articleId, relations, articles, onChange }: {
           <li key={r.id} className={r.visibility === 'dm' ? 'dm-only' : undefined}>
             {r.direction === 'out' ? 'This' : r.other.title} <em>{relationLabel(r.kind)}</em> {r.direction === 'out' ? r.other.title : 'this'}
             {r.label && <span className="muted"> ({r.label})</span>} <VisibilityBadge visibility={r.visibility} />{' '}
-            <button type="button" className="link-button" onClick={async () => { if (window.confirm('Remove this connection?')) { await deleteRelation(r.id); onChange(); } }}>Remove</button>
+            <button type="button" className="link-button" onClick={() => { if (window.confirm('Remove this connection?')) void attempt(async () => { await deleteRelation(r.id); onChange(); }); }}>Remove</button>
           </li>
         ))}
       </ul>
@@ -505,15 +520,16 @@ function RelationsEditor({ articleId, relations, articles, onChange }: {
           type="button"
           className="button secondary small"
           disabled={!target}
-          onClick={async () => {
+          onClick={() => attempt(async () => {
             await addRelation({ source_article_id: articleId, target_article_id: target, kind, label, visibility });
             setTarget('');
             setLabel('');
             onChange();
-          }}
+          })}
         >
           Add connection
         </button>
+        {error && <p className="form-error span-2" role="alert">{error}</p>}
       </div>
       <p className="fine-print">Players see a connection only if it is visible to players and they can see both pages.</p>
     </section>
@@ -523,6 +539,7 @@ function RelationsEditor({ articleId, relations, articles, onChange }: {
 function NotesEditor({ articleId, notes, onChange }: { articleId: string; notes: { id: string; title: string; body: string }[]; onChange(): void }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [error, attempt] = useAttempt();
   return (
     <section className="panel dm-panel">
       <h2>Private DM notes <VisibilityBadge visibility="dm" /></h2>
@@ -530,13 +547,14 @@ function NotesEditor({ articleId, notes, onChange }: { articleId: string; notes:
         <details key={n.id} className="note">
           <summary>{n.title || 'Untitled note'}</summary>
           <Markdown text={n.body} />
-          <button type="button" className="link-button" onClick={async () => { if (window.confirm('Delete this note?')) { await deleteNote(n.id); onChange(); } }}>Delete note</button>
+          <button type="button" className="link-button" onClick={() => { if (window.confirm('Delete this note?')) void attempt(async () => { await deleteNote(n.id); onChange(); }); }}>Delete note</button>
         </details>
       ))}
       <div className="form-grid">
         <label>Title<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         <label className="span-2">Note<textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} /></label>
-        <button type="button" className="button secondary small" disabled={!body.trim()} onClick={async () => { await saveNote({ article_id: articleId, title, body }); setTitle(''); setBody(''); onChange(); }}>Add note</button>
+        <button type="button" className="button secondary small" disabled={!body.trim()} onClick={() => attempt(async () => { await saveNote({ article_id: articleId, title, body }); setTitle(''); setBody(''); onChange(); })}>Add note</button>
+        {error && <p className="form-error span-2" role="alert">{error}</p>}
       </div>
     </section>
   );

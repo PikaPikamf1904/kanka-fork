@@ -79,6 +79,9 @@ export function NotesPage() {
   const notes = useLoad(listNotes, []);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useUnsavedGuard(Boolean(title.trim() || body.trim()) && !busy);
   return (
     <div>
       <h1 className="page-title">Private notes <VisibilityBadge visibility="dm" /></h1>
@@ -86,14 +89,47 @@ export function NotesPage() {
         <h2>New note</h2>
         <label>Title<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         <label className="span-2">Note<textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></label>
-        <button type="button" className="button small" disabled={!body.trim()} onClick={async () => { await saveNote({ article_id: null, title, body }); setTitle(''); setBody(''); notes.reload(); }}>Save note</button>
+        <button
+          type="button"
+          className="button small"
+          disabled={!body.trim() || busy}
+          onClick={async () => {
+            setBusy(true); setError(null);
+            try {
+              await saveNote({ article_id: null, title, body });
+              setTitle(''); setBody('');
+              notes.reload();
+            } catch (err) {
+              setError(err instanceof Error ? `Not saved: ${err.message}` : 'Not saved. Check your connection and try again.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Saving…' : 'Save note'}
+        </button>
+        {error && <p className="form-error span-2" role="alert">{error}</p>}
       </section>
       {notes.data?.map((n) => (
         <section key={n.id} className="panel dm-panel">
           <h2>{n.title || 'Untitled note'}</h2>
           {n.article && <p className="muted">About <Link to={`/wiki/${n.article.slug}`}>{n.article.title}</Link></p>}
           <Markdown text={n.body} />
-          <button type="button" className="link-button" onClick={async () => { if (window.confirm('Delete this note?')) { await deleteNote(n.id); notes.reload(); } }}>Delete</button>
+          <button
+            type="button"
+            className="link-button"
+            onClick={async () => {
+              if (!window.confirm('Delete this note?')) return;
+              try {
+                await deleteNote(n.id);
+                notes.reload();
+              } catch (err) {
+                setError(err instanceof Error ? `Not deleted: ${err.message}` : 'Not deleted. Try again.');
+              }
+            }}
+          >
+            Delete
+          </button>
         </section>
       ))}
     </div>
@@ -365,6 +401,18 @@ export function TimelineEditor() {
   const articles = useLoad(listAllArticleRefs, []);
   const empty: Omit<TimelineEvent, 'id'> & { id?: string } = { title: '', date_label: '', sort_key: 0, body: '', article_id: null, visibility: 'dm', status: 'draft' };
   const [form, setForm] = useState(empty);
+  // What the form held when it was opened (blank, or the event being edited).
+  const [baseline, setBaseline] = useState(() => JSON.stringify(empty));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const dirty = JSON.stringify(form) !== baseline;
+  useUnsavedGuard(dirty && !busy);
+  const open = (next: typeof form) => {
+    if (dirty && !window.confirm('Discard the unsaved changes to the event you are editing?')) return;
+    setForm(next);
+    setBaseline(JSON.stringify(next));
+    setError(null);
+  };
   return (
     <div>
       <h1 className="page-title">Edit timeline</h1>
@@ -372,9 +420,18 @@ export function TimelineEditor() {
         className="panel form-grid"
         onSubmit={async (e) => {
           e.preventDefault();
-          await saveTimelineEvent(form);
-          setForm(empty);
-          events.reload();
+          if (busy) return;
+          setBusy(true); setError(null);
+          try {
+            await saveTimelineEvent(form);
+            setForm(empty);
+            setBaseline(JSON.stringify(empty));
+            events.reload();
+          } catch (err) {
+            setError(err instanceof Error ? `Not saved: ${err.message}` : 'Not saved. Check your connection and try again.');
+          } finally {
+            setBusy(false);
+          }
         }}
       >
         <h2 className="span-2">{form.id ? 'Edit event' : 'New event'}</h2>
@@ -400,9 +457,11 @@ export function TimelineEditor() {
         </label>
         <label className="span-2">Description<textarea rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>
         <div className="form-actions span-2">
-          <button type="submit" className="button small">Save event</button>
-          {form.id && <button type="button" className="button secondary small" onClick={() => setForm(empty)}>Cancel</button>}
+          <button type="submit" className="button small" disabled={busy}>{busy ? 'Saving…' : 'Save event'}</button>
+          {form.id && <button type="button" className="button secondary small" onClick={() => open(empty)}>Cancel</button>}
+          {dirty && <span className="badge badge-draft">Unsaved changes</span>}
         </div>
+        {error && <p className="form-error span-2" role="alert">{error}</p>}
       </form>
       <ol className="timeline">
         {events.data?.map((ev) => (
@@ -410,8 +469,22 @@ export function TimelineEditor() {
             <div className="timeline-date">{ev.date_label}</div>
             <div className="timeline-card">
               <h2>{ev.title} <VisibilityBadge visibility={ev.visibility} /> <StatusBadge status={ev.status} /></h2>
-              <button type="button" className="link-button" onClick={() => setForm({ ...ev })}>Edit</button>{' · '}
-              <button type="button" className="link-button" onClick={async () => { if (window.confirm(`Delete “${ev.title}”?`)) { await deleteTimelineEvent(ev.id); events.reload(); } }}>Delete</button>
+              <button type="button" className="link-button" onClick={() => open({ ...ev })}>Edit</button>{' · '}
+              <button
+                type="button"
+                className="link-button"
+                onClick={async () => {
+                  if (!window.confirm(`Delete “${ev.title}”?`)) return;
+                  try {
+                    await deleteTimelineEvent(ev.id);
+                    events.reload();
+                  } catch (err) {
+                    setError(err instanceof Error ? `Not deleted: ${err.message}` : 'Not deleted. Try again.');
+                  }
+                }}
+              >
+                Delete
+              </button>
             </div>
           </li>
         ))}
