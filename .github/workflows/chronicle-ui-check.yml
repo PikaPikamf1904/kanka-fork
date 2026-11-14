@@ -30,3 +30,46 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: pk_test_ci_no_live_access
+  # Database security, privacy and concurrency tests against a disposable local stack (real
+  # PostgreSQL, Auth, Data API and Storage on 127.0.0.1). Never contacts a hosted project: the
+  # test harness refuses any database that is not the local one it created.
+  db:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: chronicle-cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: chronicle-cloud/package-lock.json
+      - run: npm ci
+      - name: PostgreSQL 16 binaries
+        run: test -x /usr/lib/postgresql/16/bin/initdb || (sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-16)
+      - name: Start the disposable local stack
+        run: |
+          # The postgres user must be able to reach the data folder under the checkout.
+          d="$PWD"; while [ "$d" != "/" ]; do sudo chmod o+x "$d"; d="$(dirname "$d")"; done
+          sudo env "PATH=$PATH" bash scripts/local-stack.sh up
+      - name: Stack safety checks
+        run: |
+          sudo env "PATH=$PATH" bash scripts/local-stack-safety.test.sh
+          node --test scripts/local-targets.test.mjs
+      - name: Database tests
+        run: sudo env "PATH=$PATH" npm run test:db
+      # Browser tests: the production build served by Cloudflare's local runtime, against the same
+      # disposable stack. Run as root like the stack, which owns the local keys.
+      - name: Browser for the end-to-end tests
+        run: sudo env "PATH=$PATH" npx playwright install --with-deps chromium
+      - name: Load synthetic sample content
+        run: sudo env "PATH=$PATH" bash scripts/local-stack.sh seed
+      - name: Browser tests
+        run: sudo env "PATH=$PATH" bash scripts/e2e-local.sh --trace off
+      - name: Logs on failure
+        if: failure()
+        run: |
+          sudo tail -n 80 .local/pg/server.log || true
+          sudo tail -n 40 .local/wrangler.log || true

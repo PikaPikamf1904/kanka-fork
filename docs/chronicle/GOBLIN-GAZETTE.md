@@ -99,3 +99,10 @@ them; the line of text is shown as written, so keep spoilers out of it.
   - `tests/e2e/player.spec.ts`: the network-level privacy scan now includes the Gazette.
 - Fonts (self-hosted, OFL-1.1): UnifrakturMaguntia for the masthead, IM Fell English for headlines,
   Old Standard TT for the text. They load only on Gazette pages.
+
+## Review is bound to what you saw (2026-11-14)
+
+- The review and printing buttons in the story editor work on the **saved** story. If the form has
+  unsaved changes they refuse and ask you to save first; leaving the page with unsaved text asks too.
+- If the story (or its waiting revision) was saved in another tab after you opened it, approving or
+  printing from the old tab is refused: reload, read the current text, then approve.

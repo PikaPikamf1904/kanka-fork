@@ -93,10 +93,10 @@ export async function getNewsStory(slug: string): Promise<{ bundle: ArticleBundl
   return { bundle, news: must(news) as NewsDetails | null, pending: (pending.error ? null : pending.data) as NewsPending | null };
 }
 
-/** Which printed stories have a waiting revision, and in what state (DM only; players get none). */
-export async function listNewsPending(): Promise<Map<string, NewsReviewState>> {
-  const { data } = await supabase.from('news_pending').select('article_id, review_state');
-  return new Map((data ?? []).map((r: { article_id: string; review_state: NewsReviewState }) => [r.article_id, r.review_state]));
+/** Which printed stories have a waiting revision, in what state, and when it was last saved (DM only; players get none). */
+export async function listNewsPending(): Promise<Map<string, { review_state: NewsReviewState; updated_at: string }>> {
+  const { data } = await supabase.from('news_pending').select('article_id, review_state, updated_at');
+  return new Map((data ?? []).map((r: { article_id: string; review_state: NewsReviewState; updated_at: string }) => [r.article_id, { review_state: r.review_state, updated_at: r.updated_at }]));
 }
 
 export interface NewsDraft {
@@ -114,8 +114,15 @@ export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string):
 }
 
 export type NewsAction = 'submit' | 'approve' | 'return' | 'publish' | 'unpublish' | 'discard';
-export async function newsTransition(articleId: string, action: NewsAction) {
-  const { data, error } = await supabase.rpc('news_transition', { p_article: articleId, p_action: action });
+/**
+ * Moves a story through review. `seen` is what the DM was looking at (the page version and, for a
+ * printed story, when its waiting revision was last saved): if either changed in another tab, the
+ * database refuses with CONFLICT instead of approving or printing text the DM has not seen.
+ */
+export async function newsTransition(articleId: string, action: NewsAction, seen: { version: number; revision?: string | null }) {
+  const { data, error } = await supabase.rpc('news_transition', {
+    p_article: articleId, p_action: action, p_expected_version: `v${seen.version}`, p_expected_revision: seen.revision ?? null,
+  });
   if (error) throw toChronicleError(error);
   return data as { review_state: NewsReviewState; status: Article['status']; visibility: Article['visibility']; pending: NewsReviewState | null };
 }

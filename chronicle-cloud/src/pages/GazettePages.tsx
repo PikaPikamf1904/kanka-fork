@@ -25,6 +25,7 @@ import { slugify, wikiLinkTargets } from '../lib/slug.ts';
 import { TEMPLATES } from '../lib/templates.ts';
 import type { ArticleRef } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
+import { useUnsavedGuard } from '../lib/useUnsavedGuard.ts';
 import { NotFound } from './NotFound.tsx';
 
 /** Plain text from Markdown, for standfirsts and excerpts. */
@@ -324,18 +325,22 @@ const STATE_ORDER = ['in_review', 'draft', 'approved'] as const;
 export function GazetteDesk() {
   const news = useLoad(async () => {
     const [stories, pending] = await Promise.all([listNews(), listNewsPending()]);
-    return stories.map((s) => ({ ...s, pendingState: pending.get(s.id) ?? null }));
+    return stories.map((s) => ({ ...s, pendingState: pending.get(s.id)?.review_state ?? null, pendingAt: pending.get(s.id)?.updated_at ?? null }));
   }, []);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   async function act(id: string, action: NewsAction) {
+    const story = news.data?.find((s) => s.id === id);
+    if (!story) return;
     setBusy(id); setError('');
     try {
-      await newsTransition(id, action);
-      news.reload();
+      await newsTransition(id, action, { version: story.version, revision: story.pendingAt });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not change the story.');
+      setError(e instanceof ChronicleError && e.code === 'CONFLICT'
+        ? `“${story.title}” was changed somewhere else since this list was loaded, so nothing was done. The list is now up to date: open the story to read the current text.`
+        : e instanceof Error ? e.message : 'Could not change the story.');
     } finally {
+      news.reload();
       setBusy('');
     }
   }
@@ -359,7 +364,7 @@ export function GazetteDesk() {
   );
 }
 
-type DeskStory = NewsStory & { pendingState: NewsReviewState | null };
+type DeskStory = NewsStory & { pendingState: NewsReviewState | null; pendingAt: string | null };
 function DeskTable({ stories, busy, act }: { stories: DeskStory[]; busy: string; act: (id: string, a: NewsAction) => void }) {
   return (
     <div className="table-scroll">
@@ -439,8 +444,10 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
   const voice = useMemo(() => reporter(form?.details.reporter).voice, [form?.details.reporter]);
   const state = e?.news?.review_state ?? 'draft';
   const printed = e ? isPublished(e.bundle.article) : false;
-  const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
-  const setD = (patch: Partial<NewsDraft['details']>) => setForm((f) => ({ ...f, details: { ...f.details, ...patch } }));
+  const [dirty, setDirty] = useState(false);
+  const set = (patch: Partial<typeof form>) => { setDirty(true); setForm((f) => ({ ...f, ...patch })); };
+  const setD = (patch: Partial<NewsDraft['details']>) => { setDirty(true); setForm((f) => ({ ...f, details: { ...f.details, ...patch } })); };
+  useUnsavedGuard(dirty && !busy);
 
   async function save(ev: FormEvent) {
     ev.preventDefault();
@@ -455,6 +462,7 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
       const done = saved.pending
         ? 'Saved as a revision. Players still see the printed version until you send this for review and approve it.'
         : state === 'approved' && !printed ? 'Saved. Because the story changed after approval, it is back in review.' : 'Saved. Players cannot see it until you print it.';
+      setDirty(false);
       setMessage({ ok: true, text: done });
       setFlash(done);
       if (!e || saved.slug !== e.bundle.article.slug) navigate(`/dm/news/edit/${saved.slug}`, { replace: true });
@@ -470,9 +478,14 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
   }
   async function act(action: NewsAction) {
     if (!e) return;
+    // Review and printing act on the saved text, never on what is only on screen.
+    if (dirty) {
+      setMessage({ ok: false, text: 'Save your changes first. Review and printing use the saved story, not the text on screen.' });
+      return;
+    }
     setBusy(true); setMessage(null);
     try {
-      const r = await newsTransition(e.bundle.article.id, action);
+      const r = await newsTransition(e.bundle.article.id, action, { version: e.bundle.article.version, revision: e.pending?.updated_at ?? null });
       setFlash(action === 'approve' && printed ? 'Revision approved: players now read the new version.'
         : action === 'discard' ? 'Revision discarded: the printed version is unchanged.'
         : action === 'submit' && printed ? 'Revision sent for review. Players still see the printed version.'
@@ -481,7 +494,9 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
         : `Now: ${REVIEW_LABEL[r.review_state]}.`);
       reload();
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not change the story.' });
+      setMessage({ ok: false, text: err instanceof ChronicleError && err.code === 'CONFLICT'
+        ? 'This story was changed somewhere else since you opened it, so nothing was done. Reload the page to read the current text.'
+        : err instanceof Error ? err.message : 'Could not change the story.' });
     } finally {
       setBusy(false);
     }
@@ -505,6 +520,7 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
             {printed && e.pending && <p className="fine-print gz-revision-note">You are editing a revision ({REVIEW_LABEL[e.pending.review_state].toLowerCase()}). Players still see the printed version.</p>}
           </div>
           <StoryActions id={e.bundle.article.id} state={state} printed={printed} pending={e.pending?.review_state ?? null} busy={busy} act={(_id, a) => void act(a)} />
+          {dirty && <p className="fine-print gz-unsaved" role="status"><span className="badge badge-draft">Unsaved changes</span> Save before sending for review, approving or printing.</p>}
         </section>
       )}
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}

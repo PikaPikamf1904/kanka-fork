@@ -15,10 +15,16 @@ export function SearchBox({ autoFocus = false, onDone }: { autoFocus?: boolean; 
   useEffect(() => {
     const term = q.trim();
     if (term.length < 1) return;
+    // An answer for an earlier, shorter term can arrive after the answer for the current one;
+    // only the latest request may fill the list.
+    let current = true;
     const timer = setTimeout(() => {
-      suggest(term).then(setItems).catch(() => setItems([]));
+      suggest(term).then((rows) => current && setItems(rows)).catch(() => current && setItems([]));
     }, 150);
-    return () => clearTimeout(timer);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
   }, [q]);
 
   function go(path: string) {

@@ -15,6 +15,7 @@ import { slugify } from '../../lib/slug.ts';
 import { TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
 import type { ArticleType, PublishStatus, TimelineEvent, Visibility, WikiMap } from '../../lib/types.ts';
 import { useLoad } from '../../lib/useLoad.ts';
+import { useUnsavedGuard } from '../../lib/useUnsavedGuard.ts';
 import { NotFound } from '../NotFound.tsx';
 import { supabase } from '../../lib/supabase.ts';
 
@@ -78,6 +79,9 @@ export function NotesPage() {
   const notes = useLoad(listNotes, []);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useUnsavedGuard(Boolean(title.trim() || body.trim()) && !busy);
   return (
     <div>
       <h1 className="page-title">Private notes <VisibilityBadge visibility="dm" /></h1>
@@ -85,14 +89,47 @@ export function NotesPage() {
         <h2>New note</h2>
         <label>Title<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         <label className="span-2">Note<textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></label>
-        <button type="button" className="button small" disabled={!body.trim()} onClick={async () => { await saveNote({ article_id: null, title, body }); setTitle(''); setBody(''); notes.reload(); }}>Save note</button>
+        <button
+          type="button"
+          className="button small"
+          disabled={!body.trim() || busy}
+          onClick={async () => {
+            setBusy(true); setError(null);
+            try {
+              await saveNote({ article_id: null, title, body });
+              setTitle(''); setBody('');
+              notes.reload();
+            } catch (err) {
+              setError(err instanceof Error ? `Not saved: ${err.message}` : 'Not saved. Check your connection and try again.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Saving…' : 'Save note'}
+        </button>
+        {error && <p className="form-error span-2" role="alert">{error}</p>}
       </section>
       {notes.data?.map((n) => (
         <section key={n.id} className="panel dm-panel">
           <h2>{n.title || 'Untitled note'}</h2>
           {n.article && <p className="muted">About <Link to={`/wiki/${n.article.slug}`}>{n.article.title}</Link></p>}
           <Markdown text={n.body} />
-          <button type="button" className="link-button" onClick={async () => { if (window.confirm('Delete this note?')) { await deleteNote(n.id); notes.reload(); } }}>Delete</button>
+          <button
+            type="button"
+            className="link-button"
+            onClick={async () => {
+              if (!window.confirm('Delete this note?')) return;
+              try {
+                await deleteNote(n.id);
+                notes.reload();
+              } catch (err) {
+                setError(err instanceof Error ? `Not deleted: ${err.message}` : 'Not deleted. Try again.');
+              }
+            }}
+          >
+            Delete
+          </button>
         </section>
       ))}
     </div>
@@ -134,9 +171,21 @@ export function AccessAdmin() {
     }
   }
 
+  // Removing access must never fail quietly: the DM would believe a device is locked out when it is not.
+  const [failed, setFailed] = useState<string | null>(null);
+  async function attempt(what: string, work: () => Promise<void>) {
+    setFailed(null);
+    try {
+      await work();
+    } catch (err) {
+      setFailed(`${what} did NOT happen${err instanceof Error ? `: ${err.message}` : ''}. Check your connection and try again.`);
+    }
+  }
+
   return (
     <div>
       <h1 className="page-title">Player access</h1>
+      {failed && <p className="form-error" role="alert">{failed}</p>}
       <section className="panel">
         <h2>Access codes</h2>
         <p className="fine-print">
@@ -160,7 +209,7 @@ export function AccessAdmin() {
                 <td>{new Date(c.created_at).toLocaleDateString()}</td>
                 <td>{c.use_count}{c.max_uses ? ` / ${c.max_uses}` : ''}</td>
                 <td>{c.revoked_at ? 'Revoked' : c.expires_at && new Date(c.expires_at) < new Date() ? 'Expired' : 'Active'}</td>
-                <td>{!c.revoked_at && <button type="button" className="link-button" onClick={async () => { if (window.confirm('Revoke this code?')) { await revokeAccessCode(c.id); codes.reload(); } }}>Revoke</button>}</td>
+                <td>{!c.revoked_at && <button type="button" className="link-button" onClick={() => { if (window.confirm('Revoke this code?')) void attempt('Revoking the code', async () => { await revokeAccessCode(c.id); codes.reload(); }); }}>Revoke</button>}</td>
               </tr>
             ))}
           </tbody>
@@ -181,8 +230,8 @@ export function AccessAdmin() {
                 <td>
                   {m.role === 'player' && !m.revoked_at && (
                     <>
-                      <button type="button" className="link-button" onClick={async () => { const n = window.prompt('New display name', m.display_name); if (n) { await renameMember(m.user_id, n); members.reload(); } }}>Rename</button>{' · '}
-                      <button type="button" className="link-button" onClick={async () => { if (window.confirm(`Remove ${m.display_name}'s access? Their device is signed out of the wiki immediately.`)) { await revokeMember(m.user_id); members.reload(); } }}>Remove</button>
+                      <button type="button" className="link-button" onClick={() => { const n = window.prompt('New display name', m.display_name); if (n) void attempt('The rename', async () => { await renameMember(m.user_id, n); members.reload(); }); }}>Rename</button>{' · '}
+                      <button type="button" className="link-button" onClick={() => { if (window.confirm(`Remove ${m.display_name}'s access? Their device is signed out of the wiki immediately.`)) void attempt(`Removing ${m.display_name}'s access`, async () => { await revokeMember(m.user_id); members.reload(); }); }}>Remove</button>
                     </>
                   )}
                 </td>
@@ -193,11 +242,13 @@ export function AccessAdmin() {
         <button
           type="button"
           className="button danger small"
-          onClick={async () => {
+          onClick={() => {
             if (window.confirm('Remove EVERY player device? Everyone will need a new code.')) {
-              const n = await revokeAllPlayers();
-              members.reload();
-              window.alert(`${n} device(s) removed.`);
+              void attempt('Removing all player devices', async () => {
+                const n = await revokeAllPlayers();
+                members.reload();
+                window.alert(`${n} device(s) removed.`);
+              });
             }
           }}
         >
@@ -288,19 +339,36 @@ export function SettingsPage() {
   const places = useLoad(listAllArticleRefs, []);
   const [form, setForm] = useState({ title: '', tagline: '', overview: '', banner_media_id: null as string | null, current_location_id: null as string | null, current_status: '' });
   const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // The form as last loaded or saved; anything different is an unsaved change.
+  const [baseline, setBaseline] = useState<string | null>(null);
   const [loadedFrom, setLoadedFrom] = useState<unknown>(null);
   if (settings.data && settings.data !== loadedFrom) {
     setLoadedFrom(settings.data);
-    setForm({ ...settings.data, current_location_id: settings.data.current_location_id ?? null, current_status: settings.data.current_status ?? '' });
+    const loaded = { ...settings.data, current_location_id: settings.data.current_location_id ?? null, current_status: settings.data.current_status ?? '' };
+    setForm(loaded);
+    setBaseline(JSON.stringify(loaded));
   }
+  const dirty = baseline !== null && JSON.stringify(form) !== baseline;
+  useUnsavedGuard(dirty && !saving);
   return (
     <>
     <form
       className="panel form-grid"
       onSubmit={async (e) => {
         e.preventDefault();
-        await updateSettings(form);
-        setMsg('Saved.');
+        if (saving) return;
+        setSaving(true); setMsg(null); setError(null);
+        try {
+          await updateSettings(form);
+          setBaseline(JSON.stringify(form));
+          setMsg('Saved.');
+        } catch (err) {
+          setError(err instanceof Error ? `Not saved: ${err.message}` : 'Not saved. Check your connection and try again.');
+        } finally {
+          setSaving(false);
+        }
       }}
     >
       <h1 className="page-title span-2">Wiki settings</h1>
@@ -333,7 +401,9 @@ export function SettingsPage() {
         />
       </div>
       <button type="submit" className="button">Save settings</button>
-      {msg && <p className="form-ok">{msg}</p>}
+      {msg && !dirty && <p className="form-ok" role="status">{msg}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {dirty && <p className="fine-print"><span className="badge badge-draft">Unsaved changes</span></p>}
     </form>
     <TwoStepPanel />
     </>
@@ -345,6 +415,18 @@ export function TimelineEditor() {
   const articles = useLoad(listAllArticleRefs, []);
   const empty: Omit<TimelineEvent, 'id'> & { id?: string } = { title: '', date_label: '', sort_key: 0, body: '', article_id: null, visibility: 'dm', status: 'draft' };
   const [form, setForm] = useState(empty);
+  // What the form held when it was opened (blank, or the event being edited).
+  const [baseline, setBaseline] = useState(() => JSON.stringify(empty));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const dirty = JSON.stringify(form) !== baseline;
+  useUnsavedGuard(dirty && !busy);
+  const open = (next: typeof form) => {
+    if (dirty && !window.confirm('Discard the unsaved changes to the event you are editing?')) return;
+    setForm(next);
+    setBaseline(JSON.stringify(next));
+    setError(null);
+  };
   return (
     <div>
       <h1 className="page-title">Edit timeline</h1>
@@ -352,9 +434,18 @@ export function TimelineEditor() {
         className="panel form-grid"
         onSubmit={async (e) => {
           e.preventDefault();
-          await saveTimelineEvent(form);
-          setForm(empty);
-          events.reload();
+          if (busy) return;
+          setBusy(true); setError(null);
+          try {
+            await saveTimelineEvent(form);
+            setForm(empty);
+            setBaseline(JSON.stringify(empty));
+            events.reload();
+          } catch (err) {
+            setError(err instanceof Error ? `Not saved: ${err.message}` : 'Not saved. Check your connection and try again.');
+          } finally {
+            setBusy(false);
+          }
         }}
       >
         <h2 className="span-2">{form.id ? 'Edit event' : 'New event'}</h2>
@@ -380,9 +471,11 @@ export function TimelineEditor() {
         </label>
         <label className="span-2">Description<textarea rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>
         <div className="form-actions span-2">
-          <button type="submit" className="button small">Save event</button>
-          {form.id && <button type="button" className="button secondary small" onClick={() => setForm(empty)}>Cancel</button>}
+          <button type="submit" className="button small" disabled={busy}>{busy ? 'Saving…' : 'Save event'}</button>
+          {form.id && <button type="button" className="button secondary small" onClick={() => open(empty)}>Cancel</button>}
+          {dirty && <span className="badge badge-draft">Unsaved changes</span>}
         </div>
+        {error && <p className="form-error span-2" role="alert">{error}</p>}
       </form>
       <ol className="timeline">
         {events.data?.map((ev) => (
@@ -390,8 +483,22 @@ export function TimelineEditor() {
             <div className="timeline-date">{ev.date_label}</div>
             <div className="timeline-card">
               <h2>{ev.title} <VisibilityBadge visibility={ev.visibility} /> <StatusBadge status={ev.status} /></h2>
-              <button type="button" className="link-button" onClick={() => setForm({ ...ev })}>Edit</button>{' · '}
-              <button type="button" className="link-button" onClick={async () => { if (window.confirm(`Delete “${ev.title}”?`)) { await deleteTimelineEvent(ev.id); events.reload(); } }}>Delete</button>
+              <button type="button" className="link-button" onClick={() => open({ ...ev })}>Edit</button>{' · '}
+              <button
+                type="button"
+                className="link-button"
+                onClick={async () => {
+                  if (!window.confirm(`Delete “${ev.title}”?`)) return;
+                  try {
+                    await deleteTimelineEvent(ev.id);
+                    events.reload();
+                  } catch (err) {
+                    setError(err instanceof Error ? `Not deleted: ${err.message}` : 'Not deleted. Try again.');
+                  }
+                }}
+              >
+                Delete
+              </button>
             </div>
           </li>
         ))}
@@ -410,11 +517,15 @@ export function MapEditor() {
     slug: '', title: '', description: '', media_id: null, width: 2000, height: 1500, parent_map_id: null, article_id: null, visibility: 'dm', status: 'draft', fog_enabled: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [baseline, setBaseline] = useState<string>(() => JSON.stringify(form));
   const [loadedFrom, setLoadedFrom] = useState<unknown>(null);
   if (existing.data && existing.data !== loadedFrom) {
     setLoadedFrom(existing.data);
     setForm(existing.data.map);
+    setBaseline(JSON.stringify(existing.data.map));
   }
+  useUnsavedGuard(JSON.stringify(form) !== baseline && !saving);
   if (slug && !existing.loading && !existing.data) return <NotFound what="map" />;
 
   return (
@@ -422,11 +533,14 @@ export function MapEditor() {
       className="panel form-grid"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (saving) return;
         setError(null);
+        setSaving(true); // stays set on success so the redirect to the map is not questioned
         try {
           const saved = await saveMap({ ...form, slug: form.slug || slugify(form.title) });
           navigate(`/maps/${saved.slug}`);
         } catch (err) {
+          setSaving(false);
           setError(err instanceof Error ? err.message : 'Could not save the map.');
         }
       }}
