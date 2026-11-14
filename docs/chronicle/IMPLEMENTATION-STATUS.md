@@ -1,5 +1,69 @@
 # Chronicle implementation status
 
+## 2026-11-14 — independent review and hardening (branch `claude/chronicle-hardening`, PR #28)
+
+Resume here. Local and pushed only; **nothing applied to production** (hosted project still has
+13 migrations, re-checked read-only today). Base: `claude/chronicle-p0-security` `fca0d6651`
+(PR #27), which sits on `claude/chronicle-photo-import` `a373fcd2c` (PR #26).
+
+Independent re-verification of the earlier reports (run here, not copied): unit 98/98, database
+260/260, lint and typecheck clean at `fca0d6651`. CH-101 to CH-104 were re-probed through direct
+table writes and RPC calls as an assistant, a player, a revoked member and an outsider; the
+earlier fixes hold. Reviewed without findings: RLS on every table, table and function grants,
+search paths, the MCP worker's token checks and query building, the enrolment endpoint, Markdown
+rendering and the Content Security Policy.
+
+Defects found, reproduced and fixed in this pass:
+
+| # | Severity | Defect | Fix | Regression test |
+|---|---|---|---|---|
+| H-1 | High (data loss) | Article editor: adding a connection, note or redirect reloaded the page data and silently replaced unsaved article text. | `ArticleEditor.tsx` keeps the unsaved draft and adopts the new version when only secondary data changed. | `tests/e2e/unsaved-work.spec.ts` (fails on the old editor) |
+| H-2 | High (integrity) | Gazette editor: review and printing buttons acted on the saved text while the screen showed unsaved edits, then discarded those edits. | Buttons refuse while there are unsaved changes; leaving the page asks first. | `tests/e2e/unsaved-work.spec.ts` |
+| H-3 | Medium (integrity) | Gazette: a stale tab could approve or print text saved elsewhere that the DM had not seen. | Migration `20261114000100`: `news_transition(uuid, text, text, timestamptz)` binds to the page version and waiting-revision timestamp; the website passes both. | `tests/db/hardening.test.ts` (incl. a two-session race) |
+| H-4 | Medium (integrity) | An assistant connection could insert, change or delete `public.provenance` rows directly. | Same migration: the OAuth write guard now covers `provenance`. | `tests/db/hardening.test.ts` |
+| H-5 | Low (tooling) | `scripts/e2e-local.sh` exited silently when the build failed. | Prints the build log and says the tests did not run. | — |
+| H-6 | Medium (accessibility) | Keyboard focus could Tab out of the photo dialog onto the covered page. | Focus stays inside the dialog; Escape returns focus to the button. | `tests/e2e/interaction.spec.ts` (fails on old code) |
+| H-7 | Low (correctness) | Search box: a slow answer for earlier typing could replace the current suggestions. | Only the latest request fills the list. | `tests/e2e/interaction.spec.ts` (fails on old code) |
+| H-8 | Low (reliability) | Wiki settings: a failed save showed nothing; settings and map settings did not warn before discarding edits. | Error shown; unsaved-changes prompt. | `tests/e2e/unsaved-work.spec.ts` |
+| H-9 | Low (usability) | Suggestions matched only the first word of a title ("merrin" found nothing for "Captain Merrin Vael"). | Migration `20261114000200`: any word start matches; still limited by RLS. | `tests/db/hardening.test.ts` |
+
+Also added: two-session race tests for article saves and for applying one proposal twice;
+`tests/e2e/layout.spec.ts` (26 routes at 320, 375, 412, 768 and 1920 px: no overflow found);
+a CI job (`db`) that runs the database suite on a disposable local stack (passed on GitHub).
+
+Verification on the final code (exact counts): see "Final verification" at the end of this
+section. PostgreSQL 17.12 was used as well as 16; see the release bundle for the upgrade run.
+
+Measured, no change needed: with 3,000 synthetic pages and 12,000 sections, a player's worst-case
+search took 107 ms, suggestions 5 ms, a page's sections under 1 ms. Production build: about 184 kB
+gzip for the first load (React 101, Supabase client 59, app 25); maps and Markdown load on demand.
+
+Known and accepted (not fixed):
+- `campaign_settings.current_location_id` is readable by players even when it points at a DM-only
+  page. Only the opaque id is exposed (no title or text). Low.
+- A player-visible section that links to a DM-only page exposes that page's address through its
+  own text and `article_links`. The editor warns about this; the DM decides. Low.
+- Signed picture links already issued stay valid until they expire (10 minutes).
+- `npm audit`: 0 production vulnerabilities; 11 in development-only test tooling (vitest chain),
+  fixable only by a breaking upgrade. Not shipped to users.
+- Supabase advisor (production, read-only): "leaked password protection disabled" (owner setting);
+  the SECURITY DEFINER notices are intentional, each function checks the caller itself.
+- The timeline editor and map marker forms have no unsaved-changes prompt (short forms).
+- `Workers Builds: chronicle-wiki` fails on every PR; it is a Cloudflare dashboard build for the
+  old Worker, not part of this code. Needs the owner's decision in Cloudflare.
+
+Next tasks, in order: (1) owner: backup to permanent private storage and restore rehearsal;
+(2) optional column-level hiding of `current_location_id`; (3) upgrade the vitest tool chain;
+(4) browser tests in CI; (5) unsaved-changes prompt for the timeline editor.
+
+Final verification (2026-11-14, final code, fresh install of all 25 migrations on PostgreSQL
+17.12 with real Auth, Data API and Storage; synthetic data): lint clean; typecheck clean; unit
+98/98; database 272/272 (22 files); browser 52/52 (includes phone-size tests, layout sweep,
+failure injection); production build clean, secret key absent from `dist/`; stack safety checks
+passed; 0 skipped. On PostgreSQL 16 the database suite was run at 269 tests locally and in CI
+(before migration 12 and its 3 tests were added); CI re-runs it on every push.
+
+
 ## 2026-11-13 — CH-101 to CH-104 closed locally (branch `claude/chronicle-p0-security`)
 
 Local and pushed only; nothing applied to production. Release bundle, hashes, gates and checklist:

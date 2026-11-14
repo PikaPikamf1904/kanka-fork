@@ -86,10 +86,30 @@ export function ImagePicker({ purpose, title, start, onCancel, onDone }: {
     const prev = document.activeElement as HTMLElement | null;
     dialog.current?.focus();
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && !saving.current && cancel.current();
+    // Keep keyboard focus inside the dialog: the page behind it is covered and must not be reachable.
+    const trap = (e: KeyboardEvent) => {
+      const box = dialog.current;
+      if (e.key !== 'Tab' || !box) return;
+      const stops = Array.from(box.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+        .filter((el) => !el.hasAttribute('disabled') && el.getClientRects().length > 0);
+      const first = stops[0];
+      const last = stops[stops.length - 1];
+      if (!first || !last) {
+        e.preventDefault();
+        return;
+      }
+      const at = document.activeElement;
+      if (!box.contains(at) || (e.shiftKey && (at === first || at === box)) || (!e.shiftKey && at === last)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    };
     window.addEventListener('keydown', esc);
+    window.addEventListener('keydown', trap);
     const made = urls.current;
     return () => {
       window.removeEventListener('keydown', esc);
+      window.removeEventListener('keydown', trap);
       made.forEach((u) => URL.revokeObjectURL(u));
       prev?.focus?.();
     };

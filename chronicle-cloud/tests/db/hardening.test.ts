@@ -180,3 +180,26 @@ describe('two sessions at the same moment', () => {
     expect((await admin<{ s: string }>('select review_state::text s from public.news_stories where article_id = $1', [id])).rows[0]!.s).toBe('in_review');
   });
 });
+
+describe('search suggestions (20261114000200)', () => {
+  const titles = async (who: 'dm' | 'player', typed: string) =>
+    (await as<{ title: string }>(who, 'select title from public.suggest_articles($1)', [typed])).rows.map((r) => r.title);
+
+  it('match the start of any word in a title, title starts first', async () => {
+    expect(await titles('player', 'captain')).toEqual(['Visible Captain']);
+    expect(await titles('player', 'town')).toEqual(['Harbour Town']);
+    expect(await titles('player', 'vis')).toEqual(['Visible Captain']);
+    expect(await titles('player', 'arbour')).toEqual([]); // the middle of a word is not a match
+    const h = await titles('dm', 'h');
+    expect(h.slice(0, 2).sort()).toEqual(['Harbour Town', 'Hidden Spymaster']);
+  });
+
+  it('never offer a hidden title to a player, by any word', async () => {
+    expect(await titles('dm', 'spymaster')).toEqual(['Hidden Spymaster']);
+    for (const typed of ['spymaster', 'hidden', 'keep', 'unfinished']) expect(await titles('player', typed), typed).toEqual([]);
+  });
+
+  it('treat the typed text literally', async () => {
+    for (const typed of ['%', '_', '\\', '% ', 'a%', '']) expect(await titles('dm', typed), JSON.stringify(typed)).toEqual([]);
+  });
+});
