@@ -117,3 +117,66 @@ describe('Gazette review is bound to the text the DM saw', () => {
     expect((await as('dm', call, [id])).error).toBeUndefined();
   });
 });
+
+describe('two sessions at the same moment', () => {
+  async function open(claims: Record<string, unknown> = {}) {
+    const c = await pool.connect();
+    await c.query('begin');
+    await c.query('set local role authenticated');
+    await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: ids.dm, role: 'authenticated', aud: 'authenticated', aal: 'aal1', ...claims })]);
+    await c.query("set local lock_timeout = '10s'");
+    return c;
+  }
+  const settled = <T>(p: Promise<T>) => Promise.race([p.then(() => 'settled', () => 'settled'), new Promise((r) => setTimeout(() => r('waiting'), 400))]);
+  const close = async (c: pg.PoolClient, ok: boolean) => {
+    await c.query(ok ? 'commit' : 'rollback').catch(() => undefined);
+    c.release();
+  };
+
+  it('two saves of the same article version: the second waits, then gets CONFLICT and writes nothing', async () => {
+    const row = (await admin<{ version: string }>('select version from public.articles where id = $1', [A])).rows[0]!;
+    const draft = (summary: string) => JSON.stringify({ article: { id: A, slug: 'public-article', type: 'character', title: 'Public Article', summary, visibility: 'players', status: 'published' }, sections: [], infobox: [], categoryIds: [] });
+    const first = await open();
+    const second = await open();
+    await first.query('select public.save_article($1::jsonb, $2)', [draft('First tab.'), `v${row.version}`]);
+    const late = second.query('select public.save_article($1::jsonb, $2)', [draft('Second tab.'), `v${row.version}`]);
+    expect(await settled(late)).toBe('waiting');
+    await close(first, true);
+    await expect(late).rejects.toThrow(/CONFLICT/);
+    await close(second, false);
+    expect((await admin('select summary from public.articles where id = $1', [A])).rows[0]!.summary).toBe('First tab.');
+  });
+
+  it('one approved proposal applied twice at once is applied exactly once', async () => {
+    const mcp = { client_id: 'synthetic-mcp-client' };
+    const cs = { label: 'Synthetic', source_kind: 'dm_confirmed', changes: [{ operation: 'create_article', slug: 'zz-once', title: 'Once', type: 'lore' }] };
+    const p = await tx(mcp, (c) => c.query('select public.preview_change_set($1::jsonb) as r', [JSON.stringify(cs)]).then((r) => r.rows[0].r as { preview_id: string; digest: string }));
+    await dm((c) => c.query('select public.approve_change_preview($1)', [p.preview_id]));
+    const first = await open(mcp);
+    const second = await open(mcp);
+    await first.query('select public.apply_change_set($1, $2, $3)', [p.preview_id, p.digest, 'key-race-first']);
+    const late = second.query('select public.apply_change_set($1, $2, $3)', [p.preview_id, p.digest, 'key-race-second']);
+    expect(await settled(late)).toBe('waiting');
+    await close(first, true);
+    await expect(late).rejects.toThrow();
+    await close(second, false);
+    expect((await admin(`select count(*)::int n from public.articles where slug = 'zz-once'`)).rows[0]!.n).toBe(1);
+    expect((await admin(`select count(*)::int n from public.change_sets where preview_id = $1`, [p.preview_id])).rows[0]!.n).toBe(1);
+  });
+
+  it('approving while another tab is saving waits, then refuses the stale approval', async () => {
+    const story = { article: { slug: 'zz-race', title: 'Race', summary: 's' }, sections: [{ heading: '', body: 'Seen.', visibility: 'players', status: 'published' }], details: { section: 'local', reliability: 'confirmed', reporter: 'nib', dateline: '', in_world_date: '', issue_number: 1 } };
+    const id = await dm((c) => c.query('select public.save_news_story($1::jsonb) as r', [JSON.stringify(story)]).then((r) => r.rows[0].r.id as string));
+    await dm((c) => c.query(`select public.news_transition($1, 'submit')`, [id]));
+    const seen = `v${(await admin<{ version: string }>('select version from public.articles where id = $1', [id])).rows[0]!.version}`;
+    const saving = await open();
+    const approving = await open();
+    await saving.query('select public.save_news_story($1::jsonb)', [JSON.stringify({ ...story, article: { ...story.article, id }, sections: [{ heading: '', body: 'UNSEEN.', visibility: 'players', status: 'published' }] })]);
+    const late = approving.query(`select public.news_transition($1, 'approve', $2, null)`, [id, seen]);
+    expect(await settled(late)).toBe('waiting');
+    await close(saving, true);
+    await expect(late).rejects.toThrow(/CONFLICT/);
+    await close(approving, false);
+    expect((await admin<{ s: string }>('select review_state::text s from public.news_stories where article_id = $1', [id])).rows[0]!.s).toBe('in_review');
+  });
+});
