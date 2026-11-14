@@ -21,6 +21,7 @@ Defects found, reproduced and fixed in this pass:
 | H-2 | High (integrity) | Gazette editor: review and printing buttons acted on the saved text while the screen showed unsaved edits, then discarded those edits. | Buttons refuse while there are unsaved changes; leaving the page asks first. | `tests/e2e/unsaved-work.spec.ts` |
 | H-3 | Medium (integrity) | Gazette: a stale tab could approve or print text saved elsewhere that the DM had not seen. | Migration `20261114000100`: `news_transition(uuid, text, text, timestamptz)` binds to the page version and waiting-revision timestamp; the website passes both. | `tests/db/hardening.test.ts` (incl. a two-session race) |
 | H-4 | Medium (integrity) | An assistant connection could insert, change or delete `public.provenance` rows directly. | Same migration: the OAuth write guard now covers `provenance`. | `tests/db/hardening.test.ts` |
+| H-10 | Medium (reliability) | Timeline editor, notes page and the article editor's connection and note panels: a failed save or delete showed nothing; the timeline's Edit button replaced an event being typed. | Failures are shown and the text kept; unsaved-changes prompts. | `tests/e2e/unsaved-work.spec.ts` |
 | H-5 | Low (tooling) | `scripts/e2e-local.sh` exited silently when the build failed. | Prints the build log and says the tests did not run. | — |
 | H-6 | Medium (accessibility) | Keyboard focus could Tab out of the photo dialog onto the covered page. | Focus stays inside the dialog; Escape returns focus to the button. | `tests/e2e/interaction.spec.ts` (fails on old code) |
 | H-7 | Low (correctness) | Search box: a slow answer for earlier typing could replace the current suggestions. | Only the latest request fills the list. | `tests/e2e/interaction.spec.ts` (fails on old code) |
@@ -44,17 +45,23 @@ Known and accepted (not fixed):
 - A player-visible section that links to a DM-only page exposes that page's address through its
   own text and `article_links`. The editor warns about this; the DM decides. Low.
 - Signed picture links already issued stay valid until they expire (10 minutes).
-- `npm audit`: 0 production vulnerabilities; 11 in development-only test tooling (vitest chain),
-  fixable only by a breaking upgrade. Not shipped to users.
+- `npm audit`: 0 production vulnerabilities. Development tooling: vitest 4.1.12 and eslint 10.15.0
+  removed the critical finding; 7 moderate remain (typescript-eslint chain), for which no fixed
+  release exists yet. Not shipped to users. Note: `npm install` of these needed
+  `--legacy-peer-deps` because of an npm resolver crash; `npm ci` works normally.
 - Supabase advisor (production, read-only): "leaked password protection disabled" (owner setting);
   the SECURITY DEFINER notices are intentional, each function checks the caller itself.
-- The timeline editor and map marker forms have no unsaved-changes prompt (short forms).
+- The map marker and fog dialogs have no unsaved-changes prompt (short dialogs).
 - `Workers Builds: chronicle-wiki` fails on every PR; it is a Cloudflare dashboard build for the
   old Worker, not part of this code. Needs the owner's decision in Cloudflare.
 
 Next tasks, in order: (1) owner: backup to permanent private storage and restore rehearsal;
-(2) optional column-level hiding of `current_location_id`; (3) upgrade the vitest tool chain;
-(4) browser tests in CI; (5) unsaved-changes prompt for the timeline editor.
+(2) optional hiding of `current_location_id` (needs a schema change that would break the currently
+deployed site between migration and deploy, so it must ship with a site release); (3) re-check
+`npm audit` when typescript-eslint publishes a fix.
+
+Later the same day: browser tests were added to the CI `db` job; after the tooling upgrade and
+H-10 the local results were unit 98/98, database 272/272, browser 53/53 (PostgreSQL 16.15).
 
 Final verification (2026-11-14, final code, fresh install of all 25 migrations on PostgreSQL
 17.12 with real Auth, Data API and Storage; synthetic data): lint clean; typecheck clean; unit

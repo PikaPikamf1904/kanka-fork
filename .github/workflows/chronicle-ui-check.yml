@@ -35,7 +35,7 @@ jobs:
   # test harness refuses any database that is not the local one it created.
   db:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: chronicle-cloud
@@ -60,6 +60,16 @@ jobs:
           node --test scripts/local-targets.test.mjs
       - name: Database tests
         run: sudo env "PATH=$PATH" npm run test:db
-      - name: Server log on failure
+      # Browser tests: the production build served by Cloudflare's local runtime, against the same
+      # disposable stack. Run as root like the stack, which owns the local keys.
+      - name: Browser for the end-to-end tests
+        run: sudo env "PATH=$PATH" npx playwright install --with-deps chromium
+      - name: Load synthetic sample content
+        run: sudo env "PATH=$PATH" bash scripts/local-stack.sh seed
+      - name: Browser tests
+        run: sudo env "PATH=$PATH" bash scripts/e2e-local.sh --trace off
+      - name: Logs on failure
         if: failure()
-        run: sudo tail -n 80 .local/pg/server.log || true
+        run: |
+          sudo tail -n 80 .local/pg/server.log || true
+          sudo tail -n 40 .local/wrangler.log || true
