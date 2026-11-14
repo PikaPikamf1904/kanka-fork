@@ -74,4 +74,37 @@ test.describe('Unsaved work', () => {
     await stale.getByRole('button', { name: 'Save story' }).click();
     await expect(stale.getByText('Saved. Players cannot see it until you print it.')).toBeVisible();
   });
+
+  test('wiki settings: leaving with unsaved changes asks first, and a failed save says so', async ({ page }) => {
+    await signInAsDm(page);
+    await page.goto('/dm/settings');
+    const tagline = page.getByLabel('Tagline');
+    await expect(tagline).not.toHaveValue('');
+    const original = await tagline.inputValue();
+    await tagline.fill(`${original} (edited)`);
+    await expect(page.getByText('Unsaved changes')).toBeVisible();
+
+    page.once('dialog', (d) => void d.dismiss());
+    await page.getByRole('link', { name: 'DM desk' }).first().click();
+    await expect(page).toHaveURL(/\/dm\/settings$/);
+    await expect(tagline).toHaveValue(`${original} (edited)`);
+
+    // The save fails once (synthetic outage): the page must say so and keep the text.
+    let outage = true;
+    await page.route('**/rest/v1/campaign_settings*', (route) => {
+      if (outage && route.request().method() === 'PATCH') {
+        outage = false;
+        return route.abort();
+      }
+      return route.continue();
+    });
+    await page.getByRole('button', { name: 'Save settings' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Not saved' })).toBeVisible();
+    await expect(tagline).toHaveValue(`${original} (edited)`);
+
+    await tagline.fill(original);
+    await page.getByRole('button', { name: 'Save settings' }).click();
+    await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Unsaved changes')).toHaveCount(0);
+  });
 });
