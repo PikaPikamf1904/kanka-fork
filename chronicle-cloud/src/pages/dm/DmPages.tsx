@@ -15,6 +15,7 @@ import { slugify } from '../../lib/slug.ts';
 import { TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
 import type { ArticleType, PublishStatus, TimelineEvent, Visibility, WikiMap } from '../../lib/types.ts';
 import { useLoad } from '../../lib/useLoad.ts';
+import { useUnsavedGuard } from '../../lib/useUnsavedGuard.ts';
 import { NotFound } from '../NotFound.tsx';
 import { supabase } from '../../lib/supabase.ts';
 
@@ -288,19 +289,36 @@ export function SettingsPage() {
   const places = useLoad(listAllArticleRefs, []);
   const [form, setForm] = useState({ title: '', tagline: '', overview: '', banner_media_id: null as string | null, current_location_id: null as string | null, current_status: '' });
   const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // The form as last loaded or saved; anything different is an unsaved change.
+  const [baseline, setBaseline] = useState<string | null>(null);
   const [loadedFrom, setLoadedFrom] = useState<unknown>(null);
   if (settings.data && settings.data !== loadedFrom) {
     setLoadedFrom(settings.data);
-    setForm({ ...settings.data, current_location_id: settings.data.current_location_id ?? null, current_status: settings.data.current_status ?? '' });
+    const loaded = { ...settings.data, current_location_id: settings.data.current_location_id ?? null, current_status: settings.data.current_status ?? '' };
+    setForm(loaded);
+    setBaseline(JSON.stringify(loaded));
   }
+  const dirty = baseline !== null && JSON.stringify(form) !== baseline;
+  useUnsavedGuard(dirty && !saving);
   return (
     <>
     <form
       className="panel form-grid"
       onSubmit={async (e) => {
         e.preventDefault();
-        await updateSettings(form);
-        setMsg('Saved.');
+        if (saving) return;
+        setSaving(true); setMsg(null); setError(null);
+        try {
+          await updateSettings(form);
+          setBaseline(JSON.stringify(form));
+          setMsg('Saved.');
+        } catch (err) {
+          setError(err instanceof Error ? `Not saved: ${err.message}` : 'Not saved. Check your connection and try again.');
+        } finally {
+          setSaving(false);
+        }
       }}
     >
       <h1 className="page-title span-2">Wiki settings</h1>
@@ -333,7 +351,9 @@ export function SettingsPage() {
         />
       </div>
       <button type="submit" className="button">Save settings</button>
-      {msg && <p className="form-ok">{msg}</p>}
+      {msg && !dirty && <p className="form-ok" role="status">{msg}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {dirty && <p className="fine-print"><span className="badge badge-draft">Unsaved changes</span></p>}
     </form>
     <TwoStepPanel />
     </>
@@ -410,11 +430,15 @@ export function MapEditor() {
     slug: '', title: '', description: '', media_id: null, width: 2000, height: 1500, parent_map_id: null, article_id: null, visibility: 'dm', status: 'draft', fog_enabled: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [baseline, setBaseline] = useState<string>(() => JSON.stringify(form));
   const [loadedFrom, setLoadedFrom] = useState<unknown>(null);
   if (existing.data && existing.data !== loadedFrom) {
     setLoadedFrom(existing.data);
     setForm(existing.data.map);
+    setBaseline(JSON.stringify(existing.data.map));
   }
+  useUnsavedGuard(JSON.stringify(form) !== baseline && !saving);
   if (slug && !existing.loading && !existing.data) return <NotFound what="map" />;
 
   return (
@@ -422,11 +446,14 @@ export function MapEditor() {
       className="panel form-grid"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (saving) return;
         setError(null);
+        setSaving(true); // stays set on success so the redirect to the map is not questioned
         try {
           const saved = await saveMap({ ...form, slug: form.slug || slugify(form.title) });
           navigate(`/maps/${saved.slug}`);
         } catch (err) {
+          setSaving(false);
           setError(err instanceof Error ? err.message : 'Could not save the map.');
         }
       }}

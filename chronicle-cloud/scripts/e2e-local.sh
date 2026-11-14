@@ -22,7 +22,12 @@ IP_HASH_SECRET=$(openssl rand -hex 16)
 EOF
 chmod 600 .dev.vars
 
-VITE_SUPABASE_URL=$SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY npm run build >/dev/null
+# A failed build must say why (it used to exit silently with the compiler's output discarded).
+if ! VITE_SUPABASE_URL=$SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY npm run build > .local/build.log 2>&1; then
+  cat .local/build.log >&2
+  echo 'The build failed; the browser tests were not run.' >&2
+  exit 1
+fi
 
 # A server left on the port (for example from an interrupted run) would answer the tests with
 # old keys and data; refuse to start rather than test the wrong thing.

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../../components/Badges.tsx';
 import { Markdown } from '../../components/Markdown.tsx';
 import { ImageField } from '../../components/images/ImageField.tsx';
@@ -14,6 +14,7 @@ import { slugify, wikiLinkTargets } from '../../lib/slug.ts';
 import { RELATION_KINDS, relationLabel, TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
 import type { ArticleType, PublishStatus, Visibility } from '../../lib/types.ts';
 import { useLoad } from '../../lib/useLoad.ts';
+import { useUnsavedGuard } from '../../lib/useUnsavedGuard.ts';
 
 function blankDraft(type: ArticleType): ArticleDraft {
   const t = TEMPLATES[type];
@@ -46,6 +47,19 @@ function StatusSelect({ value, onChange, label }: { value: PublishStatus; onChan
   );
 }
 
+type LoadedArticle = NonNullable<Awaited<ReturnType<typeof getArticleForEdit>>>;
+
+/** The editable part of a loaded article, in the shape the form and save_article use. */
+function draftOf(e: LoadedArticle): ArticleDraft {
+  const { id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date } = e.article;
+  return {
+    article: { id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date },
+    sections: e.sections.map(({ id: sid, position, heading, body, visibility: v, status: st }) => ({ id: sid, position, heading, body, visibility: v, status: st })),
+    infobox: e.infobox.map(({ id: fid, position, label, value, visibility: v }) => ({ id: fid, position, label, value, visibility: v })),
+    categoryIds: e.categories.map((c) => c.id),
+  };
+}
+
 export function ArticleEditor() {
   const { slug } = useParams();
   const [params] = useSearchParams();
@@ -65,35 +79,29 @@ export function ArticleEditor() {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
 
-  const [loadedFrom, setLoadedFrom] = useState<unknown>(null);
+  // What the form was last loaded from, and the version a save must still find in the database.
+  const [loadedFrom, setLoadedFrom] = useState<LoadedArticle | null>(null);
+  const [baseVersion, setBaseVersion] = useState<number | undefined>(undefined);
   if (existing.data && existing.data !== loadedFrom) {
     const e = existing.data;
+    const next = draftOf(e);
     setLoadedFrom(e);
-    const { id, slug: s, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date } = e.article;
-    setDraft({
-      article: { id, slug: s, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date },
-      sections: e.sections.map(({ id: sid, position, heading, body, visibility: v, status: st }) => ({ id: sid, position, heading, body, visibility: v, status: st })),
-      infobox: e.infobox.map(({ id: fid, position, label, value, visibility: v }) => ({ id: fid, position, label, value, visibility: v })),
-      categoryIds: e.categories.map((c) => c.id),
-    });
-    setDirty(false);
+    const sameArticle = loadedFrom?.article.id === e.article.id;
+    if (dirty && sameArticle && JSON.stringify(draftOf(loadedFrom)) === JSON.stringify(next)) {
+      // Adding a connection, note or redirect reloads the page data and moves the version, but the
+      // article itself is unchanged: keep the unsaved text and save against the new version.
+      setBaseVersion(e.article.version);
+    } else if (!(dirty && sameArticle)) {
+      setDraft(next);
+      setDirty(false);
+      setBaseVersion(e.article.version);
+    }
+    // Otherwise the article changed somewhere else while this form has unsaved text: keep the
+    // text. The next save reports the conflict instead of overwriting either side.
   }
 
   // Warn before leaving with unsaved changes (in-app navigation and tab close).
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !saving && currentLocation.pathname !== nextLocation.pathname);
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      if (window.confirm('You have unsaved changes. Leave without saving?')) blocker.proceed();
-      else blocker.reset();
-    }
-  }, [blocker]);
-  useEffect(() => {
-    const onUnload = (e: BeforeUnloadEvent) => {
-      if (dirty) e.preventDefault();
-    };
-    window.addEventListener('beforeunload', onUnload);
-    return () => window.removeEventListener('beforeunload', onUnload);
-  }, [dirty]);
+  useUnsavedGuard(dirty && !saving);
 
   const update = (patch: Partial<ArticleDraft['article']>) => {
     setDirty(true);
@@ -151,7 +159,7 @@ export function ArticleEditor() {
     saveInFlight.current = true;
     setSaving(true);
     try {
-      const saved = await saveArticle(draft, 'Before save', existing.data?.article.version);
+      const saved = await saveArticle(draft, 'Before save', slug ? baseVersion : undefined);
       setDirty(false);
       setMessage('Saved.');
       if (!slug || saved.slug !== slug) navigate(`/dm/edit/${saved.slug}`, { replace: true });
@@ -355,10 +363,12 @@ export function ArticleEditor() {
                     type="button"
                     className="link-button"
                     onClick={async () => {
-                      if (window.confirm('Restore this version? It comes back as a draft that players cannot see until you publish it. The current version is kept in history first.')) {
+                      const warning = dirty ? ' Your unsaved changes on this page are NOT in history and will be discarded.' : '';
+                      if (window.confirm(`Restore this version? It comes back as a draft that players cannot see until you publish it. The saved current version is kept in history first.${warning}`)) {
                         setError(null);
                         try {
                           await restoreRevision(r.id);
+                          setDirty(false);
                           existing.reload();
                           setMessage('Restored as a draft. Review it, then publish.');
                         } catch (err) {
