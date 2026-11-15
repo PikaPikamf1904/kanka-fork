@@ -23,6 +23,17 @@ export interface Claims {
 
 export class AuthError extends Error {}
 
+/** What to tell an MCP client about a refused token (RFC 6750), and whether it is our fault. */
+export function describeAuthError(error: AuthError): { status: 401 | 503; description: string } {
+  switch (error.message) {
+    case 'signing keys unavailable': return { status: 503, description: 'Chronicle could not check the token right now; try again shortly.' };
+    case 'expired': return { status: 401, description: 'The access token expired; refresh it or sign in again.' };
+    case 'not an OAuth client token': return { status: 401, description: 'This is not a token issued to an OAuth client; connect through OAuth.' };
+    case 'wrong issuer': return { status: 401, description: 'The token was issued by a different sign-in server.' };
+    default: return { status: 401, description: 'The access token is not valid; sign in again.' };
+  }
+}
+
 const b64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,7 +41,12 @@ let jwksCache: { url: string; at: number; keys: (JsonWebKey & { kid?: string })[
 
 async function jwks(url: string, fetchImpl: typeof fetch): Promise<(JsonWebKey & { kid?: string })[]> {
   if (jwksCache && jwksCache.url === url && Date.now() - jwksCache.at < 600_000) return jwksCache.keys;
-  const res = await fetchImpl(url);
+  let res: Response;
+  try {
+    res = await fetchImpl(url);
+  } catch {
+    throw new AuthError('signing keys unavailable');
+  }
   if (!res.ok) throw new AuthError('signing keys unavailable');
   const body = (await res.json()) as { keys?: (JsonWebKey & { kid?: string })[] };
   jwksCache = { url, at: Date.now(), keys: body.keys ?? [] };

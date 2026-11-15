@@ -8,7 +8,7 @@
 // project to an OAuth client. On every request the token is verified, then the DATABASE is asked
 // who the caller is now (role, revoked or not, two-step state), so a revoked DM is refused on the
 // next call even while the token is still unexpired.
-import { AuthError, verifyToken, type AuthEnv } from './auth.ts';
+import { AuthError, describeAuthError, verifyToken, type AuthEnv } from './auth.ts';
 import { makeDb, ToolError } from './db.ts';
 import { SCOPES, TOOLS, toolErrorCode, type Ctx, type Scope, type Whoami } from './tools.ts';
 
@@ -20,7 +20,24 @@ export interface Env extends AuthEnv {
   MCP_CLIENT_SCOPES?: string;
 }
 
-export const SERVER = { name: 'chronicle-mcp', version: '0.3.0' };
+export const SERVER = { name: 'chronicle-mcp', version: '0.4.0' };
+
+/** Whether trying again can help, and what the user or assistant should do. */
+const ERROR_HINTS: Record<string, { retryable: boolean; hint: string }> = {
+  UNAUTHENTICATED: { retryable: false, hint: 'Reconnect Chronicle (sign in again).' },
+  MFA_REQUIRED: { retryable: false, hint: 'Complete two-step sign-in on the Chronicle website, then reconnect.' },
+  FORBIDDEN: { retryable: false, hint: 'This account or connection is not allowed to do this.' },
+  INSUFFICIENT_SCOPE: { retryable: false, hint: 'This connection was set up without this permission.' },
+  NOT_FOUND: { retryable: false, hint: 'The page does not exist, or this account cannot see it.' },
+  VALIDATION_FAILED: { retryable: false, hint: 'Fix the arguments and call again.' },
+  CONFLICT: { retryable: true, hint: 'Something changed meanwhile: read the current version and propose again.' },
+  ALREADY_EXISTS: { retryable: false, hint: 'Use the existing page, or choose another address.' },
+  PREVIEW_EXPIRED: { retryable: true, hint: 'Preview again.' },
+  IDEMPOTENCY_MISMATCH: { retryable: false, hint: 'Use a new idempotency_key for different changes.' },
+  RATE_LIMITED: { retryable: true, hint: 'Wait a moment and try again.' },
+  DEPENDENCY_UNAVAILABLE: { retryable: true, hint: 'Chronicle could not reach its database; try again shortly.' },
+  INTERNAL_ERROR: { retryable: true, hint: 'Try again; if it keeps failing, check the Worker logs by request_id.' },
+};
 const INSTRUCTIONS = [
   'Chronicle is a private Dragonlance campaign wiki. Every tool answers only with what the signed-in person may see; a missing page may simply be hidden from them. Never invent campaign facts, dates or dialogue; say when something is not recorded.',
   'Write (DM only): never save directly. 1) chronicle_find_duplicates for new names; 2) a chronicle_preview_*, chronicle_create_character_draft or chronicle_draft_session_journal tool; 3) show the diff and give the DM the review_url; 4) after the DM approves in Chronicle, chronicle_apply_changes with the preview_id, digest and a new idempotency_key.',
@@ -56,6 +73,7 @@ function scopesFor(clientId: string, env: Env): Scope[] {
   }
 }
 
+const TOO_LARGE = Symbol('too large');
 async function readBody(request: Request): Promise<unknown> {
   if (!request.body) return undefined;
   const reader = request.body.getReader();
@@ -67,7 +85,7 @@ async function readBody(request: Request): Promise<unknown> {
     total += value.byteLength;
     if (total > MAX_BODY) {
       await reader.cancel().catch(() => undefined);
-      return undefined;
+      return TOO_LARGE;
     }
     chunks.push(value);
   }
@@ -110,10 +128,15 @@ export async function handleRequest(request: Request, env: Env, fetchImpl: typeo
     claims = await verifyToken(token, env, fetchImpl);
   } catch (error) {
     if (!(error instanceof AuthError)) console.error('mcp: token check failed');
-    return json({ error: 'UNAUTHENTICATED' }, 401, { 'www-authenticate': `Bearer error="invalid_token", resource_metadata="${metadataUrl}"` });
+    const { status, description } = describeAuthError(error instanceof AuthError ? error : new AuthError('invalid'));
+    if (status === 503) return json({ error: 'DEPENDENCY_UNAVAILABLE', error_description: description, retryable: true }, 503, { 'retry-after': '5' });
+    return json({ error: 'UNAUTHENTICATED', error_description: description }, 401, { 'www-authenticate': `Bearer error="invalid_token", error_description="${description}", resource_metadata="${metadataUrl}"` });
   }
 
+  const declared = Number(request.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declared) && declared > MAX_BODY) return rpcError(null, -32600, `Request too large (limit ${MAX_BODY} bytes).`, 413);
   const msg = await readBody(request);
+  if (msg === TOO_LARGE) return rpcError(null, -32600, `Request too large (limit ${MAX_BODY} bytes).`, 413);
   if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return rpcError(null, -32700, 'Parse error', 400);
   const { id, method, params } = msg as { id?: unknown; method?: unknown; params?: Record<string, unknown> };
   if ((msg as { jsonrpc?: unknown }).jsonrpc !== '2.0' || typeof method !== 'string') return rpcError(id, -32600, 'Invalid request', 400);
@@ -136,7 +159,7 @@ export async function handleRequest(request: Request, env: Env, fetchImpl: typeo
   const reply = (payload: Record<string, unknown>, isError: boolean) => json({ jsonrpc: '2.0', id, result: {
     content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload, isError } });
   const failure = (code: string, message: string, detail: Record<string, unknown> = {}) =>
-    reply({ schema_version: '1', request_id: requestId, error: { code, message, ...detail } }, true);
+    reply({ schema_version: '1', request_id: requestId, error: { code, message, ...ERROR_HINTS[code], ...detail } }, true);
 
   const tool = TOOLS.find((t) => t.name === params?.name);
   if (!tool) return rpcError(id, -32602, 'Unknown tool');
@@ -154,7 +177,7 @@ export async function handleRequest(request: Request, env: Env, fetchImpl: typeo
     if (tool.dmOnly && !who.is_dm) {
       return who.role === 'dm' ? failure('MFA_REQUIRED', 'Complete two-step sign-in, then reconnect.') : failure('FORBIDDEN', 'Only the DM can use this tool.');
     }
-    const ctx: Ctx = { db, who, scopes, reviewBase: env.CHRONICLE_URL.replace(/\/+$/, '') };
+    const ctx: Ctx = { db, who, scopes, reviewBase: env.CHRONICLE_URL.replace(/\/+$/, ''), token: { client_id: claims.client_id, expires_at: new Date(claims.exp * 1000).toISOString() } };
     const data = await tool.run(args as Record<string, unknown>, ctx);
     const meta = tool.name.startsWith('chronicle_preview') || ['chronicle_apply_changes', 'chronicle_create_character_draft', 'chronicle_add_dm_note', 'chronicle_restore_revision', 'chronicle_draft_session_journal'].includes(tool.name)
       ? { change_set_id: (data.change_set_id as string | undefined) ?? null, warnings: (data.warnings as unknown[] | undefined) ?? [], review_required: tool.name !== 'chronicle_apply_changes' }

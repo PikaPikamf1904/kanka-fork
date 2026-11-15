@@ -270,3 +270,53 @@ describe('at scale', () => {
     expect(prep.raw.length).toBeLessThan(40_000);
   });
 });
+
+describe('connection reliability', () => {
+  const raw = (headers: Record<string, string>, body: string, fetchImpl?: typeof fetch) =>
+    handleRequest(new Request('https://mcp.example/mcp', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body }), env, fetchImpl);
+  const list = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+
+  it('an expired token says so, so the client refreshes instead of failing', async () => {
+    const r = await raw({ authorization: `Bearer ${token('dm', { exp: Math.floor(Date.now() / 1000) - 60 })}` }, list);
+    expect(r.status).toBe(401);
+    expect(r.headers.get('www-authenticate')).toMatch(/error="invalid_token", error_description="The access token expired; refresh it or sign in again\.", resource_metadata=/);
+  });
+
+  it('a website session token is told to connect through OAuth', async () => {
+    const r = await raw({ authorization: `Bearer ${token('dm', { client_id: undefined })}` }, list);
+    expect(r.status).toBe(401);
+    expect(((await r.json()) as { error_description: string }).error_description).toMatch(/not a token issued to an OAuth client/);
+  });
+
+  it('signing keys out of reach is a temporary 503, not a failed sign-in', async () => {
+    const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64url');
+    const es = `${b64({ alg: 'ES256', kid: 'synthetic-kid', typ: 'JWT' })}.${b64({ sub: ids.dm })}.c2ln`;
+    const down = (() => Promise.reject(new TypeError('network down'))) as unknown as typeof fetch;
+    const r = await raw({ authorization: `Bearer ${es}` }, list, down);
+    expect(r.status).toBe(503);
+    expect(r.headers.get('retry-after')).toBe('5');
+    expect(await r.json()).toMatchObject({ error: 'DEPENDENCY_UNAVAILABLE', retryable: true });
+  });
+
+  it('a database that cannot be reached is reported as retryable, with a hint', async () => {
+    const down = ((url: string | URL | Request) => (String(url).includes('/rest/v1/') ? Promise.reject(new TypeError('fetch failed')) : fetch(url))) as typeof fetch;
+    const r = await call('chronicle_search', { query: 'x' }, dm(), env, down);
+    expect(r.isError).toBe(true);
+    expect(r.error).toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE', retryable: true });
+    expect(r.raw).not.toMatch(/fetch failed|TypeError/);
+    const bad = await call('chronicle_get_article', { slug: 'Not A Slug' }, dm());
+    expect(bad.error).toMatchObject({ code: 'VALIDATION_FAILED', retryable: false, hint: 'Fix the arguments and call again.' });
+  });
+
+  it('an oversized request is refused with 413, before it is read', async () => {
+    const r = await raw({ authorization: `Bearer ${dm()}`, 'content-length': String(2_000_000) }, list);
+    expect(r.status).toBe(413);
+  });
+
+  it('whoami works as a connection check', async () => {
+    const r = await call('chronicle_whoami', {}, dm());
+    expect(r.data).toMatchObject({ role: 'dm', connection: { client_id: 'synthetic-mcp-client', database: 'reachable' }, can: { read: true, propose: true, save_approved: true } });
+    expect(Date.parse(r.data.connection.token_expires_at)).toBeGreaterThan(Date.now());
+    expect((await call('chronicle_whoami', {}, player())).data.can).toEqual({ read: true, propose: false, save_approved: false });
+  });
+});

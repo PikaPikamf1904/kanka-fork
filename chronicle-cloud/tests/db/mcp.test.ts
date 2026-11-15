@@ -133,7 +133,13 @@ describe('tokens (AUTH-02, 03, 04, 09, 10)', () => {
     for (const [name, t] of bad) {
       const r = await post({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'chronicle_search', arguments: { query: 'captain' } } }, t);
       expect(r.status, name).toBe(401);
-      expect(JSON.stringify(r.json), name).toBe('{"error":"UNAUTHENTICATED"}');
+      // Only a fixed, generic description: never the token, the user or database text.
+      expect(Object.keys(r.json!).sort(), name).toEqual(['error', 'error_description']);
+      expect(r.json!.error, name).toBe('UNAUTHENTICATED');
+      expect([
+        'The access token is not valid; sign in again.', 'The access token expired; refresh it or sign in again.',
+        'This is not a token issued to an OAuth client; connect through OAuth.', 'The token was issued by a different sign-in server.',
+      ], name).toContain(r.json!.error_description);
     }
   });
 
@@ -176,7 +182,7 @@ describe('reading as a player never leaks (AUTH-05, 06, 12, 13, 15)', () => {
   it('a guessed hidden slug is NOT_FOUND, exactly like a missing one', async () => {
     const hidden = await call('chronicle_get_character', { slug: 'secret-article' }, player());
     const missing = await call('chronicle_get_character', { slug: 'no-such-page' }, player());
-    expect(hidden.error).toEqual({ code: 'NOT_FOUND', message: 'No such page.' });
+    expect(hidden.error).toEqual({ code: 'NOT_FOUND', message: 'No such page.', retryable: false, hint: 'The page does not exist, or this account cannot see it.' });
     expect(missing.error).toEqual(hidden.error);
     expect((await call('chronicle_get_article', { slug: 'draft-article' }, player())).error.code).toBe('NOT_FOUND');
     expect((await call('chronicle_get_character', { slug: 'secret-article' }, dm())).data.character.title).toBe('Hidden Spymaster');
