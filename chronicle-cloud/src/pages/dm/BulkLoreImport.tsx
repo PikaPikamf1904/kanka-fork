@@ -110,6 +110,7 @@ export function BulkLoreImport() {
     <div>
       <p className="muted"><Link to="/dm">DM desk</Link> › Lore import</p>
       <h1 className="page-title">Import campaign lore</h1>
+      <p className="callout">Many files, or Markdown notes? Use <Link to="/dm/import/batches">a staged import</Link>: Chronicle sorts the entries, finds duplicates and conflicts, and you approve them one by one or in groups before anything is saved.</p>
 
       <section className="panel">
         <h2>Choose a package</h2>

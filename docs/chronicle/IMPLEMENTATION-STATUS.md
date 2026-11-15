@@ -1,5 +1,48 @@
 # Chronicle implementation status
 
+## 2026-11-15 — MCP integration and lore import (branch `claude/chronicle-mcp-lore-import`)
+
+Resume here. Local and pushed only; **nothing applied to production**, nothing deployed, no real
+lore imported. Base: `claude/chronicle-hardening` `2264cca4d` (PR #28 → #27 → #26).
+
+**MCP, verified for real (locally):** the local stack now runs Supabase Auth 2.182.1 with its
+OAuth 2.1 server, and the e2e script runs the MCP Worker in Cloudflare's local runtime.
+`tests/e2e/mcp-oauth.spec.ts` performs a real client connection: discovery from the Worker's 401,
+RFC 8414 metadata, dynamic registration, PKCE, the DM's consent in the browser, code exchange,
+MCP over HTTP, refresh, direct Data API write refused (403), proposal saved only after website
+approval, idempotent apply; refusal gives no code. Bug found and fixed: the consent page showed
+a blank assistant name (the Auth server sends `client_name`).
+
+**New MCP tools (server 0.3.0):** `chronicle_campaign_overview`, `chronicle_topic`,
+`chronicle_list_quests`, `chronicle_session_prep`, `chronicle_wiki_health`,
+`chronicle_draft_session_journal`, `chronicle_draft_gazette_story` (returns a draft for the news
+desk; the change-set engine does not accept story pages, so it never saves or prints),
+`chronicle_stage_import`, `chronicle_list_import_batches`, `chronicle_get_import_batch`. Measured
+on 3,000 synthetic pages: every tool under 120 ms; the quest tools failed at scale and the
+overviews were too large (fixed: batched lookups, capped lists with counts).
+
+**Lore import:** `src/lib/loreImport.ts` (Markdown and JSON, classification with confidence,
+canon levels, matching by address/redirect/title/alias, conflicts reported never applied,
+suggested connections, bounded resumable parts, stable keys, recovery from the engine's record);
+migration `20261115000100_import_batches.sql`; website staging and review pages; MCP staging. See
+[`LORE-IMPORT.md`](LORE-IMPORT.md). Existing pages only gain DM-only additions, and only when
+approved entry by entry.
+
+**Verification (final code, fresh install of 26 migrations on PostgreSQL 17.12, synthetic
+data):** lint and typecheck clean; unit 115/115; database 290/290; browser 60/60 (includes the
+OAuth round trip, staged import on desktop and phone, assistant Gazette draft); stack safety
+checks pass; no secret key in the build; 0 skipped. A pre-existing test that depended on the
+order of two rows with the same timestamp was made order-independent (it still requires both).
+
+**Needs the owner:**
+- `chronicle-cloud/lore/dragonlance/pack.json` is real campaign lore committed to this public
+  repository by an earlier session (commits 91154c0df, eac943e5c). It is untouched here. Removing
+  it from the current branch does not remove it from history; decide whether to remove it and
+  whether the repository should be private.
+- Connecting ChatGPT to the hosted Worker (steps in `CONNECT-CHRONICLE-MCP.md`), backup and
+  restore rehearsal, then approval of the 13-migration bundle.
+
+
 ## 2026-11-14 — independent review and hardening (branch `claude/chronicle-hardening`, PR #28)
 
 Resume here. Local and pushed only; **nothing applied to production** (hosted project still has

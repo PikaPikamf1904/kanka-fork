@@ -643,3 +643,21 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
   .rows > .row { flex-wrap: wrap; }
   .rows > .row > input { flex: 1 1 100%; }
 }
+
+/* Staged lore import */
+.callout { border-left: 4px solid var(--gold); padding: 0.5rem 0.75rem; background: color-mix(in srgb, var(--gold) 8%, transparent); }
+.import-page pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.import-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.5rem; margin: 0; }
+.import-totals div { border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem; }
+.import-totals dt { font-size: 0.85rem; }
+.import-totals dd { margin: 0; font-size: 1.25rem; font-weight: 600; }
+.import-items { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.5rem; }
+.import-item { border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem 0.75rem; overflow-wrap: anywhere; }
+.import-item.approved { border-left: 4px solid var(--gold); }
+.import-item-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.import-item-head input[type='checkbox'], .import-relation input[type='checkbox'] { width: 1.4rem; height: 1.4rem; }
+.import-item p { margin: 0.25rem 0; }
+.import-summary-text { font-size: 0.95rem; }
+.import-relation { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; overflow-wrap: anywhere; }
+.import-batch-list { padding-left: 1.2rem; }
+.import-batch-list li { margin: 0.35rem 0; overflow-wrap: anywhere; }

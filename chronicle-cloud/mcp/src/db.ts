@@ -11,6 +11,8 @@ export class ToolError extends Error {
 export interface Db {
   get<T>(pathAndQuery: string): Promise<T[]>;
   rpc<T>(fn: string, args: Record<string, unknown>): Promise<T>;
+  /** Insert one row and return it (Row Level Security and triggers decide what is allowed). */
+  insert<T>(table: string, row: Record<string, unknown>, select: string): Promise<T>;
 }
 
 export function makeDb(base: string, publishableKey: string, token: string, fetchImpl: typeof fetch): Db {
@@ -45,6 +47,11 @@ export function makeDb(base: string, publishableKey: string, token: string, fetc
       const res = await fetchImpl(`${root}/${pathAndQuery}`, { headers });
       if (!res.ok) return fail(res);
       return (await res.json()) as T[];
+    },
+    async insert<T>(table: string, row: Record<string, unknown>, select: string) {
+      const res = await fetchImpl(`${root}/${table}?select=${select}`, { method: 'POST', headers: { ...headers, prefer: 'return=representation' }, body: JSON.stringify(row) });
+      if (!res.ok) return fail(res);
+      return ((await res.json()) as T[])[0]!;
     },
     async rpc<T>(fn: string, args: Record<string, unknown>) {
       const res = await fetchImpl(`${root}/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(args) });

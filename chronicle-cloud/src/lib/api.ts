@@ -2,6 +2,7 @@
 // signed-in user may see, so nothing here filters secrets client-side.
 import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
+import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, type WikiIndex } from './loreImport.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
@@ -780,4 +781,53 @@ export async function revokeAllPlayers(): Promise<number> {
 
 export async function renameMember(userId: string, displayName: string) {
   must(await supabase.from('campaign_members').update({ display_name: displayName }).eq('user_id', userId).select('user_id'));
+}
+
+// ---------- Staged lore imports (DM only; see src/lib/loreImport.ts) ----------
+export interface ImportBatchRow {
+  id: string; label: string; source_name: string; status: 'staged' | 'saving' | 'done' | 'abandoned';
+  created_at: string; updated_at: string; created_via: string;
+}
+export interface ImportBatch extends ImportBatchRow { staged: StagedImport; decisions: Decisions; progress: ProgressEntry[] }
+
+export async function listImportBatches(): Promise<(ImportBatchRow & { entries: number })[]> {
+  const rows = must(await supabase.from('import_batches').select('id, label, source_name, status, created_at, updated_at, created_via, items:staged->items').order('created_at', { ascending: false }).limit(100)) as unknown as (ImportBatchRow & { items: unknown[] | null })[];
+  return rows.map(({ items, ...r }) => ({ ...r, entries: Array.isArray(items) ? items.length : 0 }));
+}
+
+export async function getImportBatch(id: string): Promise<ImportBatch | null> {
+  const { data, error } = await supabase.from('import_batches').select('*').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const d = data as ImportBatch;
+  return { ...d, decisions: { ...emptyDecisions(), ...d.decisions } };
+}
+
+export async function stageImportBatch(label: string, sourceName: string, staged: StagedImport): Promise<string> {
+  const row = must(await supabase.from('import_batches').insert({ label, source_name: sourceName.slice(0, 300), staged }).select('id').single()) as { id: string };
+  return row.id;
+}
+
+export async function updateImportBatch(id: string, patch: Partial<Pick<ImportBatch, 'decisions' | 'progress' | 'status'>>) {
+  must(await supabase.from('import_batches').update(patch).eq('id', id).select('id'));
+}
+
+export async function deleteImportBatch(id: string) {
+  must(await supabase.from('import_batches').delete().eq('id', id).select('id'));
+}
+
+/** The wiki as the DM sees it, for matching an import against existing pages. */
+export async function loadWikiIndex(): Promise<WikiIndex> {
+  const [articles, fields, redirects, categories] = await Promise.all([
+    fetchAll((from, to) => supabase.from('articles').select('id, slug, title, type, version, visibility, status').order('id').range(from, to)),
+    fetchAll((from, to) => supabase.from('infobox_fields').select('article_id, label, value').order('id').range(from, to)),
+    fetchAll((from, to) => supabase.from('redirects').select('from_slug, article_id').order('from_slug').range(from, to)),
+    fetchAll((from, to) => supabase.from('categories').select('id, slug, name').order('id').range(from, to)),
+  ]);
+  return { articles, fields, redirects, categories } as WikiIndex;
+}
+
+/** Saved change sets of this import (found by key), to recover parts saved but not recorded. */
+export async function importChangeSets(prefix: string) {
+  return must(await supabase.from('change_sets').select('id, idempotency_key, result').like('idempotency_key', `${prefix}%`).order('created_at')) as { id: string; idempotency_key: string; result: { created?: string[]; updated?: string[] } | null }[];
 }

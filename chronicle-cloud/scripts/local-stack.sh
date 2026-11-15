@@ -22,7 +22,8 @@ STORAGE_PORT=54332
 # Official Supabase init scripts, pinned.
 SUPABASE_POSTGRES_REPO=https://github.com/supabase/postgres.git
 SUPABASE_POSTGRES_COMMIT=c6226c6
-GOTRUE_IMAGE=supabase/gotrue:v2.177.0
+# 2.182 includes the OAuth 2.1 server that MCP clients sign in through (as on the hosted project).
+GOTRUE_IMAGE=supabase/gotrue:v2.182.1
 POSTGREST_IMAGE=postgrest/postgrest:v12.2.12
 STORAGE_IMAGE=supabase/storage-api:v1.25.7
 
@@ -141,7 +142,10 @@ up() {
     -e API_EXTERNAL_URL="http://127.0.0.1:$GATEWAY_PORT/auth/v1" \
     -e GOTRUE_DB_DRIVER=postgres \
     -e GOTRUE_DB_DATABASE_URL="postgres://supabase_auth_admin@127.0.0.1:$PG_PORT/postgres?sslmode=disable" \
-    -e GOTRUE_SITE_URL=http://127.0.0.1:5173 -e GOTRUE_DISABLE_SIGNUP=true \
+    -e GOTRUE_SITE_URL=http://127.0.0.1:8788 -e GOTRUE_DISABLE_SIGNUP=true \
+    -e GOTRUE_URI_ALLOW_LIST='http://127.0.0.1:*/**' \
+    -e GOTRUE_OAUTH_SERVER_ENABLED=true -e GOTRUE_OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION=true \
+    -e GOTRUE_OAUTH_SERVER_AUTHORIZATION_PATH=/dm/connect -e GOTRUE_JWT_ISSUER="http://127.0.0.1:$GATEWAY_PORT/auth/v1" \
     -e GOTRUE_JWT_ADMIN_ROLES=service_role -e GOTRUE_JWT_AUD=authenticated \
     -e GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated -e GOTRUE_JWT_EXP=3600 -e GOTRUE_JWT_SECRET="$secret" \
     -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true -e GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED=false \

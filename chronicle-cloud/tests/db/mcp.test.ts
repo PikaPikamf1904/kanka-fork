@@ -102,11 +102,14 @@ describe('protocol and discovery', () => {
     expect((await post({ jsonrpc: '2.0', id: 2, method: 'ping' }, dm())).json!.result).toEqual({});
     const tools = (await post({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, dm())).json!.result.tools as { name: string; annotations: { readOnlyHint: boolean }; inputSchema: { type: string } }[];
     expect(tools.map((t) => t.name).sort()).toEqual([
-      'chronicle_add_dm_note', 'chronicle_apply_changes', 'chronicle_audit_links', 'chronicle_create_character_draft', 'chronicle_find_duplicates',
-      'chronicle_get_article', 'chronicle_get_character', 'chronicle_get_provenance', 'chronicle_get_revisions', 'chronicle_get_timeline',
-      'chronicle_list_characters', 'chronicle_list_drafts', 'chronicle_list_sessions', 'chronicle_preview_changes', 'chronicle_preview_import',
-      'chronicle_restore_revision', 'chronicle_search', 'chronicle_suggest_connections', 'chronicle_whoami']);
-    expect(tools.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name)).toEqual(['chronicle_apply_changes']);
+      'chronicle_add_dm_note', 'chronicle_apply_changes', 'chronicle_audit_links', 'chronicle_campaign_overview', 'chronicle_create_character_draft',
+      'chronicle_draft_gazette_story', 'chronicle_draft_session_journal', 'chronicle_find_duplicates',
+      'chronicle_get_article', 'chronicle_get_character', 'chronicle_get_import_batch', 'chronicle_get_provenance', 'chronicle_get_revisions', 'chronicle_get_timeline',
+      'chronicle_list_characters', 'chronicle_list_drafts', 'chronicle_list_import_batches', 'chronicle_list_quests', 'chronicle_list_sessions',
+      'chronicle_preview_changes', 'chronicle_preview_import', 'chronicle_restore_revision', 'chronicle_search', 'chronicle_session_prep',
+      'chronicle_stage_import', 'chronicle_suggest_connections', 'chronicle_topic', 'chronicle_whoami', 'chronicle_wiki_health']);
+    // Only these write anything: applying an approved preview, and staging an import (which never touches the wiki).
+    expect(tools.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name).sort()).toEqual(['chronicle_apply_changes', 'chronicle_stage_import']);
     expect(tools.every((t) => t.inputSchema.type === 'object')).toBe(true);
     expect(JSON.stringify(tools)).not.toMatch(/publish_article|delete|sql|access.code|password/i);
     expect((await post({ jsonrpc: '2.0', id: 4, method: 'resources/list' }, dm())).json!.error.code).toBe(-32601);

@@ -144,11 +144,17 @@ export function OAuthConsentPage() {
   if (details.error || !details.data) return <p className="form-error" role="alert">{details.error ?? 'This connection request is not valid or has expired.'}</p>;
   if ('redirecting' in details.data) return <p className="muted" role="status">You allowed this connection before. Returning you to the assistant…</p>;
   const d = details.data;
+  // The Auth server sends the registered name as client_name (older releases: name). A request
+  // without a name is shown as such, never as a blank, so the DM always knows who is asking.
+  const client = d.client as { name?: string; client_name?: string; client_id?: string; id?: string };
+  const clientName = (client.client_name ?? client.name ?? '').trim();
+  const clientId = client.client_id ?? client.id ?? '';
   return (
     <div>
       <h1 className="page-title">Connect an assistant to Chronicle</h1>
       <section className="panel">
-        <p><strong>{d.client.name}</strong> is asking to connect to this wiki as you.</p>
+        <p><strong>{clientName || 'An assistant that did not give its name'}</strong> is asking to connect to this wiki as you.</p>
+        {clientId && <p className="fine-print">Client id: <code>{clientId}</code></p>}
         <p>If you allow it, it can:</p>
         <ul>
           <li>read everything you can read, including DM-only pages and notes;</li>
