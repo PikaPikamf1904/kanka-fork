@@ -1,4 +1,4 @@
-# Chronicle release bundle — 12 pending migrations (updated 2026-11-14)
+# Chronicle release bundle — 13 pending migrations (updated 2026-11-15)
 
 **Status: NOT APPROVED FOR PRODUCTION.** Prepared and verified locally only. No part of this bundle
 has been applied to the hosted project. Nothing may be applied until the gates in section 5 are met
@@ -28,9 +28,10 @@ Apply in exactly this order, each file in its own transaction. Each file require
 
 | 11 | `20261114000100_provenance_guard_and_review_binding.sql` | `bcf825ec45064020e81eba7a3ec0e7f0288388c82b24d2c6ae9437ac77bd96c2` | Assistants cannot write source records directly; Gazette approval and printing are bound to the text the DM saw |
 | 12 | `20261114000200_suggest_any_word.sql` | `c4dae1fa857fe189ddf09d2f810b6fd605b0a14e223e15ba8119bf2c5619af2e` | Search suggestions match the start of any word in a title (still limited by Row Level Security) |
+| 13 | `20261115000100_import_batches.sql` | `f061399790a426f4bc2ad89118b0cb9f9c151b49f9b6f8cdec34d2f7a26d25c6` | Staged lore imports (DM only; an assistant may stage and read, never approve or save) |
 
 Check before applying, from `chronicle-cloud/`:
-`sha256sum supabase/migrations/2026111200140* supabase/migrations/2026111205* supabase/migrations/20261113* supabase/migrations/20261114*`
+`sha256sum supabase/migrations/2026111200140* supabase/migrations/2026111205* supabase/migrations/20261113* supabase/migrations/20261114* supabase/migrations/20261115*`
 must print exactly the hashes above. Applied migrations 1–13 are not modified by this bundle.
 
 ## 2. Schema and data compatibility
@@ -59,10 +60,11 @@ must print exactly the hashes above. Applied migrations 1–13 are not modified 
 
 ## 3. Local verification (synthetic data only)
 
-Run on 2026-11-14 with all 12 files, on both PostgreSQL 16.15 and **PostgreSQL 17.12** (official
+Files 1–12 run on 2026-11-14 on both PostgreSQL 16.15 and **PostgreSQL 17.12** (official
 17 binaries, same real Auth, Data API and Storage services as the 16 stack):
 
-- **Fresh install** of all 25 migrations: succeeded on both versions.
+- **Fresh install:** all 25 migrations then on both versions; all 26 (with file 13) on
+  PostgreSQL 17.12 on 2026-11-15, followed by the full database (290) and browser (60) suites.
 - **Upgrade simulation:** stack built with migrations through 13 only, seeded, plus 49 DM-only
   draft pages and 3 Gazette drafts (the production shape), a picture, a revision and a source
   record. The files applied in order, one transaction per file: all succeeded. Data fingerprint
@@ -72,7 +74,7 @@ Run on 2026-11-14 with all 12 files, on both PostgreSQL 16.15 and **PostgreSQL 1
   plus all Storage policies: identical.
 - **Tests on PostgreSQL 17:** database suite and browser suite pass on the fresh install, and the
   database suite again on the upgraded database (exact counts in `IMPLEMENTATION-STATUS.md`).
-- File 12 was added after the upgrade run of files 1 to 11; it was applied on top of that upgraded
+- Files 12 and 13 were added after the upgrade run of files 1 to 11; it was applied on top of that upgraded
   PostgreSQL 17 database and the suites were run again.
 - Not re-runnable: migration 4 uses `create function` and `create trigger` without `or replace`, so a
   partially applied bundle must be resumed from the first unapplied file, not restarted.
@@ -103,7 +105,7 @@ How to repeat the PostgreSQL 17 run: `PGBIN=<dir with PostgreSQL 17 initdb/pg_ct
 
 Read-only queries, then a DM walk-through:
 
-- `select version, name from supabase_migrations.schema_migrations order by version` shows all 25.
+- `select version, name from supabase_migrations.schema_migrations order by version` shows all 26.
 - `select count(*), count(*) filter (where visibility = 'players' and status = 'published') from public.articles`
   — the second number is unchanged from before (expected 0).
 - `select count(*) from public.articles where type = 'news' and status = 'published'` — unchanged (expected 0).
