@@ -1,7 +1,7 @@
 // Lore import: parsing, classification, matching against the wiki and change-set building.
 // Synthetic campaign material only.
 import { describe, expect, it } from 'vitest';
-import { analyzeImport, buildChunks, emptyDecisions, importReport, markdownEntries, parseImportFiles, type WikiIndex } from './loreImport.ts';
+import { analyzeImport, buildChunks, emptyDecisions, entryForChange, importReport, markdownEntries, missingCategories, parseImportFiles, progressFromResult, similarName, type WikiIndex } from './loreImport.ts';
 
 const wiki: WikiIndex = {
   articles: [
@@ -215,5 +215,49 @@ describe('comparing with the wiki', () => {
     expect(r).toContain('Conflict, not applied: Race');
     expect(r).toContain('Nothing was published.');
     expect(r).toContain('Part 1: applied');
+  });
+});
+
+describe('near duplicates, categories and progress', () => {
+  it('similar names: punctuation, "the", accents and small typos; short names must match exactly', () => {
+    expect(similarName('Port Synthetic', 'The Port-Synthetic')).toBe(true);
+    expect(similarName('Port Synthetic', 'Port Synthetik')).toBe(true);
+    expect(similarName('Mira Vale', 'Mira Vael')).toBe(true);
+    expect(similarName('Café Rouge', 'Cafe Rouge')).toBe(true);
+    expect(similarName('Kai', 'Kay')).toBe(false);
+    expect(similarName('Port Synthetic', 'Fort Ironwood')).toBe(false);
+    expect(similarName('Synthetic Place 1', 'Synthetic Place 2')).toBe(false);
+    expect(similarName('Session 12', 'Session 13')).toBe(false);
+  });
+
+  it('an entry close to an existing page name is flagged and not approved by default', () => {
+    const s = parseImportFiles([md('a.md', '# Port Synthetik\nA typo of the port.'), md('b.md', '# Brand New Place\nNew.')]);
+    const a = analyzeImport(s, wiki);
+    const typo = a.items.find((i) => i.slug === 'port-synthetik')!;
+    expect(typo).toMatchObject({ action: 'create', default_decision: 'review', similar_in_wiki: [{ slug: 'port-synthetic', title: 'Port Synthetic' }] });
+    expect(a.items.find((i) => i.slug === 'brand-new-place')!.default_decision).toBe('approve');
+    expect(a.totals.duplicates).toBe(1);
+  });
+
+  it('missing categories are listed once, with how many approved entries name them, and are not created unless chosen', () => {
+    const s = parseImportFiles([md('a.md', '---\ntitle: Zz One\ntags: [Sea Folk, Harbour folk]\n---\nx'), md('b.md', '---\ntitle: Zz Two\ntags: [sea folk]\n---\ny')]);
+    const a = analyzeImport(s, wiki);
+    const d = emptyDecisions();
+    expect(missingCategories(a, d)).toEqual([{ name: 'Sea Folk', slug: 'sea-folk', entries: 2, create: false }]);
+    d.categories = { 'sea-folk': 'approve' };
+    expect(missingCategories(a, d)[0]!.create).toBe(true);
+    d.items['zz-one'] = 'reject';
+    expect(missingCategories(a, d)[0]!.entries).toBe(1);
+  });
+
+  it('progress counts only what the engine saved; a skipped entry is reported, not marked saved', () => {
+    const s = parseImportFiles([md('a.md', '# Zz Alpha\nx'), md('b.md', '# Zz Beta\ny')]);
+    const a = analyzeImport(s, wiki);
+    const [chunk] = buildChunks(s, a, emptyDecisions(), 'b7', 'P', wiki);
+    const p = progressFromResult(chunk!, { change_set_id: 'cs', skipped: ['zz-beta'] }, 'now');
+    expect(p.slugs).toEqual(['zz-alpha']);
+    expect(p.message).toMatch(/zz-beta/);
+    expect(entryForChange(chunk!, a, chunk!.changeSet.changes.findIndex((c) => 'article_slug' in c && c.article_slug === 'zz-beta') + 1)).toBe('zz-beta');
+    expect(entryForChange(chunk!, a, 999)).toBeNull();
   });
 });

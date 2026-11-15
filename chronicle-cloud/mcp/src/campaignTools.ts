@@ -400,7 +400,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const items = new Map(b.staged.items.map((i) => [i.slug, i]));
       const decisions: Decisions = { items: b.decisions.items ?? {}, relations: b.decisions.relations ?? {}, types: b.decisions.types ?? {} };
       const filter = (['all', 'conflicts', 'duplicates', 'new', 'existing', 'uncertain_type'] as const).find((f) => f === a.filter) ?? 'all';
-      const keep = analysis.items.filter((x) => filter === 'all' || (filter === 'conflicts' && x.conflicts.length > 0) || (filter === 'duplicates' && (x.match || x.similar_in_import.length > 0))
+      const keep = analysis.items.filter((x) => filter === 'all' || (filter === 'conflicts' && x.conflicts.length > 0) || (filter === 'duplicates' && (x.match || x.similar_in_import.length > 0 || x.similar_in_wiki.length > 0))
         || (filter === 'new' && x.action === 'create') || (filter === 'existing' && x.action === 'add_to_existing') || (filter === 'uncertain_type' && items.get(x.slug)!.typeConfidence !== 'high'));
       const limit = typeof a.limit === 'number' && a.limit >= 1 && a.limit <= 200 ? Math.floor(a.limit) : 50;
       const offset = typeof a.offset === 'number' && a.offset >= 0 ? Math.floor(a.offset) : 0;
@@ -410,7 +410,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
           const it = items.get(x.slug)!;
           return { slug: x.slug, title: it.title, source: it.source, type: decisions.types[x.slug] ?? it.type, type_confidence: it.typeConfidence, type_reason: it.typeReason, canon: CANON_LABEL[it.canon],
             proposal: x.action === 'create' ? 'new page' : x.action === 'imported' ? 'already saved' : `additions to "${x.match!.title}"`, match_reason: x.match?.why ?? null,
-            similar_in_import: x.similar_in_import, conflicts: x.conflicts, missing_links: x.links.missing, missing_categories: x.categories.missing,
+            similar_in_import: x.similar_in_import, similar_existing_pages: x.similar_in_wiki, conflicts: x.conflicts, missing_links: x.links.missing, missing_categories: x.categories.missing,
             dm_choice: x.action === 'imported' ? 'saved' : decisionOf(decisions, x.slug, x) === 'approve' ? 'approved' : 'not approved' };
         }),
         next_offset: offset + limit < keep.length ? offset + limit : null,

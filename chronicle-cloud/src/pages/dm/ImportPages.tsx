@@ -5,11 +5,12 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
-  deleteImportBatch, getImportBatch, importChangeSets, listImportBatches, loadWikiIndex, stageImportBatch, updateImportBatch, type ImportBatch,
+  createCategory, deleteImportBatch, getImportBatch, importChangeSets, listImportBatches, loadWikiIndex, stageImportBatch, updateImportBatch, type ImportBatch,
 } from '../../lib/api.ts';
 import { applyChanges, ChronicleError, previewChanges } from '../../lib/changeSets.ts';
 import {
-  analyzeImport, CANON_LABEL, chunkKeyPrefix, decisionOf, IMPORT_LIMITS, importReport, nextChunk, parseImportFiles, pendingRelations, recoverProgress, relationDecision,
+  analyzeImport, CANON_LABEL, chunkKeyPrefix, decisionOf, entryForChange, IMPORT_LIMITS, importReport, missingCategories, nextChunk, parseImportFiles, pendingRelations,
+  progressFromResult, recoverProgress, relationDecision,
   type Decisions, type ImportAnalysis, type ItemAnalysis, type ProgressEntry, type StagedImport, type WikiIndex,
 } from '../../lib/loreImport.ts';
 import { TEMPLATES, TYPE_ORDER } from '../../lib/templates.ts';
@@ -175,7 +176,7 @@ export function ImportReviewPage() {
     switch (filter) {
       case 'new': return a.action === 'create';
       case 'existing': return a.action === 'add_to_existing';
-      case 'duplicates': return a.action !== 'imported' && (a.match !== null || a.similar_in_import.length > 0);
+      case 'duplicates': return a.action !== 'imported' && (a.match !== null || a.similar_in_import.length > 0 || a.similar_in_wiki.length > 0);
       case 'conflicts': return a.conflicts.length > 0;
       case 'guessed': return it.typeConfidence !== 'high';
       case 'approved': return approved(a);
@@ -187,6 +188,7 @@ export function ImportReviewPage() {
   const approvedItems = analysis.items.filter(approved);
   const approvedRelations = analysis.relations.filter((r) => !doneRelations.has(r.key) && relationDecision(d, r) === 'approve');
   const stuck = pendingRelations(analysis, d, data.wiki, doneRelations);
+  const newCategories = missingCategories(analysis, d);
   const t = analysis.totals;
 
   const change = (fn: (x: Decisions) => void) => {
@@ -217,14 +219,28 @@ export function ImportReviewPage() {
     if (decisions && !(await saveChoices())) { setBusy(''); return; }
     let progress = [...data!.progress];
     let saved = 0;
+    let failing: { slug: string | null; chunk: import('../../lib/loreImport.ts').ImportChunk; analysis: ImportAnalysis } | null = null;
     try {
       await updateImportBatch(batch.id, { status: 'saving', progress });
+      // Categories the DM chose to create come first, so the pages can be filed in them.
+      const existing = new Set((await loadWikiIndex()).categories.map((c) => c.slug));
+      for (const c of missingCategories(analysis!, choices)) {
+        if (c.create && !existing.has(c.slug)) await createCategory({ name: c.name.slice(0, 80), slug: c.slug, kind: 'category', visibility: 'dm' });
+      }
       for (let guard = 0; guard < 500; guard++) {
         const wiki = await loadWikiIndex();
-        const { chunk, remaining } = nextChunk(batch.staged, wiki, choices, batch.id, batch.label, progress);
+        const { chunk, remaining, analysis: current } = nextChunk(batch.staged, wiki, choices, batch.id, batch.label, progress);
         setSaveState({ done: saved, total: saved + remaining });
         if (!chunk) break;
-        const preview = await previewChanges(chunk.changeSet);
+        failing = { slug: null, chunk, analysis: current };
+        let preview;
+        try {
+          preview = await previewChanges(chunk.changeSet);
+        } catch (err) {
+          const index = err instanceof ChronicleError && typeof err.detail.index === 'number' ? err.detail.index : null;
+          if (index) failing.slug = entryForChange(chunk, current, index);
+          throw err;
+        }
         if (preview.conflicts.length > 0 || !preview.preview_id) {
           throw new ChronicleError('CONFLICT', `A page changed while you were reviewing (${preview.conflicts.map((c) => c.slug).join(', ')}). Nothing in this part was saved; the list below is up to date — check it and save again.`);
         }
@@ -236,14 +252,16 @@ export function ImportReviewPage() {
           if (err instanceof ChronicleError && err.code !== 'INTERNAL_ERROR' && err.code !== 'DEPENDENCY_UNAVAILABLE') throw err;
           result = await applyChanges(preview, chunk.idempotencyKey);
         }
-        progress = [...progress, { chunk: chunk.index, key: chunk.idempotencyKey, slugs: chunk.slugs, relations: chunk.relationKeys, status: 'applied', change_set_id: result.change_set_id, at: new Date().toISOString() }];
+        progress = [...progress, progressFromResult(chunk, result, new Date().toISOString())];
         await updateImportBatch(batch.id, { progress });
         saved++;
       }
       await updateImportBatch(batch.id, { status: 'done', progress });
-      setMessage({ ok: true, text: `Saved ${saved} ${saved === 1 ? 'part' : 'parts'}. Every new page and section is a DM-only draft. Nothing was published.` });
+      const skipped = progress.filter((p) => p.message?.startsWith('not saved')).map((p) => p.message);
+      setMessage({ ok: true, text: `Saved ${saved} ${saved === 1 ? 'part' : 'parts'}. Every new page and section is a DM-only draft. Nothing was published.${skipped.length ? ` Some entries were ${skipped.join('; ')}: they now show as additions to that page.` : ''}` });
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? `Saving stopped: ${err.message} Parts already saved stay saved; “Save approved entries” continues where it stopped.` : 'Saving stopped. Try again to continue.' });
+      const who = failing?.slug ? ` The problem is in “${batch.staged.items.find((i) => i.slug === failing!.slug)?.title ?? failing.slug}”: fix it in your notes or reject that entry, then save again.` : '';
+      setMessage({ ok: false, text: err instanceof Error ? `Saving stopped: ${err.message}${who} Parts already saved stay saved; saving again continues where it stopped.` : 'Saving stopped. Try again to continue.' });
     } finally {
       setBusy(''); setSaveState(null);
       loaded.reload();
@@ -344,6 +362,7 @@ export function ImportReviewPage() {
                   </label>
                 )}
                 {a.similar_in_import.length > 0 && <p className="fine-print form-error">May be the same subject as: {a.similar_in_import.join(', ')} (in this import).</p>}
+                {a.similar_in_wiki.length > 0 && <p className="fine-print form-error">A page with a similar name already exists: {a.similar_in_wiki.map((w, i) => <span key={w.slug}>{i > 0 && ', '}<Link to={`/wiki/${w.slug}`}>{w.title}</Link></span>)}. Check it is not the same subject before approving.</p>}
                 {a.conflicts.length > 0 && (
                   <ul className="fine-print import-conflicts" aria-label={`Conflicts for ${it.title}`}>
                     {a.conflicts.map((c) => <li key={c.label}><strong>{c.label}</strong>: the wiki says “{c.existing}”, this import says “{c.imported}”. Not changed; noted privately.</li>)}
@@ -365,6 +384,24 @@ export function ImportReviewPage() {
         </ul>
         {shown.length > 300 && <p className="muted">Showing the first 300; use the filter to narrow the list.</p>}
       </section>
+
+      {newCategories.length > 0 && (
+        <section className="panel" aria-labelledby="import-categories">
+          <h2 id="import-categories">Categories that do not exist yet</h2>
+          <p className="fine-print">Approved entries name these categories. Tick the ones to create (DM-only; rename or publish them later on the categories page); unticked ones are skipped.</p>
+          <ul className="import-items">
+            {newCategories.map((c) => (
+              <li key={c.slug} className="import-relation">
+                <label className="checkbox">
+                  <input type="checkbox" checked={c.create} disabled={busy !== ''} onChange={(e) => change((x) => { x.categories = { ...(x.categories ?? {}), [c.slug]: e.target.checked ? 'approve' : 'reject' }; })} />
+                  <span>{c.name}</span>
+                </label>
+                <span className="muted fine-print">({c.entries} {c.entries === 1 ? 'entry' : 'entries'})</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {analysis.relations.length > 0 && (
         <section className="panel">
