@@ -20,12 +20,14 @@ export interface Env extends AuthEnv {
   MCP_CLIENT_SCOPES?: string;
 }
 
-export const SERVER = { name: 'chronicle-mcp', version: '0.2.0' };
+export const SERVER = { name: 'chronicle-mcp', version: '0.3.0' };
 const INSTRUCTIONS = [
-  'Chronicle is a private Dragonlance campaign wiki. Every tool answers only with what the signed-in person may see; a missing page may simply be hidden from them.',
-  'Read: chronicle_search, then chronicle_get_article (slug or id) or chronicle_get_character; chronicle_list_sessions and chronicle_get_timeline for recaps and story order.',
-  'Write (DM only): never save directly. 1) chronicle_find_duplicates for new names; 2) a chronicle_preview_* or chronicle_create_character_draft tool; 3) show the diff and give the DM the review_url; 4) after the DM approves in Chronicle, chronicle_apply_changes with the preview_id, digest and a new idempotency_key.',
-  'Everything saved is a private, unpublished draft. Never invent campaign facts; mark uncertain or planned material with source_kind.',
+  'Chronicle is a private Dragonlance campaign wiki. Every tool answers only with what the signed-in person may see; a missing page may simply be hidden from them. Never invent campaign facts, dates or dialogue; say when something is not recorded.',
+  'Write (DM only): never save directly. 1) chronicle_find_duplicates for new names; 2) a chronicle_preview_*, chronicle_create_character_draft or chronicle_draft_session_journal tool; 3) show the diff and give the DM the review_url; 4) after the DM approves in Chronicle, chronicle_apply_changes with the preview_id, digest and a new idempotency_key.',
+  'Start here: chronicle_campaign_overview (where the party is, the situation, the party, latest sessions, open quests). "Everything about X": chronicle_topic. Search: chronicle_search, then chronicle_get_article or chronicle_get_character. Quests: chronicle_list_quests. Story order: chronicle_list_sessions, chronicle_get_timeline.',
+  'DM tools: chronicle_session_prep for the next session; chronicle_wiki_health for duplicates, broken links and contradictions (suggestions only).',
+  'Gazette: chronicle_draft_gazette_story returns a draft for the DM to paste into the news desk; only the DM saves, reviews and prints. Lore imports: chronicle_stage_import, then the DM reviews and saves at review_url; chronicle_get_import_batch shows duplicates, conflicts and progress.',
+  'Everything saved is a private, unpublished draft. Mark uncertain or planned material with source_kind; rumours from the Gazette are not canon.',
 ].join('\n');
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY = 1_100_000;
@@ -154,7 +156,7 @@ export async function handleRequest(request: Request, env: Env, fetchImpl: typeo
     }
     const ctx: Ctx = { db, who, scopes, reviewBase: env.CHRONICLE_URL.replace(/\/+$/, '') };
     const data = await tool.run(args as Record<string, unknown>, ctx);
-    const meta = tool.name.startsWith('chronicle_preview') || ['chronicle_apply_changes', 'chronicle_create_character_draft', 'chronicle_add_dm_note', 'chronicle_restore_revision'].includes(tool.name)
+    const meta = tool.name.startsWith('chronicle_preview') || ['chronicle_apply_changes', 'chronicle_create_character_draft', 'chronicle_add_dm_note', 'chronicle_restore_revision', 'chronicle_draft_session_journal'].includes(tool.name)
       ? { change_set_id: (data.change_set_id as string | undefined) ?? null, warnings: (data.warnings as unknown[] | undefined) ?? [], review_required: tool.name !== 'chronicle_apply_changes' }
       : {};
     return reply({ schema_version: '1', request_id: requestId, ...meta, data }, false);

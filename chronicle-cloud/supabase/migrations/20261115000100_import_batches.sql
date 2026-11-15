@@ -63,7 +63,9 @@ begin
   end if;
   if tg_op = 'UPDATE' then
     -- The entries themselves are fixed once staged; stage a new batch to change them.
-    if new.staged is distinct from old.staged or new.id <> old.id or new.created_by is distinct from old.created_by
+    -- created_by may only become empty (the account was deleted: "on delete set null").
+    if new.staged is distinct from old.staged or new.id <> old.id
+       or (new.created_by is distinct from old.created_by and new.created_by is not null)
        or new.created_via <> old.created_via or new.created_at <> old.created_at then
       raise exception 'A staged import cannot be rewritten; stage a new one' using errcode = '42501';
     end if;

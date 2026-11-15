@@ -4,6 +4,7 @@
 // delete a page, change members or run SQL.
 import type { ChangeOp, ChangeSet, ErrorCode, Preview, ProvenanceKind } from '../../src/lib/changeSetTypes.ts';
 import { packageToChangeSet, parsePackage, wikiLinkTargets } from '../../src/lib/lorePackage.ts';
+import { CAMPAIGN_TOOLS } from './campaignTools.ts';
 import { ToolError, type Db } from './db.ts';
 
 export const SCOPES = ['chronicle:read', 'chronicle:preview', 'chronicle:draft_write', 'chronicle:revision_restore'] as const;
@@ -13,7 +14,7 @@ export interface Whoami { principal_id: string; role: 'dm' | 'player' | null; is
 export interface Ctx { db: Db; who: Whoami; scopes: Scope[]; reviewBase: string }
 
 type Json = Record<string, unknown>;
-interface Tool {
+export interface Tool {
   name: string;
   description: string;
   scope: Scope;
@@ -475,6 +476,7 @@ export const TOOLS: Tool[] = [
       return previewOf(ctx, { label: 'Restore revision', changes: [{ operation: 'restore_revision', article_slug: slugArg(a.article_slug, 'article_slug'), expected_version: str(a.expected_version, 'expected_version', 20), revision_id: rev }] });
     },
   },
+  ...CAMPAIGN_TOOLS,
 ];
 
 export function toolErrorCode(error: unknown): { code: ErrorCode; message: string; detail: Json } {

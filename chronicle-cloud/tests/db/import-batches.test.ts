@@ -75,6 +75,10 @@ describe('import batches', () => {
     expect((await as('dm', `update public.import_batches set decisions = '{"items":{"synthetic-harbour":"reject"},"relations":{},"types":{}}', status = 'saving' where id = $1 returning status`, [id])).rows[0]).toEqual({ status: 'saving' });
     expect((await as('dm', `update public.import_batches set staged = '{"items":[]}' where id = $1`, [id])).error?.code).toBe('42501');
     expect((await as('dm', `update public.import_batches set status = 'published' where id = $1`, [id])).error?.code).toBe('23514');
+    expect((await as('dm', `update public.import_batches set created_by = $2 where id = $1`, [id, ids.player])).error?.code).toBe('42501');
+    // Deleting the account that staged it only clears the link.
+    await admin(`update public.import_batches set created_by = $2 where id = $1`, [id, ids.dm]).catch(() => undefined);
+    expect((await admin(`update public.import_batches set created_by = null where id = $1 returning id`, [id])).rowCount).toBe(1);
   });
 
   it('saving approved entries creates DM-only drafts once, even when every part is retried', async () => {

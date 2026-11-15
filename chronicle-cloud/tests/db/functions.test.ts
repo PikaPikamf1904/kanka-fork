@@ -168,13 +168,15 @@ describe('revisions', () => {
       const revisions = await client.query<{ note: string }>('select note from public.revisions where article_id = $1 order by created_at', [A]);
       expect(title.rows[0]!.title).toBe('Visible Captain');
       expect(sections.rowCount).toBe(3);
-      expect(revisions.rows.map((r) => r.note)[0]).toBe('before edit');
+      // Both snapshots are taken in this one transaction, so they share a timestamp: check that both
+      // exist rather than their order.
+      expect(revisions.rows.map((r) => r.note)).toContain('before edit');
       expect(revisions.rows.some((r) => r.note.startsWith('Before restoring'))).toBe(true);
       // Restored sections keep their links.
       const links = await client.query('select target_slug from public.article_links');
       expect(links.rowCount).toBeGreaterThan(0);
-      await client.query('rollback');
     } finally {
+      await client.query('rollback').catch(() => undefined);
       client.release();
     }
   });
@@ -190,8 +192,8 @@ describe('revision retention', () => {
       for (let i = 0; i < 35; i++) await client.query("select public.snapshot_article($1, $2)", [A, `save ${i}`]);
       const { rows } = await client.query<{ n: string }>('select count(*) as n from public.revisions where article_id = $1', [A]);
       expect(rows[0]!.n).toBe('30');
-      await client.query('rollback');
     } finally {
+      await client.query('rollback').catch(() => undefined);
       client.release();
     }
   });
