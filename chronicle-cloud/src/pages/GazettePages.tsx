@@ -402,6 +402,54 @@ function StoryActions({ id, state, printed, pending = null, busy, act }: { id: s
   return <span className="gz-actions">{b('Print for players', 'publish', 'button small')}{b('Back to draft', 'return')}</span>;
 }
 
+/**
+ * Paste a story drafted by an assistant (chronicle_draft_gazette_story). It only fills the form:
+ * nothing is saved, and review and printing stay with the DM.
+ */
+function AssistantDraft({ onUse }: { onUse: (d: { title: string; subtitle: string; summary: string; body: string; slug: string; details: Partial<NewsDraft['details']> }) => void }) {
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+  function use() {
+    setError('');
+    let raw: unknown;
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      setError('That is not a draft from the assistant (it is not JSON). Ask it for the "draft" object.');
+      return;
+    }
+    const d = (raw as { draft?: unknown }).draft ?? raw;
+    const x = d as { kind?: string; article?: Record<string, unknown>; body?: unknown; details?: Record<string, unknown> };
+    if (x?.kind !== 'chronicle-gazette-draft' || typeof x.article?.title !== 'string' || typeof x.body !== 'string') {
+      setError('That is not a Gazette draft from the assistant.');
+      return;
+    }
+    const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
+    const det = x.details ?? {};
+    onUse({
+      title: str(x.article.title, 200), subtitle: str(x.article.subtitle, 200), summary: str(x.article.summary, 2000), body: str(x.body, 30000), slug: slugify(str(x.article.title, 200)),
+      details: {
+        ...(SECTIONS.some((s) => s.key === det.section) ? { section: det.section as NewsSection } : {}),
+        ...(Object.keys(RELIABILITY).includes(String(det.reliability)) ? { reliability: det.reliability as NewsReliability } : {}),
+        ...(STAFF.some((r) => r.key === det.reporter) ? { reporter: det.reporter as string } : {}),
+        dateline: str(det.dateline, 120), in_world_date: str(det.in_world_date, 120),
+      },
+    });
+    setText('');
+  }
+  return (
+    <details className="panel gz-assistant-draft">
+      <summary>Start from an assistant draft</summary>
+      <p className="fine-print">Paste the draft an assistant prepared with <code>chronicle_draft_gazette_story</code>. It fills the form only: nothing is saved until you save, and only you can send it for review and print it.</p>
+      <label className="span-2">Assistant draft
+        <textarea rows={4} value={text} onChange={(ev) => setText(ev.target.value)} />
+      </label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button type="button" className="button secondary small" disabled={!text.trim()} onClick={use}>Use this draft</button>
+    </details>
+  );
+}
+
 const EMPTY_DETAILS: NewsDraft['details'] = {
   section: 'local', reliability: 'confirmed', reporter: 'mossbottom', dateline: '', in_world_date: '', issue_number: null, is_lead: false, corrects_article_id: null,
 };
@@ -525,6 +573,7 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
       )}
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
 
+      {!e && !preview && <AssistantDraft onUse={(draft) => { setForm((f) => ({ ...f, ...draft, details: { ...f.details, ...draft.details } })); setDirty(true); setMessage({ ok: true, text: 'The assistant draft is in the form below. Check every fact, then save it as a private draft.' }); }} />}
       {preview ? (
         <StoryView title={form.title} kicker="" deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} heroMediaId={form.heroMediaId} />
       ) : (

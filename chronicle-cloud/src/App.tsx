@@ -20,6 +20,8 @@ const ChangeReviewPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) =
 const OAuthConsentPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.OAuthConsentPage })));
 const MediaLibrary = lazy(() => import('./pages/dm/MediaLibrary.tsx').then((m) => ({ default: m.MediaLibrary })));
 const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
+const ImportBatchesPage = lazy(() => import('./pages/dm/ImportPages.tsx').then((m) => ({ default: m.ImportBatchesPage })));
+const ImportReviewPage = lazy(() => import('./pages/dm/ImportPages.tsx').then((m) => ({ default: m.ImportReviewPage })));
 const gazette = (name: 'GazetteFront' | 'GazetteArchive' | 'GazetteArticle' | 'GazetteDesk' | 'GazetteEditor') =>
   lazy(() => import('./pages/GazettePages.tsx').then((m) => ({ default: m[name] })));
 const GazetteFront = gazette('GazetteFront');
@@ -83,6 +85,8 @@ const router = createBrowserRouter([
           { index: true, element: page(<DmDesk />) },
           { path: 'new', element: page(<ArticleEditor />) },
           { path: 'import', element: page(<BulkLoreImport />) },
+          { path: 'import/batches', element: page(<ImportBatchesPage />) },
+          { path: 'import/:batchId', element: page(<ImportReviewPage />) },
           { path: 'review/:previewId', element: page(<ChangeReviewPage />) },
           { path: 'connect', element: page(<OAuthConsentPage />) },
           { path: 'edit/:slug', element: page(<ArticleEditor />) },

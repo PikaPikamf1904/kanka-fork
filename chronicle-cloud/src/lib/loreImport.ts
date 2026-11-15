@@ -71,7 +71,7 @@ const TITLE_HINTS: [RegExp, ArticleType, string][] = [
   [/\b(battle|siege|fall|sack|war|massacre|coronation|festival)\s+of\b/i, 'event', 'The title names an event ("Battle of …").'],
   [/^(quest|mission|task|job)\b|:\s*(quest|mission)\b/i, 'quest', 'The title names a quest.'],
   [/\b(order|guild|knights|brotherhood|sisterhood|cult|clan|council|circle|society|company|army|legion|syndicate|church|cabal)\b/i, 'faction', 'The title has a word used for groups.'],
-  [/\b(city|town|village|keep|fortress|castle|port|harbou?r|forest|woods?|mountains?|river|lake|tower|temple|inn|tavern|isle|island|kingdom|realm|valley|road|bridge|ruins|caverns?|caves?|district|market)\b/i, 'location', 'The title has a word used for places.'],
+  [/\b(city|town|village|keep|fortress|castle|port|harbou?r|forest|woods?|mountains?|river|lake|tower|temple|inn|tavern|isle|island|kingdom|realm|valley|road|bridge|ruins|caverns?|caves?|district|market|lighthouse|docks?|shrine|hall|manor|estate|camp|mine|pass|sea|bay|coast|desert|swamp|marsh|citadel|outpost|fort|plains?|hills?|cove|grove|quarter)\b/i, 'location', 'The title has a word used for places.'],
   [/\b(sword|blade|staff|ring|amulet|orb|lance|shield|tome|book|crown|dagger|axe|bow|cloak|helm|gem|key|map of)\b/i, 'item', 'The title has a word used for objects.'],
 ];
 const PERSON_FIELDS = /^(race|species|class|level|pronouns|occupation|alignment)$/i;
