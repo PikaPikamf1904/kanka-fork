@@ -34,6 +34,10 @@ http.createServer((req, res) => {
     res.end();
     return;
   }
+  // OAuth discovery at the RFC 8414 address, as the hosted project serves it.
+  for (const doc of ['oauth-authorization-server', 'openid-configuration']) {
+    if (req.url === `/.well-known/${doc}/auth/v1`) req.url = `/auth/v1/.well-known/${doc}`;
+  }
   const route = routes.find(([prefix]) => req.url.startsWith(prefix + '/') || req.url === prefix);
   if (!route) {
     res.writeHead(404, cors);
