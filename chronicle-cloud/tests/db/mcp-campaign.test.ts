@@ -248,3 +248,22 @@ describe('staged imports through MCP', () => {
     expect((await admin('select count(*)::int n from public.import_batches')).rows[0]!.n).toBe(0);
   });
 });
+
+describe('at scale', () => {
+  it('300 quests: the quest list works (ids sent in batches) and overviews stay short', async () => {
+    await world();
+    await admin(`insert into public.articles (slug, type, title, summary, visibility, status) select 'zz-q-' || g, 'quest', 'Zz Quest ' || g, repeat('x', 100), 'players', 'published' from generate_series(1, 300) g`);
+    await admin(`insert into public.infobox_fields (article_id, label, value, visibility) select id, 'Status', 'Open', 'players' from public.articles where slug like 'zz-q-%'`);
+    const list = await call('chronicle_list_quests', { state: 'open', limit: 200 }, dm());
+    expect(list.isError, list.raw.slice(0, 300)).toBe(false);
+    expect(list.data.count).toBe(302); // 300 + zz-find-the-bell + the DM-only zz-secret-plot
+    expect(list.data.quests).toHaveLength(200);
+    const overview = await call('chronicle_campaign_overview', {}, dm());
+    expect(overview.data.open_quests).toHaveLength(15);
+    expect(overview.data.open_quest_count).toBe(302);
+    expect(overview.raw.length).toBeLessThan(40_000);
+    const prep = await call('chronicle_session_prep', {}, dm());
+    expect(prep.data.unfinished_quests).toHaveLength(25);
+    expect(prep.raw.length).toBeLessThan(40_000);
+  });
+});

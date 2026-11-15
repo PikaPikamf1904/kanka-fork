@@ -49,7 +49,10 @@ function questState(status: string | null): 'open' | 'finished' | 'unknown' {
 
 async function fieldsFor(db: Db, ids: string[], labels: string[]) {
   if (ids.length === 0) return new Map<string, Record<string, string>>();
-  const rows = await db.get<{ article_id: string; label: string; value: string }>(`infobox_fields?select=article_id,label,value&article_id=in.(${ids.join(',')})&label=in.(${labels.map(enc).join(',')})`);
+  // In batches: hundreds of ids in one address would be refused as too long.
+  const parts: string[][] = [];
+  for (let i = 0; i < ids.length; i += 80) parts.push(ids.slice(i, i + 80));
+  const rows = (await Promise.all(parts.map((part) => db.get<{ article_id: string; label: string; value: string }>(`infobox_fields?select=article_id,label,value&article_id=in.(${part.join(',')})&label=in.(${labels.map(enc).join(',')})`)))).flat();
   const out = new Map<string, Record<string, string>>();
   for (const r of rows) out.set(r.article_id, { ...out.get(r.article_id), [r.label]: r.value });
   return out;
@@ -108,7 +111,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const n = typeof a.sessions === 'number' && a.sessions >= 1 && a.sessions <= 10 ? Math.floor(a.sessions) : 3;
       const [settings, members, sessions, q] = await Promise.all([
         ctx.db.get<{ title: string; tagline: string; current_location_id: string | null; current_status: string }>('campaign_settings?select=title,tagline,current_location_id,current_status'),
-        party(ctx.db), latestSessions(ctx.db, n), quests(ctx.db, 100),
+        party(ctx.db), latestSessions(ctx.db, n), quests(ctx.db, 1000),
       ]);
       const s = settings[0];
       const loc = s?.current_location_id ? (await ctx.db.get<Art>(`articles?select=${ART}&id=eq.${s.current_location_id}`))[0] ?? null : null;
@@ -119,8 +122,10 @@ export const CAMPAIGN_TOOLS: Tool[] = [
         current_situation: s?.current_status || null,
         party: members,
         latest_sessions: sessions,
-        open_quests: q.filter((x) => x.state === 'open'),
-        quests_with_unrecorded_status: q.filter((x) => x.state === 'unknown').map((x) => ({ slug: x.slug, title: x.title, status_as_written: x.status_as_written })),
+        open_quests: q.filter((x) => x.state === 'open').slice(0, 15),
+        open_quest_count: q.filter((x) => x.state === 'open').length,
+        quests_with_unrecorded_status: q.filter((x) => x.state === 'unknown').slice(0, 15).map((x) => ({ slug: x.slug, title: x.title, status_as_written: x.status_as_written })),
+        more: 'Use chronicle_list_quests for every quest.',
       };
     },
   },
@@ -131,7 +136,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
     async run(a: Json, ctx: CampaignCtx) {
       const state = (['open', 'finished', 'unknown', 'not_finished', 'all'] as const).find((x) => x === a.state) ?? (a.state === undefined ? 'not_finished' : bad('state is not valid.'));
       const limit = typeof a.limit === 'number' && a.limit >= 1 && a.limit <= 200 ? Math.floor(a.limit) : 50;
-      const all = await quests(ctx.db, 500);
+      const all = await quests(ctx.db, 1000);
       const pick = all.filter((x) => state === 'all' || (state === 'not_finished' ? x.state !== 'finished' : x.state === state));
       return { state, count: pick.length, quests: pick.slice(0, limit), note: state === 'not_finished' ? 'Includes quests whose status is not recorded (state "unknown").' : null };
     },
@@ -187,7 +192,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const [settings, sessions, q, members] = await Promise.all([
         ctx.db.get<{ current_location_id: string | null; current_status: string }>('campaign_settings?select=current_location_id,current_status'),
         ctx.db.get<Art>(`articles?select=${ART},session_date&type=eq.session&order=session_date.desc.nullslast,updated_at.desc,id&limit=${n}`),
-        quests(ctx.db, 200), party(ctx.db),
+        quests(ctx.db, 1000), party(ctx.db),
       ]);
       const sections = sessions.length ? await ctx.db.get<{ article_id: string; heading: string; body: string }>(`article_sections?select=article_id,heading,body&article_id=in.(${sessions.map((s) => s.id).join(',')})&order=position`) : [];
       const linked = [...new Set(sections.flatMap((s) => wikiLinkTargets(s.body)).map(slugOf))].filter((t) => SLUG.test(t)).slice(0, 60);
@@ -205,7 +210,8 @@ export const CAMPAIGN_TOOLS: Tool[] = [
         current_location: loc[0] ? { slug: loc[0].slug, title: loc[0].title, summary: clip(loc[0].summary, 300) } : null,
         connected_to_location: near.flatMap((r) => { const o = r.source_article_id === locId ? r.target : r.source; return o ? [{ kind: r.kind, slug: o.slug, title: o.title, type: o.type }] : []; }),
         current_situation: settings[0]?.current_status || null,
-        unfinished_quests: q.filter((x) => x.state !== 'finished'),
+        unfinished_quests: q.filter((x) => x.state !== 'finished').slice(0, 25).map((x) => ({ slug: x.slug, title: x.title, state: x.state, status_as_written: x.status_as_written, objective: x.objective, given_by: x.given_by })),
+        unfinished_quest_count: q.filter((x) => x.state !== 'finished').length,
         party: members,
         mentioned_in_latest_sessions: { characters: byType('character'), locations: byType('location'), factions: byType('faction'), items: byType('item'), other: linkedPages.filter((p) => !['character', 'location', 'faction', 'item'].includes(p.type)).map((p) => ({ slug: p.slug, title: p.title, type: p.type })) },
         missing_links_in_latest_sessions: linked.filter((t) => !linkedPages.some((p) => p.slug === t)),
