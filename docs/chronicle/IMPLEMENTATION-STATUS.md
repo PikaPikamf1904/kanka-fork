@@ -1,5 +1,34 @@
 # Chronicle implementation status
 
+## 2026-11-15 — release prep (branch `claude/chronicle-release-prep`, draft PR #30)
+
+Resume here. Local, committed and pushed only; **nothing applied to production**, nothing
+deployed, no real lore imported. Base: `claude/chronicle-mcp-lore-import` `a88c32202` (PR #29).
+
+- **Gazette drafts through approval** (`20261116000200_news_proposals.sql`): the MCP tool files
+  a proposal; the DM accepts it on the news desk (saved as a private draft through
+  `save_news_story`) or dismisses it. Assistants cannot accept, dismiss, rewrite or delete
+  proposals (database trigger), and the paste box is gone.
+- **Current-location privacy** (`20261116000100_location_privacy.sql`): reproduced that a player
+  could select `campaign_settings.current_location_id` even when it pointed at a DM-only page.
+  The column is no longer selectable; `campaign_location()` answers the DM always and a member
+  only for a published player page. Deployment order matters, see the release bundle.
+- **Importer:** similar-name detection against the wiki, missing categories created only when
+  ticked, failing entry named, and a fix for entries the engine skipped (page created by someone
+  else after review) being counted as imported.
+- **Map editor:** marker and fog dialogs confirm before Cancel, switching or leaving drops edits.
+- **MCP 0.4.0 reliability:** RFC 6750 error descriptions, 503 when signing keys are unreachable,
+  retryable database errors, `retryable`/`hint` on every error, 413 for oversized bodies,
+  `chronicle_whoami` connection diagnostics.
+- **Upgrade rehearsal** `scripts/upgrade-simulation.sh` on PostgreSQL 17.12: hosted migration
+  13 → all 15 pending files; data unchanged; schema and Storage policies equal to a fresh install.
+- **Transitional check:** the new website on files 1–13 only (before 14–15): reader pages work
+  through the fallback; each full page load logs one 404 for the missing function (only the
+  first call per load is attempted).
+
+Verified on the final code (local, PostgreSQL 17.12): lint 0, typecheck 0, unit 119/119,
+database 306/306, browser 61/61.
+
 ## 2026-11-15 — MCP integration and lore import (branch `claude/chronicle-mcp-lore-import`)
 
 Resume here. Local and pushed only; **nothing applied to production**, nothing deployed, no real

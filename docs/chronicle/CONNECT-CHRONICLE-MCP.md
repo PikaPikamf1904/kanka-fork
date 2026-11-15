@@ -71,16 +71,19 @@ Read (DM): `chronicle_session_prep` (recorded material for the next session; no 
 
 Propose (DM, saves no content): `chronicle_preview_changes`, `chronicle_preview_import`,
 `chronicle_create_character_draft`, `chronicle_draft_session_journal`, `chronicle_add_dm_note`,
-`chronicle_restore_revision`, and `chronicle_draft_gazette_story` (returns a draft the DM pastes
-into the news desk under **Start from an assistant draft**; it never saves or prints).
+`chronicle_restore_revision`, and `chronicle_draft_gazette_story` (files a story proposal that
+appears on the news desk under **Story proposals**; the DM reads it and either accepts it, which
+saves it as a private draft, or dismisses it. The assistant cannot accept, review, approve or
+print, and players never see proposals).
 
 Stage (DM, writes nothing to the wiki): `chronicle_stage_import` — the DM reviews and saves the
 batch at `/dm/import/<id>`. See [LORE-IMPORT.md](LORE-IMPORT.md).
 
 Save (DM, after approval in Chronicle): `chronicle_apply_changes`.
 
-All tools except `chronicle_apply_changes` and `chronicle_stage_import` carry `readOnlyHint`, so
-ChatGPT asks for confirmation only before those. There is no publish, print, delete, member,
+All tools except `chronicle_apply_changes`, `chronicle_stage_import` and
+`chronicle_draft_gazette_story` carry `readOnlyHint`, so ChatGPT asks for confirmation only before
+those three. There is no publish, print, delete, member,
 access-code, SQL or URL-fetch tool.
 
 ### Things to ask
@@ -95,7 +98,7 @@ access-code, SQL or URL-fetch tool.
 | "Find contradictions in my campaign notes." | `chronicle_wiki_health` |
 | "Help me prepare next session." | `chronicle_session_prep` |
 | "Prepare an update to this character's page." | `chronicle_get_article`, then `chronicle_preview_changes` (you approve at the review link) |
-| "Draft a Goblin Gazette article about …" | `chronicle_draft_gazette_story` (you paste it into the news desk) |
+| "Draft a Goblin Gazette article about …" | `chronicle_draft_gazette_story` (you accept or dismiss it on the news desk) |
 | "Review these session notes and propose wiki updates." | `chronicle_draft_session_journal`, `chronicle_find_duplicates`, `chronicle_preview_changes` |
 | "Import these notes." | `chronicle_stage_import` (you review and save at the batch link) |
 
@@ -170,6 +173,23 @@ To disconnect: revoke the client's grant in the Supabase dashboard (takes effect
 token expires, about an hour), or revoke at once by removing the Worker or its route.
 
 ## Troubleshooting
+
+Start with `chronicle_whoami`. Besides who is connected, it reports `connection` (the OAuth client
+id, when the token expires, whether the database answered) and `can` (read, propose, save
+approved changes).
+
+Every tool error carries `code`, `retryable` and a `hint`. `DEPENDENCY_UNAVAILABLE`
+(database out of reach), `RATE_LIMITED` and `INTERNAL_ERROR` are worth retrying as they are;
+`CONFLICT` and `PREVIEW_EXPIRED` after reading or previewing again; `FORBIDDEN`, `NOT_FOUND` and
+`VALIDATION_FAILED` are not. A hidden page and a missing page give the same answer.
+
+HTTP answers from the Worker:
+- **401** with `WWW-Authenticate: Bearer error="invalid_token", error_description="…"`: the token
+  is missing, malformed, from another issuer, or expired. An expired token means "refresh and
+  retry"; most clients do this by themselves, otherwise reconnect.
+- **503** with `Retry-After: 5`: the Worker could not fetch Supabase's signing keys. The token
+  was not judged; retry shortly.
+- **413**: the request body is over the size limit.
 
 - **ChatGPT says "Request is not valid" after you click Allow, and no tools appear.** Look in
   Supabase → Logs → Auth for `POST /oauth/token` with status 400. If the message says

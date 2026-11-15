@@ -1,4 +1,4 @@
-# Chronicle release bundle — 13 pending migrations (updated 2026-11-15)
+# Chronicle release bundle — 15 pending migrations (updated 2026-11-15)
 
 **Status: NOT APPROVED FOR PRODUCTION.** Prepared and verified locally only. No part of this bundle
 has been applied to the hosted project. Nothing may be applied until the gates in section 5 are met
@@ -25,13 +25,14 @@ Apply in exactly this order, each file in its own transaction. Each file require
 | 8 | `20261113000300_photo_integrity.sql` | `e6da0b60bdae21fb6d3656a300a146c492d5a087c693131f7a8e70821ea4a98f` | Storage cannot move, overwrite or re-upload registered files; in-use covers history and proposals; attach/delete locking; assistants cannot read files |
 | 9 | `20261113000400_mcp_public_content.sql` | `f33ca435f682b158afe67e1d81a04763448ec402751fdfbaa8f55e6a7bf24ab8` | CH-102: assistant change sets cannot change anything players see; a client named "web" is not the website |
 | 10 | `20261113000500_gazette_review_integrity.sql` | `7b902f2ea804f9284a88b464481eb29083b71535dcee7489b56b5ae269127ed1` | CH-103: changing an approved story sends it back to review |
-
 | 11 | `20261114000100_provenance_guard_and_review_binding.sql` | `bcf825ec45064020e81eba7a3ec0e7f0288388c82b24d2c6ae9437ac77bd96c2` | Assistants cannot write source records directly; Gazette approval and printing are bound to the text the DM saw |
 | 12 | `20261114000200_suggest_any_word.sql` | `c4dae1fa857fe189ddf09d2f810b6fd605b0a14e223e15ba8119bf2c5619af2e` | Search suggestions match the start of any word in a title (still limited by Row Level Security) |
 | 13 | `20261115000100_import_batches.sql` | `f061399790a426f4bc2ad89118b0cb9f9c151b49f9b6f8cdec34d2f7a26d25c6` | Staged lore imports (DM only; an assistant may stage and read, never approve or save) |
+| 14 | `20261116000100_location_privacy.sql` | `399259c88f44ae740f755b486208c70474ebd3d7bfa5f504fe4ea49c3a202153` | Players can no longer read the current-location id directly; `campaign_location()` shows it only when that page is published to players |
+| 15 | `20261116000200_news_proposals.sql` | `7676f3e7bd8295dad2e187bc3fd324116221f07f3fabd1d0165cee7a97a28016` | Assistant Gazette story proposals; only the DM, on the website, accepts (as a private draft) or dismisses |
 
 Check before applying, from `chronicle-cloud/`:
-`sha256sum supabase/migrations/2026111200140* supabase/migrations/2026111205* supabase/migrations/20261113* supabase/migrations/20261114* supabase/migrations/20261115*`
+`sha256sum supabase/migrations/2026111200140* supabase/migrations/2026111205* supabase/migrations/20261113* supabase/migrations/20261114* supabase/migrations/20261115* supabase/migrations/20261116*`
 must print exactly the hashes above. Applied migrations 1–13 are not modified by this bundle.
 
 ## 2. Schema and data compatibility
@@ -51,12 +52,22 @@ must print exactly the hashes above. Applied migrations 1–13 are not modified 
   - Approving or printing a Gazette story from a tab that shows out-of-date text is refused
     (the website passes the version it loaded; the older two-argument call still works).
   - Assistant connections can no longer write source records (provenance) directly.
+  - Nobody can select `campaign_settings.current_location_id` directly any more (file 14); the
+    location is read through `campaign_location()`. The **currently deployed site's** settings
+    query names that column, so once file 14 is applied its home page settings request fails for
+    every reader, the DM included. See the deployment order below.
+  - Assistant Gazette drafts arrive as proposals on the news desk instead of text to paste (file 15).
 - After applying, the Data API must reload its schema to see new functions. Hosted Supabase does
   this automatically after DDL; file 11 also ends with `notify pgrst, 'reload schema'`. If a new
   function answers "not found", run that statement once.
-- Client: the website build from branch `claude/chronicle-hardening` expects this schema. The
-  currently deployed site keeps working against it for reading; its photo features need the new
-  build. Deploy the site only after the migrations succeed.
+- Client and order: the website build from branch `claude/chronicle-release-prep` expects this
+  schema. It also works with files 1–13 alone (it falls back to the old location query and shows
+  no proposals while files 14–15 are missing). The currently deployed site keeps working against
+  files 1–13 for reading, but not against file 14. So:
+  1. apply files 1–13;
+  2. deploy that website build and check the home page as DM and as a player;
+  3. apply files 14 and 15;
+  4. deploy the MCP Worker last (its Gazette tool needs file 15).
 
 ## 3. Local verification (synthetic data only)
 
@@ -80,6 +91,14 @@ Files 1–12 run on 2026-11-14 on both PostgreSQL 16.15 and **PostgreSQL 17.12**
   partially applied bundle must be resumed from the first unapplied file, not restarted.
 - Still not verified: the real data (only its shape was simulated) and production-sized tables.
   That is what the restore rehearsal in section 5 is for.
+
+**2026-11-15, all 15 files, PostgreSQL 17.12:** `scripts/upgrade-simulation.sh` (repeatable)
+builds the stack at file 13 of the hosted history (`20261112001300`), adds the production-shaped
+synthetic data (56 DM-only pages of 78, 4 Gazette drafts, picture, revision, source record), applies
+files 1–15 in order with one transaction each, then compares. All 15 applied; data fingerprint
+identical; `public`/`private` schema and Storage policies identical to a fresh install of the same
+files; database suite 306/306 on the upgraded database. Fresh install afterwards: database 306/306,
+browser 61/61.
 
 How to repeat the PostgreSQL 17 run: `PGBIN=<dir with PostgreSQL 17 initdb/pg_ctl> bash scripts/local-stack.sh up`.
 
@@ -105,7 +124,7 @@ How to repeat the PostgreSQL 17 run: `PGBIN=<dir with PostgreSQL 17 initdb/pg_ct
 
 Read-only queries, then a DM walk-through:
 
-- `select version, name from supabase_migrations.schema_migrations order by version` shows all 26.
+- `select version, name from supabase_migrations.schema_migrations order by version` shows all 28.
 - `select count(*), count(*) filter (where visibility = 'players' and status = 'published') from public.articles`
   — the second number is unchanged from before (expected 0).
 - `select count(*) from public.articles where type = 'news' and status = 'published'` — unchanged (expected 0).
