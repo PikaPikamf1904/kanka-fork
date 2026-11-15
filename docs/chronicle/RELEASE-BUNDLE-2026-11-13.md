@@ -29,7 +29,7 @@ Apply in exactly this order, each file in its own transaction. Each file require
 | 12 | `20261114000200_suggest_any_word.sql` | `c4dae1fa857fe189ddf09d2f810b6fd605b0a14e223e15ba8119bf2c5619af2e` | Search suggestions match the start of any word in a title (still limited by Row Level Security) |
 | 13 | `20261115000100_import_batches.sql` | `f061399790a426f4bc2ad89118b0cb9f9c151b49f9b6f8cdec34d2f7a26d25c6` | Staged lore imports (DM only; an assistant may stage and read, never approve or save) |
 | 14 | `20261116000100_location_privacy.sql` | `399259c88f44ae740f755b486208c70474ebd3d7bfa5f504fe4ea49c3a202153` | Players can no longer read the current-location id directly; `campaign_location()` shows it only when that page is published to players |
-| 15 | `20261116000200_news_proposals.sql` | `7676f3e7bd8295dad2e187bc3fd324116221f07f3fabd1d0165cee7a97a28016` | Assistant Gazette story proposals; only the DM, on the website, accepts (as a private draft) or dismisses |
+| 15 | `20261116000200_news_proposals.sql` | `e3807f981e63f1dbb385c20dd6f32f65975997e0f800e5c8f88176b7a109b5d0` | Assistant Gazette story proposals; only the DM, on the website, accepts (as a private draft) or dismisses |
 
 Check before applying, from `chronicle-cloud/`:
 `sha256sum supabase/migrations/2026111200140* supabase/migrations/2026111205* supabase/migrations/20261113* supabase/migrations/20261114* supabase/migrations/20261115* supabase/migrations/20261116*`
@@ -100,8 +100,8 @@ builds the stack at file 13 of the hosted history (`20261112001300`), adds the p
 synthetic data (56 DM-only pages of 78, 4 Gazette drafts, picture, revision, source record), applies
 files 1–15 in order with one transaction each, then compares. All 15 applied; data fingerprint
 identical; `public`/`private` schema and Storage policies identical to a fresh install of the same
-files; database suite 306/306 on the upgraded database. Fresh install afterwards: database 306/306,
-browser 61/61.
+files; database suite 307/307 on the upgraded database. Fresh install afterwards: database 307/307,
+browser 62/62 (re-run after file 15 gained its limits; hash above is the revised file).
 
 How to repeat the PostgreSQL 17 run: `PGBIN=<dir with PostgreSQL 17 initdb/pg_ctl> bash scripts/local-stack.sh up`.
 

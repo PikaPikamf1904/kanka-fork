@@ -74,7 +74,7 @@ Propose (DM, saves no content): `chronicle_preview_changes`, `chronicle_preview_
 `chronicle_restore_revision`, and `chronicle_draft_gazette_story` (files a story proposal that
 appears on the news desk under **Story proposals**; the DM reads it and either accepts it, which
 saves it as a private draft, or dismisses it. The assistant cannot accept, review, approve or
-print, and players never see proposals).
+print, and players never see proposals. At most 50 proposals can wait at once).
 
 Stage (DM, writes nothing to the wiki): `chronicle_stage_import` — the DM reviews and saves the
 batch at `/dm/import/<id>`. See [LORE-IMPORT.md](LORE-IMPORT.md).
