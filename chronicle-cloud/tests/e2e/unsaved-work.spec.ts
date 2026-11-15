@@ -155,4 +155,47 @@ test.describe('Unsaved work', () => {
     await expect(page.getByText(`Synthetic table note ${tag}.`)).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Note', exact: true })).toHaveValue('');
   });
+
+  test('map marker dialog: Cancel and leaving ask before dropping edits', async ({ page }) => {
+    await signInAsDm(page);
+    await page.goto('/maps/port-vellmoor-town');
+    const edits = page.getByRole('button', { name: 'edit', exact: true });
+    await expect(edits.first()).toBeVisible();
+    await edits.first().click();
+    const dialog = page.getByRole('dialog', { name: 'Marker' });
+    const label = dialog.getByLabel('Label');
+    const original = await label.inputValue();
+    await label.fill(`${original} (edited)`);
+
+    // One handler answers the browser's questions in order and records them.
+    const answers: ('dismiss' | 'accept')[] = [];
+    const asked: string[] = [];
+    page.on('dialog', (d) => {
+      asked.push(d.message());
+      void (answers.shift() === 'accept' ? d.accept() : d.dismiss());
+    });
+    answers.push('dismiss');
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect.poll(() => asked.length).toBe(1);
+    await expect(label).toHaveValue(`${original} (edited)`);
+
+    answers.push('dismiss');
+    await page.getByRole('link', { name: 'Maps', exact: true }).first().click();
+    await expect.poll(() => asked.length).toBe(2);
+    await expect(page).toHaveURL(/\/maps\/port-vellmoor-town$/);
+    await expect(label).toHaveValue(`${original} (edited)`);
+
+    answers.push('accept');
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(asked).toEqual(['Discard the unsaved changes in the open dialog?', 'You have unsaved changes. Leave without saving?', 'Discard the unsaved changes in the open dialog?']);
+
+    // An unchanged dialog closes without asking; nothing was saved.
+    await edits.first().click();
+    await page.getByRole('dialog', { name: 'Marker' }).getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('dialog', { name: 'Marker' })).toHaveCount(0);
+    expect(asked).toHaveLength(3);
+    await page.reload();
+    await expect(page.getByText(`${original} (edited)`)).toHaveCount(0);
+  });
 });

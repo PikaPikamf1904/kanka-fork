@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,7 +7,33 @@ import { deleteFogArea, deleteMarker, getMap, listAllArticleRefs, listMaps, medi
 import { useIsDm } from '../lib/session.tsx';
 import type { MapFogArea, MapMarker, Visibility, WikiMap } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
+import { useUnsavedGuard } from '../lib/useUnsavedGuard.ts';
 import { NotFound } from './NotFound.tsx';
+
+/**
+ * A dialog's working copy. open() replaces it (asking first if it has unsaved edits) and records
+ * what it opened with; edit() changes it; close() drops it after a successful save or delete.
+ */
+function useDialogDraft<T>() {
+  const [state, setState] = useState<{ value: T | null; base: string | null }>({ value: null, base: null });
+  const dirty = state.value !== null && JSON.stringify(state.value) !== state.base;
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+  const open = useCallback((next: T | null): boolean => {
+    if (dirtyRef.current && !window.confirm('Discard the unsaved changes in the open dialog?')) return false;
+    dirtyRef.current = false;
+    setState({ value: next, base: next === null ? null : JSON.stringify(next) });
+    return true;
+  }, []);
+  const edit = useCallback((value: T | null) => setState((s) => ({ ...s, value })), []);
+  const close = useCallback(() => {
+    dirtyRef.current = false;
+    setState({ value: null, base: null });
+  }, []);
+  return { value: state.value, dirty, open, edit, close };
+}
 
 export function MapsPage() {
   const isDm = useIsDm();
@@ -71,11 +97,19 @@ export function MapPage() {
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const [filter, setFilter] = useState('');
-  const [editing, setEditing] = useState<Partial<MarkerRow> | null>(null);
+  // The marker and fog dialogs remember what they opened with, so unsaved edits are never
+  // replaced or dropped without asking (another marker, Cancel, leaving the page).
+  const markerDraft = useDialogDraft<Partial<MarkerRow>>();
+  const editing = markerDraft.value;
+  const setEditing = markerDraft.edit;
   const [addMode, setAddMode] = useState(false);
   // Fog of war (DM): corners of the area being drawn, and the area being named/revealed.
   const [drawing, setDrawing] = useState<[number, number][] | null>(null);
-  const [fogEditing, setFogEditing] = useState<Partial<MapFogArea> | null>(null);
+  const fogDraft = useDialogDraft<Partial<MapFogArea>>();
+  const fogEditing = fogDraft.value;
+  const setFogEditing = fogDraft.edit;
+  useUnsavedGuard(markerDraft.dirty || fogDraft.dirty);
+  const openMarker = markerDraft.open;
   const fogLayerRef = useRef<L.Layer | null>(null);
   const draftLayerRef = useRef<L.Layer | null>(null);
 
@@ -134,10 +168,10 @@ export function MapPage() {
         popup.append(open);
       }
       marker.bindPopup(popup);
-      if (isDm) marker.on('dblclick', () => setEditing(m));
+      if (isDm) marker.on('dblclick', () => openMarker(m));
       marker.addTo(layer);
     }
-  }, [shown, isDm, data.data, navigate]);
+  }, [shown, isDm, data.data, navigate, openMarker]);
 
   // Fog: the whole map is covered except revealed areas (cut out with an SVG mask, so overlapping
   // areas stay clear). The DM sees through a lighter fog, with every area outlined.
@@ -234,7 +268,7 @@ export function MapPage() {
     const { map_id, points } = f;
     await attempt('Saving the fog area', async () => {
       await saveFogArea({ id: f.id, map_id, label: f.label ?? '', points, visibility: (f.visibility ?? 'dm') as Visibility });
-      setFogEditing(null);
+      fogDraft.close();
       data.reload();
     });
   }
@@ -245,7 +279,7 @@ export function MapPage() {
     const d = data.data;
     if (!map || !d || !isDm || !addMode) return;
     const onClick = (e: L.LeafletMouseEvent) => {
-      setEditing({ map_id: d.map.id, ...fromLatLng(d.map, e.latlng), label: '', description: '', icon: 'pin', article_id: null, visibility: 'dm' });
+      openMarker({ map_id: d.map.id, ...fromLatLng(d.map, e.latlng), label: '', description: '', icon: 'pin', article_id: null, visibility: 'dm' });
       setAddMode(false);
     };
     map.on('click', onClick);
@@ -254,7 +288,7 @@ export function MapPage() {
       map.off('click', onClick);
       map.getContainer().classList.remove('adding-marker');
     };
-  }, [addMode, isDm, data.data]);
+  }, [addMode, isDm, data.data, openMarker]);
 
   async function submitMarker(e: FormEvent) {
     e.preventDefault();
@@ -267,7 +301,7 @@ export function MapPage() {
         description: m.description ?? '', icon: m.icon ?? 'pin', article_id: m.article_id ?? null,
         visibility: (m.visibility ?? 'dm') as Visibility,
       });
-      setEditing(null);
+      markerDraft.close();
       data.reload();
     });
   }
@@ -309,7 +343,7 @@ export function MapPage() {
             {drawing && (
               <>
                 <span className="muted" role="status">{drawing.length < 3 ? `Click the map around the area (${drawing.length} of at least 3 corners)` : `${drawing.length} corners`}</span>
-                <button type="button" className="button" disabled={drawing.length < 3} onClick={() => { setFogEditing({ map_id: d.map.id, points: drawing, label: '', visibility: 'players' }); setDrawing(null); }}>Finish area</button>
+                <button type="button" className="button" disabled={drawing.length < 3} onClick={() => { if (fogDraft.open({ map_id: d.map.id, points: drawing, label: '', visibility: 'players' })) setDrawing(null); }}>Finish area</button>
                 <button type="button" className="button secondary" onClick={() => setDrawing(null)}>Cancel</button>
               </>
             )}
@@ -332,7 +366,7 @@ export function MapPage() {
                 {isDm && m.visibility === 'dm' && <VisibilityBadge visibility="dm" />}
                 {m.article && <> · <Link to={`/wiki/${m.article.slug}`}>article</Link></>}
                 {m.submap && <> · <Link to={`/maps/${m.submap.slug}`}>map</Link></>}
-                {isDm && <> · <button type="button" className="link-button" onClick={() => setEditing(m)}>edit</button></>}
+                {isDm && <> · <button type="button" className="link-button" onClick={() => openMarker(m)}>edit</button></>}
               </li>
             ))}
           </ul>
@@ -350,7 +384,7 @@ export function MapPage() {
                         {a.visibility === 'players' ? 'hide again' : 'reveal'}
                       </button>
                       {' · '}
-                      <button type="button" className="link-button" onClick={() => setFogEditing(a)}>edit</button>
+                      <button type="button" className="link-button" onClick={() => fogDraft.open(a)}>edit</button>
                     </li>
                   ))}
                 </ul>
@@ -378,7 +412,7 @@ export function MapPage() {
             <p className="fine-print">Players see a revealed area clearly and the rest of the map under fog. Markers keep their own visibility.</p>
             <div className="form-actions">
               <button type="submit" className="button">Save area</button>
-              <button type="button" className="button secondary" onClick={() => setFogEditing(null)}>Cancel</button>
+              <button type="button" className="button secondary" onClick={() => fogDraft.open(null)}>Cancel</button>
               {fogEditing.id && (
                 <button
                   type="button"
@@ -388,7 +422,7 @@ export function MapPage() {
                     if (id && window.confirm('Delete this fog area?')) {
                       void attempt('Deleting the fog area', async () => {
                         await deleteFogArea(id);
-                        setFogEditing(null);
+                        fogDraft.close();
                         data.reload();
                       });
                     }
@@ -425,7 +459,7 @@ export function MapPage() {
             <p className="fine-print">A marker linked to an article players cannot see stays hidden from players.</p>
             <div className="form-actions">
               <button type="submit" className="button">Save marker</button>
-              <button type="button" className="button secondary" onClick={() => setEditing(null)}>Cancel</button>
+              <button type="button" className="button secondary" onClick={() => markerDraft.open(null)}>Cancel</button>
               {editing.id && (
                 <button
                   type="button"
@@ -435,7 +469,7 @@ export function MapPage() {
                     if (id && window.confirm(`Delete the marker “${editing.label}”?`)) {
                       void attempt('Deleting the marker', async () => {
                         await deleteMarker(id);
-                        setEditing(null);
+                        markerDraft.close();
                         data.reload();
                       });
                     }
