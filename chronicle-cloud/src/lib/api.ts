@@ -34,10 +34,6 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
 const ARTICLE_COLUMNS =
   'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at, version';
 
-// Set once campaign_location() has answered "no such function", so a site deployed before
-// 20261116000100 asks only once per page load instead of on every navigation.
-let locationFunctionMissing = false;
-
 const LEGACY_SETTINGS =
   'title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)';
 
@@ -45,14 +41,13 @@ export async function getSettings(): Promise<CampaignSettings | null> {
   // Where the party is comes from campaign_location(): the DM always gets it, a player only when the
   // page is published to players (20261116000100). Before that migration the function does not
   // exist and the column is read directly, with the page embedded through Row Level Security.
-  if (locationFunctionMissing) return must(await supabase.from('campaign_settings').select(LEGACY_SETTINGS).maybeSingle());
+  // Asked again on every call, so a tab opened before the migration recovers once it is applied.
   const [settings, loc] = await Promise.all([
     supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_status').maybeSingle(),
     supabase.rpc('campaign_location'),
   ]);
   if (loc.error) {
     if (loc.error.code !== 'PGRST202' && !/campaign_location/.test(loc.error.message)) throw new Error(loc.error.message);
-    locationFunctionMissing = true;
     return must(await supabase.from('campaign_settings').select(LEGACY_SETTINGS).maybeSingle());
   }
   const s = must(settings) as Omit<CampaignSettings, 'current_location_id' | 'current_location'> | null;

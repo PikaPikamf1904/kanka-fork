@@ -67,7 +67,10 @@ must print exactly the hashes above. Applied migrations 1–13 are not modified 
   1. apply files 1–13;
   2. deploy that website build and check the home page as DM and as a player;
   3. apply files 14 and 15;
-  4. deploy the MCP Worker last (its Gazette tool needs file 15).
+  4. deploy the MCP Worker right after step 3. The deployed Worker reads `current_location_id`
+     directly, so between steps 3 and 4 its `chronicle_campaign_overview` and
+     `chronicle_session_prep` tools fail with "not allowed"; the new Worker also needs file 15
+     for its Gazette tool. Do steps 3 and 4 back to back.
 
 ## 3. Local verification (synthetic data only)
 
@@ -130,6 +133,10 @@ Read-only queries, then a DM walk-through:
 - `select count(*) from public.articles where type = 'news' and status = 'published'` — unchanged (expected 0).
 - `select tgname from pg_trigger where tgname in ('oauth_content_guard','oauth_public_content_guard','news_review_reset','sections_media_ref_lock','news_pending_media_ref_lock')` — all present, and `oauth_content_guard` exists on `public.provenance`.
 - `select 'public.news_transition(uuid,text,text,timestamptz)'::regprocedure` — exists.
+- `select has_column_privilege('authenticated', 'public.campaign_settings', 'current_location_id', 'select')`
+  — `false` (file 14); `select 'public.campaign_location()'::regprocedure` — exists.
+- `select to_regclass('public.news_proposals'), 'public.accept_news_proposal(uuid)'::regprocedure, (select count(*) from pg_trigger where tgname = 'news_proposals_guard')`
+  — table and function exist, trigger count 1 (file 15).
 - `select policyname from pg_policies where schemaname = 'storage'` — the Chronicle insert/update/read policies match section 1, file 8.
 - Signed in as DM on the website: upload a photo, crop a portrait, add a gallery, open the Media
   Library, delete an unused test photo; confirm a player account cannot see a DM-only picture.

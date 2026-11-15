@@ -252,14 +252,27 @@ export function MapPage() {
   // A map change that fails must say so: a fog area the DM believes is hidden again, or a marker
   // believed deleted, would otherwise stay visible to players without anyone noticing.
   const [failed, setFailed] = useState<string | null>(null);
+  // One change at a time: a second click while a save is on its way is ignored, so a slow
+  // connection cannot create the same marker or fog area twice.
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
   async function attempt(what: string, work: () => Promise<void>) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
     setFailed(null);
     try {
       await work();
     } catch (err) {
       setFailed(`${what} did NOT happen${err instanceof Error ? `: ${err.message}` : ''}. Check your connection and try again.`);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   }
+  const dialogOpen = isDm && (!!editing || !!fogEditing);
+  // Shown inside an open dialog, where the DM is looking (the page top may be scrolled away).
+  const failure = failed && <p className="form-error" role="alert">{failed}</p>;
 
   async function submitFogArea(e: FormEvent) {
     e.preventDefault();
@@ -312,7 +325,7 @@ export function MapPage() {
 
   return (
     <div className="map-page">
-      {failed && <p className="form-error" role="alert">{failed}</p>}
+      {!dialogOpen && failure}
       <nav className="breadcrumbs" aria-label="Breadcrumbs">
         <Link to="/maps">Maps</Link>
         {d?.parent && <> › <Link to={`/maps/${d.parent.slug}`}>{d.parent.title}</Link></>}
@@ -404,6 +417,7 @@ export function MapPage() {
         <dialog open className="dialog" aria-label="Fog area">
           <form onSubmit={submitFogArea} className="form-grid">
             <h2>{fogEditing.id ? 'Edit fog area' : 'New fog area'}</h2>
+            {failure}
             <label>Name (only you see it)<input value={fogEditing.label ?? ''} onChange={(e) => setFogEditing({ ...fogEditing, label: e.target.value })} maxLength={120} /></label>
             <label className="checkbox">
               <input type="checkbox" checked={fogEditing.visibility === 'players'} onChange={(e) => setFogEditing({ ...fogEditing, visibility: e.target.checked ? 'players' : 'dm' })} />
@@ -411,7 +425,7 @@ export function MapPage() {
             </label>
             <p className="fine-print">Players see a revealed area clearly and the rest of the map under fog. Markers keep their own visibility.</p>
             <div className="form-actions">
-              <button type="submit" className="button">Save area</button>
+              <button type="submit" className="button" disabled={busy}>{busy ? 'Saving…' : 'Save area'}</button>
               <button type="button" className="button secondary" onClick={() => fogDraft.open(null)}>Cancel</button>
               {fogEditing.id && (
                 <button
@@ -440,6 +454,7 @@ export function MapPage() {
         <dialog open className="dialog" aria-label="Marker">
           <form onSubmit={submitMarker} className="form-grid">
             <h2>{editing.id ? 'Edit marker' : 'New marker'}</h2>
+            {failure}
             <label>Label<input value={editing.label ?? ''} onChange={(e) => setEditing({ ...editing, label: e.target.value })} required maxLength={120} /></label>
             <label>Description<textarea value={editing.description ?? ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} rows={3} /></label>
             <label>
@@ -449,6 +464,7 @@ export function MapPage() {
                 {articles.data?.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
               </select>
             </label>
+            {articles.error && <p className="form-error" role="alert">The list of articles could not be loaded ({articles.error}). The current link is kept; reload the page to change it.</p>}
             <label>
               Who can see it
               <select value={editing.visibility ?? 'dm'} onChange={(e) => setEditing({ ...editing, visibility: e.target.value as Visibility })}>
@@ -458,7 +474,7 @@ export function MapPage() {
             </label>
             <p className="fine-print">A marker linked to an article players cannot see stays hidden from players.</p>
             <div className="form-actions">
-              <button type="submit" className="button">Save marker</button>
+              <button type="submit" className="button" disabled={busy}>{busy ? 'Saving…' : 'Save marker'}</button>
               <button type="button" className="button secondary" onClick={() => markerDraft.open(null)}>Cancel</button>
               {editing.id && (
                 <button

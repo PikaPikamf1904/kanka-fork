@@ -47,6 +47,13 @@ returns trigger language plpgsql set search_path = ''
 as $$
 begin
   if tg_op = 'INSERT' then
+    -- An OAuth token can insert directly, past the Worker's own checks, so the limits live here.
+    if exists (select 1 from unnest(new.based_on || new.warnings) as x(item) where char_length(x.item) > 300) then
+      perform private.fail('VALIDATION_FAILED', 'Each based_on and warnings item must be at most 300 characters.');
+    end if;
+    if (select count(*) from public.news_proposals where status = 'pending') >= 50 then
+      perform private.fail('RATE_LIMITED', '50 story proposals are already waiting on the news desk. The DM must accept or dismiss some before more can be filed.');
+    end if;
     -- A proposal always starts pending and attached to nothing, whoever files it.
     new.status := 'pending';
     new.article_id := null;

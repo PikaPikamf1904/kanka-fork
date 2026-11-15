@@ -94,4 +94,15 @@ describe('story proposals', () => {
     expect((await as('dm', 'select public.accept_news_proposal($1)', [d])).error?.message).toBe('CONFLICT');
     expect((await as('dm', `update public.news_proposals set status = 'pending' where id = $1`, [d])).error?.code).toBe('42501');
   });
+
+  it('limits what an assistant can file directly: item length and 50 waiting proposals', async () => {
+    const long = insert.replace("'{port-vellmoor}'", `'{"${'x'.repeat(301)}"}'`);
+    expect((await as('dm', long, [], OAUTH)).error?.message).toBe('VALIDATION_FAILED');
+    await admin(`insert into public.news_proposals (title, body, section, reliability, reporter)
+      select 'Zz Filler ' || g, 'Body.', 'local', 'rumor', 'nib' from generate_series(1, 50) g`);
+    expect((await as('dm', insert, [], OAUTH)).error?.message).toBe('RATE_LIMITED');
+    // Deciding one frees a place.
+    await admin(`update public.news_proposals set status = 'dismissed' where id = (select id from public.news_proposals limit 1)`);
+    expect((await as('dm', insert, [], OAUTH)).error).toBeUndefined();
+  });
 });

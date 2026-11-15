@@ -347,7 +347,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const row = await ctx.db.insert<{ id: string }>('news_proposals', {
         title: text(a.headline, 'headline', 200, true).trim(), subtitle: text(a.deck, 'deck', 200), summary: text(a.opening, 'opening', 2000), body,
         section: section as NewsSection, reliability, reporter: reporter.key, dateline: text(a.dateline, 'dateline', 120), in_world_date: text(a.in_world_date, 'in_world_date', 120),
-        based_on: pages.map((p) => p.slug), warnings,
+        based_on: pages.map((p) => p.slug), warnings: warnings.map((w) => clip(w, 290)), // the database refuses items over 300 characters
       }, 'id');
       return { proposal_id: row.id, review_url: `${ctx.reviewBase}/dm/news#proposals`, reporter: { name: reporter.name, voice: reporter.voice }, reliability_label: RELIABILITY[reliability].label,
         based_on: pages.map((p) => ({ slug: p.slug, title: p.title, player_visible: isPublic(p) })), warnings,

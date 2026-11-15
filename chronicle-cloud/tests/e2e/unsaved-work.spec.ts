@@ -198,4 +198,45 @@ test.describe('Unsaved work', () => {
     await page.reload();
     await expect(page.getByText(`${original} (edited)`)).toHaveCount(0);
   });
+
+  test('map marker dialog: a double-clicked save creates one marker; a failed save is shown in the dialog', async ({ page }) => {
+    const name = `Zz marker ${Date.now().toString(36)}`;
+    await signInAsDm(page);
+    await page.goto('/maps/port-vellmoor-town');
+    await page.getByRole('button', { name: 'Add marker' }).click();
+    await page.locator('.leaflet-container').click({ position: { x: 120, y: 120 } });
+    const dialog = page.getByRole('dialog', { name: 'Marker' });
+    await dialog.getByLabel('Label').fill(name);
+
+    // The first save fails: the dialog stays open with the edits and says so where the DM is looking.
+    let failNext = true;
+    let posts = 0;
+    await page.route('**/rest/v1/map_markers*', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      posts += 1;
+      if (failNext) {
+        failNext = false;
+        return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Synthetic outage' }) });
+      }
+      await new Promise((r) => setTimeout(r, 800));
+      return route.continue();
+    });
+    await dialog.getByRole('button', { name: 'Save marker' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('Saving the marker did NOT happen');
+    await expect(dialog.getByLabel('Label')).toHaveValue(name);
+
+    // A slow save clicked twice is sent once.
+    await dialog.getByRole('button', { name: 'Save marker' }).dblclick();
+    await expect(dialog).toHaveCount(0);
+    expect(posts).toBe(2);
+    await page.unroute('**/rest/v1/map_markers*');
+    await page.reload();
+    await expect(page.getByRole('listitem').filter({ hasText: name })).toHaveCount(1);
+
+    // Clean up the synthetic marker.
+    page.once('dialog', (d) => void d.accept());
+    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'edit', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Marker' }).getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: name })).toHaveCount(0);
+  });
 });
