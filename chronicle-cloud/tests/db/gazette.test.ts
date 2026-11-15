@@ -206,10 +206,12 @@ describe('Goblin Gazette workflow', () => {
 
   it('the current location is only shown to players who may read that page', async () => {
     await admin("update public.campaign_settings set current_location_id = 'a0000000-0000-4000-8000-00000000000c', current_status = 'Resting in town.'");
-    const r = await as('player', 'select s.current_status, a.title from public.campaign_settings s left join public.articles a on a.id = s.current_location_id');
+    const r = await as('player', 'select s.current_status, (select title from public.campaign_location()) as title from public.campaign_settings s');
     expect(r.rows).toEqual([{ current_status: 'Resting in town.', title: null }]); // the location page is a draft
+    // The id itself is not readable either (20261116000100).
+    expect((await as('player', 'select current_location_id from public.campaign_settings')).error?.code).toBe('42501');
     await admin("update public.campaign_settings set current_location_id = 'a0000000-0000-4000-8000-00000000000d'");
-    const r2 = await as('player', 'select a.title from public.campaign_settings s left join public.articles a on a.id = s.current_location_id');
+    const r2 = await as('player', 'select title from public.campaign_location()');
     expect(r2.rows).toEqual([{ title: 'Harbour Town' }]);
     await admin("update public.campaign_settings set current_location_id = null, current_status = ''");
   });

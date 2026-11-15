@@ -169,6 +169,8 @@ up() {
 
   echo "Applying Chronicle migrations as the postgres role"
   for f in "$ROOT"/supabase/migrations/*.sql; do
+    # MIGRATIONS_UNTIL=<version>: stop after that migration (used by scripts/upgrade-simulation.sh).
+    if [ -n "${MIGRATIONS_UNTIL:-}" ] && [[ "$(basename "$f")" > "${MIGRATIONS_UNTIL}_~" ]]; then continue; fi
     psql_as postgres -f "$f"
   done
   # Fail loudly if any migration did not apply.
