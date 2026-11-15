@@ -14,7 +14,7 @@ import { MarkdownField } from '../components/images/MarkdownField.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { useMediaUrl } from '../components/MediaImage.tsx';
 import {
-  articlesBySlugs, getNewsStory, listNews, listNewsPending, newsTransition, saveNewsStory,
+  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getNewsStory, listNews, listNewsPending, listNewsProposals, newsTransition, saveNewsStory,
   type NewsAction, type NewsDetails, type NewsDraft, type NewsStory,
 } from '../lib/api.ts';
 import { ChronicleError } from '../lib/changeSetTypes.ts';
@@ -356,11 +356,72 @@ export function GazetteDesk() {
       </div>
       <p className="muted">Every story goes Draft → In review → Approved → Printed. Players see nothing until you print it, and taking a story back to draft un-prints it at once. Editing a printed story makes a revision: players keep the printed version until you approve the revision. Assistants can draft stories; only you, here, can approve and print them. See <code>docs/chronicle/GOBLIN-GAZETTE.md</code>.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
+      <NewsProposals />
       <h2>On the desk</h2>
       {desk.length === 0 ? <p className="muted">Nothing waiting.</p> : <DeskTable stories={desk} busy={busy} act={act} />}
       <h2>Printed</h2>
       {printed.length === 0 ? <p className="muted">Nothing printed yet.</p> : <DeskTable stories={printed} busy={busy} act={act} />}
     </div>
+  );
+}
+
+/**
+ * Stories an assistant proposed. Accepting saves one as a private draft (it then follows the normal
+ * review and printing); dismissing drops it. Assistants can do neither.
+ */
+function NewsProposals() {
+  const navigate = useNavigate();
+  const proposals = useLoad(listNewsProposals, []);
+  const [open, setOpen] = useState<string | null>(null);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const pending = proposals.data ?? [];
+  if (!proposals.loading && pending.length === 0 && !proposals.error) return null;
+  async function decide(id: string, accept: boolean) {
+    setBusy(id); setError('');
+    try {
+      if (accept) {
+        const saved = await acceptNewsProposal(id);
+        navigate(`/dm/news/edit/${saved.slug}`);
+        return;
+      }
+      if (!window.confirm('Dismiss this proposal? It is not saved anywhere else.')) return;
+      await dismissNewsProposal(id);
+      proposals.reload();
+    } catch (e) {
+      setError(e instanceof Error ? `That did not work: ${e.message}` : 'That did not work. Try again.');
+    } finally {
+      setBusy('');
+    }
+  }
+  return (
+    <section className="panel gz-proposals" id="proposals" aria-labelledby="gz-proposals-title">
+      <h2 id="gz-proposals-title">Proposed by an assistant</h2>
+      <p className="fine-print">Nothing here is saved as a story yet. <strong>Accept</strong> saves it as a private draft you can edit; you still send it for review and print it yourself.</p>
+      {proposals.error && <p className="form-error" role="alert">{proposals.error}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <ul className="gz-proposal-list">
+        {pending.map((p) => (
+          <li key={p.id} className="gz-proposal" data-testid="news-proposal">
+            <div className="gz-proposal-head">
+              <strong>{p.title}</strong> <Stamp reliability={p.reliability} />
+              <span className="muted fine-print"> · {sectionLabel(p.section)} · {reporter(p.reporter).name} · {new Date(p.created_at).toLocaleDateString()}</span>
+            </div>
+            {p.warnings.length > 0 && <ul className="fine-print form-error">{p.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
+            {p.based_on.length > 0 && <p className="fine-print">Based on: {p.based_on.map((slug, i) => <span key={slug}>{i > 0 && ', '}<Link to={`/wiki/${slug}`}>{slug}</Link></span>)}</p>}
+            {open === p.id && (
+              <StoryView title={p.title} kicker="" deck={p.subtitle} summary={p.summary} body={p.body} related={[]} heroMediaId={null}
+                details={{ section: p.section, reliability: p.reliability, reporter: p.reporter, dateline: p.dateline, in_world_date: p.in_world_date, issue_number: null, is_lead: false, corrects_article_id: null, review_state: 'draft', reviewed_at: null }} />
+            )}
+            <div className="row-wrap">
+              <button type="button" className="button small secondary" aria-expanded={open === p.id} onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? 'Hide' : 'Read it'}</button>
+              <button type="button" className="button small" disabled={busy !== ''} onClick={() => void decide(p.id, true)}>{busy === p.id ? 'Saving…' : 'Accept as a private draft'}</button>
+              <button type="button" className="button small secondary" disabled={busy !== ''} onClick={() => void decide(p.id, false)}>Dismiss</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -400,54 +461,6 @@ function StoryActions({ id, state, printed, pending = null, busy, act }: { id: s
   if (state === 'draft') return <span className="gz-actions">{b('Send for review', 'submit', 'button small')}</span>;
   if (state === 'in_review') return <span className="gz-actions">{b('Approve', 'approve', 'button small')}{b('Back to draft', 'return')}</span>;
   return <span className="gz-actions">{b('Print for players', 'publish', 'button small')}{b('Back to draft', 'return')}</span>;
-}
-
-/**
- * Paste a story drafted by an assistant (chronicle_draft_gazette_story). It only fills the form:
- * nothing is saved, and review and printing stay with the DM.
- */
-function AssistantDraft({ onUse }: { onUse: (d: { title: string; subtitle: string; summary: string; body: string; slug: string; details: Partial<NewsDraft['details']> }) => void }) {
-  const [text, setText] = useState('');
-  const [error, setError] = useState('');
-  function use() {
-    setError('');
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch {
-      setError('That is not a draft from the assistant (it is not JSON). Ask it for the "draft" object.');
-      return;
-    }
-    const d = (raw as { draft?: unknown }).draft ?? raw;
-    const x = d as { kind?: string; article?: Record<string, unknown>; body?: unknown; details?: Record<string, unknown> };
-    if (x?.kind !== 'chronicle-gazette-draft' || typeof x.article?.title !== 'string' || typeof x.body !== 'string') {
-      setError('That is not a Gazette draft from the assistant.');
-      return;
-    }
-    const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
-    const det = x.details ?? {};
-    onUse({
-      title: str(x.article.title, 200), subtitle: str(x.article.subtitle, 200), summary: str(x.article.summary, 2000), body: str(x.body, 30000), slug: slugify(str(x.article.title, 200)),
-      details: {
-        ...(SECTIONS.some((s) => s.key === det.section) ? { section: det.section as NewsSection } : {}),
-        ...(Object.keys(RELIABILITY).includes(String(det.reliability)) ? { reliability: det.reliability as NewsReliability } : {}),
-        ...(STAFF.some((r) => r.key === det.reporter) ? { reporter: det.reporter as string } : {}),
-        dateline: str(det.dateline, 120), in_world_date: str(det.in_world_date, 120),
-      },
-    });
-    setText('');
-  }
-  return (
-    <details className="panel gz-assistant-draft">
-      <summary>Start from an assistant draft</summary>
-      <p className="fine-print">Paste the draft an assistant prepared with <code>chronicle_draft_gazette_story</code>. It fills the form only: nothing is saved until you save, and only you can send it for review and print it.</p>
-      <label className="span-2">Assistant draft
-        <textarea rows={4} value={text} onChange={(ev) => setText(ev.target.value)} />
-      </label>
-      {error && <p className="form-error" role="alert">{error}</p>}
-      <button type="button" className="button secondary small" disabled={!text.trim()} onClick={use}>Use this draft</button>
-    </details>
-  );
 }
 
 const EMPTY_DETAILS: NewsDraft['details'] = {
@@ -573,7 +586,6 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
       )}
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
 
-      {!e && !preview && <AssistantDraft onUse={(draft) => { setForm((f) => ({ ...f, ...draft, details: { ...f.details, ...draft.details } })); setDirty(true); setMessage({ ok: true, text: 'The assistant draft is in the form below. Check every fact, then save it as a private draft.' }); }} />}
       {preview ? (
         <StoryView title={form.title} kicker="" deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} heroMediaId={form.heroMediaId} />
       ) : (

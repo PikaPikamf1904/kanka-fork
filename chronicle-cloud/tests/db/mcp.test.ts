@@ -109,7 +109,7 @@ describe('protocol and discovery', () => {
       'chronicle_preview_changes', 'chronicle_preview_import', 'chronicle_restore_revision', 'chronicle_search', 'chronicle_session_prep',
       'chronicle_stage_import', 'chronicle_suggest_connections', 'chronicle_topic', 'chronicle_whoami', 'chronicle_wiki_health']);
     // Only these write anything: applying an approved preview, and staging an import (which never touches the wiki).
-    expect(tools.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name).sort()).toEqual(['chronicle_apply_changes', 'chronicle_stage_import']);
+    expect(tools.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name).sort()).toEqual(['chronicle_apply_changes', 'chronicle_draft_gazette_story', 'chronicle_stage_import']);
     expect(tools.every((t) => t.inputSchema.type === 'object')).toBe(true);
     expect(JSON.stringify(tools)).not.toMatch(/publish_article|delete|sql|access.code|password/i);
     expect((await post({ jsonrpc: '2.0', id: 4, method: 'resources/list' }, dm())).json!.error.code).toBe(-32601);

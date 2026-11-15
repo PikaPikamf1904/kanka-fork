@@ -127,6 +127,26 @@ export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string):
   return data as Article & { pending: boolean };
 }
 
+/** A story an assistant proposed; only the DM, here, can accept it (as a private draft) or dismiss it. */
+export interface NewsProposal {
+  id: string; title: string; subtitle: string; summary: string; body: string; section: NewsSection; reliability: NewsReliability; reporter: string;
+  dateline: string; in_world_date: string; based_on: string[]; warnings: string[]; created_at: string; created_via: string;
+}
+export async function listNewsProposals(): Promise<NewsProposal[]> {
+  const { data, error } = await supabase.from('news_proposals').select('id, title, subtitle, summary, body, section, reliability, reporter, dateline, in_world_date, based_on, warnings, created_at, created_via').eq('status', 'pending').order('created_at', { ascending: false }).limit(50);
+  // Before migration 20261116000200 the table does not exist: there are simply no proposals.
+  if (error) return error.code === '42P01' || error.code === 'PGRST205' ? [] : Promise.reject(new Error(error.message));
+  return data as NewsProposal[];
+}
+export async function acceptNewsProposal(id: string): Promise<{ id: string; slug: string }> {
+  const { data, error } = await supabase.rpc('accept_news_proposal', { p_id: id });
+  if (error) throw toChronicleError(error);
+  return data as { id: string; slug: string };
+}
+export async function dismissNewsProposal(id: string) {
+  must(await supabase.from('news_proposals').update({ status: 'dismissed' }).eq('id', id).select('id'));
+}
+
 export type NewsAction = 'submit' | 'approve' | 'return' | 'publish' | 'unpublish' | 'discard';
 /**
  * Moves a story through review. `seen` is what the DM was looking at (the page version and, for a

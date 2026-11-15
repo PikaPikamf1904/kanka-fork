@@ -325,8 +325,8 @@ export const CAMPAIGN_TOOLS: Tool[] = [
     },
   },
   {
-    name: 'chronicle_draft_gazette_story', scope: 'chronicle:preview', dmOnly: true, annotations: RO,
-    description: 'DM only. Checks a proposed Goblin Gazette story (headline, deck, opening, body, section, reporter, kind of reporting) and returns it ready for the DM to paste into the news desk ("Start from an assistant draft"). It saves nothing and can never print: stories are saved, reviewed and printed only by the DM on the website. Base it on documented campaign events; a rumour must be marked reliability "rumor".',
+    name: 'chronicle_draft_gazette_story', scope: 'chronicle:preview', dmOnly: true, annotations: STAGE,
+    description: 'DM only. Files a proposed Goblin Gazette story (headline, deck, opening, body, section, reporter, kind of reporting) on the news desk. It saves no story and can never print: the DM accepts it there as a private draft (or dismisses it), then reviews and prints it as usual. Base it on documented campaign events; mark rumours with reliability "rumor".',
     inputSchema: { type: 'object', required: ['headline', 'body', 'section', 'reliability', 'reporter'], additionalProperties: false, properties: {
       headline: { type: 'string', maxLength: 200 }, deck: { type: 'string', maxLength: 200 }, opening: { type: 'string', maxLength: 2000 }, body: { type: 'string', maxLength: 30000 },
       section: { enum: SECTIONS.map((s) => s.key) }, reliability: { enum: Object.keys(RELIABILITY) }, reporter: { enum: STAFF.map((s) => s.key) },
@@ -339,19 +339,19 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const pages = based.length ? await ctx.db.get<Art>(`articles?select=${ART}&slug=in.(${based.join(',')})`) : [];
       const body = text(a.body, 'body', 30000, true);
       const warnings: string[] = [];
-      if (pages.length === 0) warnings.push('No source pages were given: check every fact against the campaign record before saving.');
+      if (pages.length === 0) warnings.push('No source pages were given: check every fact against the campaign record.');
       if (based.some((b) => !pages.some((p) => p.slug === b))) warnings.push(`Unknown source pages: ${based.filter((b) => !pages.some((p) => p.slug === b)).join(', ')}.`);
       const hidden = pages.filter((p) => !isPublic(p));
       if (hidden.length) warnings.push(`Based on pages players cannot see (${hidden.map((p) => p.slug).join(', ')}): printing this story could reveal them.`);
       if (reliability === 'confirmed' && section === 'rumors') warnings.push('A story in Rumors is marked as confirmed; check the kind of reporting.');
-      const draft = {
-        kind: 'chronicle-gazette-draft', version: 1,
-        article: { title: text(a.headline, 'headline', 200, true).trim(), subtitle: text(a.deck, 'deck', 200), summary: text(a.opening, 'opening', 2000), hero_media_id: null },
-        body,
-        details: { section: section as NewsSection, reliability, reporter: reporter.key, dateline: text(a.dateline, 'dateline', 120), in_world_date: text(a.in_world_date, 'in_world_date', 120), issue_number: null, is_lead: false, corrects_article_id: null },
-      };
-      return { draft, reporter: { name: reporter.name, voice: reporter.voice }, reliability_label: RELIABILITY[reliability].label, based_on: pages.map((p) => ({ slug: p.slug, title: p.title, player_visible: isPublic(p) })), warnings,
-        next_step: `Give the DM this draft (the "draft" object as JSON). On the news desk (${ctx.reviewBase}/dm/news/new) they paste it under "Start from an assistant draft", edit it, and save it as a private draft. Only the DM can send it for review and print it.` };
+      const row = await ctx.db.insert<{ id: string }>('news_proposals', {
+        title: text(a.headline, 'headline', 200, true).trim(), subtitle: text(a.deck, 'deck', 200), summary: text(a.opening, 'opening', 2000), body,
+        section: section as NewsSection, reliability, reporter: reporter.key, dateline: text(a.dateline, 'dateline', 120), in_world_date: text(a.in_world_date, 'in_world_date', 120),
+        based_on: pages.map((p) => p.slug), warnings,
+      }, 'id');
+      return { proposal_id: row.id, review_url: `${ctx.reviewBase}/dm/news#proposals`, reporter: { name: reporter.name, voice: reporter.voice }, reliability_label: RELIABILITY[reliability].label,
+        based_on: pages.map((p) => ({ slug: p.slug, title: p.title, player_visible: isPublic(p) })), warnings,
+        next_step: 'Tell the DM the proposal is waiting on the news desk (review_url). Only the DM can accept it as a draft, review it and print it.' };
     },
   },
   {

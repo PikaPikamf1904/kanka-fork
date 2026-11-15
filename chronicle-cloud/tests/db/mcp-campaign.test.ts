@@ -193,13 +193,16 @@ describe('drafting', () => {
     expect((await call('chronicle_draft_session_journal', { title: 'X', recap: 'y', session_date: 'last tuesday' }, dm())).error.code).toBe('VALIDATION_FAILED');
   });
 
-  it('a Gazette draft is checked, never saved or printed, and warns about hidden sources', async () => {
+  it('a Gazette story is filed as a proposal for the DM: no story is saved or printed, hidden sources are flagged', async () => {
     await world();
+    await admin('delete from public.news_proposals');
     const before = (await admin(`select count(*)::int n from public.articles where type = 'news'`)).rows[0]!.n;
     const r = await call('chronicle_draft_gazette_story', { headline: 'Zz Tide Late Again', body: 'The tide was late.', section: 'local', reliability: 'rumor', reporter: 'nib', based_on: ['zz-harbour-town', 'secret-article'] }, dm());
     expect(r.isError, r.raw).toBe(false);
-    expect(r.data.draft).toMatchObject({ kind: 'chronicle-gazette-draft', article: { title: 'Zz Tide Late Again' }, details: { section: 'local', reliability: 'rumor', reporter: 'nib' } });
+    expect(r.data.review_url).toBe('https://wiki.example/dm/news#proposals');
     expect(r.data.warnings.join(' ')).toMatch(/players cannot see \(secret-article\)/);
+    const row = (await admin('select title, reliability::text, reporter, status, article_id, created_via, based_on from public.news_proposals where id = $1', [r.data.proposal_id])).rows[0]!;
+    expect({ ...row, based_on: [...row.based_on].sort() }).toEqual({ title: 'Zz Tide Late Again', reliability: 'rumor', reporter: 'nib', status: 'pending', article_id: null, created_via: 'synthetic-mcp-client', based_on: ['secret-article', 'zz-harbour-town'] });
     expect((await admin(`select count(*)::int n from public.articles where type = 'news'`)).rows[0]!.n).toBe(before);
     expect((await call('chronicle_draft_gazette_story', { headline: 'X', body: 'y', section: 'local', reliability: 'rumor', reporter: 'not-a-reporter' }, dm())).error.code).toBe('VALIDATION_FAILED');
     expect((await call('chronicle_draft_gazette_story', { headline: 'X', body: 'y', section: 'local', reliability: 'rumor', reporter: 'nib' }, player())).error.code).toBe('FORBIDDEN');
