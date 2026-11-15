@@ -2,7 +2,7 @@
 // never approve, record progress, rewrite or delete; staging writes nothing to the wiki; and saving
 // an approved batch through the engine creates DM-only drafts, once, even when retried.
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { analyzeImport, buildChunks, emptyDecisions, nextChunk, parseImportFiles, recoverProgress, type ProgressEntry, type WikiIndex } from '../../src/lib/loreImport.ts';
+import { analyzeImport, buildChunks, emptyDecisions, nextChunk, parseImportFiles, progressFromResult, recoverProgress, type ProgressEntry, type WikiIndex } from '../../src/lib/loreImport.ts';
 import { admin, as, ids, pool, resetFixtures, type ClaimsOverride } from './helpers.ts';
 
 const OAUTH: ClaimsOverride = { extra: { client_id: 'synthetic-mcp-client' } };
@@ -205,5 +205,26 @@ describe('import batches', () => {
     expect((await admin<{ n: number }>(`select count(*)::int n from public.article_sections s join public.articles a on a.id = s.article_id where a.slug like 'synthetic-place-%'`)).rows[0]!.n).toBe(45); // one "Notes" section each; the first line is the summary
     const rels = (await admin<{ n: number; distinct_pairs: number }>(`select count(*)::int n, count(distinct (source_article_id, target_article_id))::int distinct_pairs from public.relations r join public.articles a on a.id = r.source_article_id where a.slug like 'synthetic-place-%'`)).rows[0]!;
     expect(rels).toEqual({ n: 44, distinct_pairs: 44 });
+  });
+
+  it('a page created by someone else between review and save is never overwritten, and the entry is not counted as saved', async () => {
+    const s2 = parseImportFiles([{ name: 'race.md', text: '# Synthetic Racer\nImported text.\n\n## Notes\nIMPORTEDNOTES' }]);
+    const index = async (): Promise<WikiIndex> => ({ articles: (await admin('select id, slug, title, type::text, version, visibility::text, status::text from public.articles')).rows as WikiIndex['articles'], fields: [], redirects: [], categories: [] });
+    const [chunk] = buildChunks(s2, analyzeImport(s2, await index()), emptyDecisions(), 'f00d0000-0000-4000-8000-000000000000', 'Race', await index());
+    // Meanwhile the DM writes the page by hand.
+    await admin(`insert into public.articles (slug, type, title, summary, visibility, status) values ('synthetic-racer', 'character', 'Synthetic Racer', 'Written by hand.', 'players', 'published')`);
+    const result = await dmTx({}, async (db) => {
+      const p = (await db.query('select public.preview_change_set($1::jsonb) as r', [JSON.stringify(chunk!.changeSet)])).rows[0].r;
+      return (await db.query('select public.apply_change_set($1, $2, $3) as r', [p.preview_id, p.digest, chunk!.idempotencyKey])).rows[0].r as { change_set_id: string; skipped: string[] };
+    });
+    expect(result.skipped).toContain('synthetic-racer');
+    const page = (await admin<{ summary: string; visibility: string; status: string; n: number }>(`select a.summary, a.visibility::text, a.status::text, (select count(*)::int from public.article_sections s where s.article_id = a.id) n from public.articles a where slug = 'synthetic-racer'`)).rows[0];
+    expect(page).toEqual({ summary: 'Written by hand.', visibility: 'players', status: 'published', n: 0 });
+    const p = progressFromResult(chunk!, result, 'now');
+    expect(p.slugs).toEqual([]);
+    // Asked again, the entry is now an addition to that page, not approved unless the DM chooses it.
+    const next = nextChunk(s2, await index(), emptyDecisions(), 'f00d0000-0000-4000-8000-000000000000', 'Race', [p]);
+    expect(next.analysis.items[0]).toMatchObject({ action: 'add_to_existing', default_decision: 'review' });
+    expect(next.chunk).toBeNull();
   });
 });

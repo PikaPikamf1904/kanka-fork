@@ -193,13 +193,16 @@ describe('drafting', () => {
     expect((await call('chronicle_draft_session_journal', { title: 'X', recap: 'y', session_date: 'last tuesday' }, dm())).error.code).toBe('VALIDATION_FAILED');
   });
 
-  it('a Gazette draft is checked, never saved or printed, and warns about hidden sources', async () => {
+  it('a Gazette story is filed as a proposal for the DM: no story is saved or printed, hidden sources are flagged', async () => {
     await world();
+    await admin('delete from public.news_proposals');
     const before = (await admin(`select count(*)::int n from public.articles where type = 'news'`)).rows[0]!.n;
     const r = await call('chronicle_draft_gazette_story', { headline: 'Zz Tide Late Again', body: 'The tide was late.', section: 'local', reliability: 'rumor', reporter: 'nib', based_on: ['zz-harbour-town', 'secret-article'] }, dm());
     expect(r.isError, r.raw).toBe(false);
-    expect(r.data.draft).toMatchObject({ kind: 'chronicle-gazette-draft', article: { title: 'Zz Tide Late Again' }, details: { section: 'local', reliability: 'rumor', reporter: 'nib' } });
+    expect(r.data.review_url).toBe('https://wiki.example/dm/news#proposals');
     expect(r.data.warnings.join(' ')).toMatch(/players cannot see \(secret-article\)/);
+    const row = (await admin('select title, reliability::text, reporter, status, article_id, created_via, based_on from public.news_proposals where id = $1', [r.data.proposal_id])).rows[0]!;
+    expect({ ...row, based_on: [...row.based_on].sort() }).toEqual({ title: 'Zz Tide Late Again', reliability: 'rumor', reporter: 'nib', status: 'pending', article_id: null, created_via: 'synthetic-mcp-client', based_on: ['secret-article', 'zz-harbour-town'] });
     expect((await admin(`select count(*)::int n from public.articles where type = 'news'`)).rows[0]!.n).toBe(before);
     expect((await call('chronicle_draft_gazette_story', { headline: 'X', body: 'y', section: 'local', reliability: 'rumor', reporter: 'not-a-reporter' }, dm())).error.code).toBe('VALIDATION_FAILED');
     expect((await call('chronicle_draft_gazette_story', { headline: 'X', body: 'y', section: 'local', reliability: 'rumor', reporter: 'nib' }, player())).error.code).toBe('FORBIDDEN');
@@ -265,5 +268,55 @@ describe('at scale', () => {
     const prep = await call('chronicle_session_prep', {}, dm());
     expect(prep.data.unfinished_quests).toHaveLength(25);
     expect(prep.raw.length).toBeLessThan(40_000);
+  });
+});
+
+describe('connection reliability', () => {
+  const raw = (headers: Record<string, string>, body: string, fetchImpl?: typeof fetch) =>
+    handleRequest(new Request('https://mcp.example/mcp', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body }), env, fetchImpl);
+  const list = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+
+  it('an expired token says so, so the client refreshes instead of failing', async () => {
+    const r = await raw({ authorization: `Bearer ${token('dm', { exp: Math.floor(Date.now() / 1000) - 60 })}` }, list);
+    expect(r.status).toBe(401);
+    expect(r.headers.get('www-authenticate')).toMatch(/error="invalid_token", error_description="The access token expired; refresh it or sign in again\.", resource_metadata=/);
+  });
+
+  it('a website session token is told to connect through OAuth', async () => {
+    const r = await raw({ authorization: `Bearer ${token('dm', { client_id: undefined })}` }, list);
+    expect(r.status).toBe(401);
+    expect(((await r.json()) as { error_description: string }).error_description).toMatch(/not a token issued to an OAuth client/);
+  });
+
+  it('signing keys out of reach is a temporary 503, not a failed sign-in', async () => {
+    const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64url');
+    const es = `${b64({ alg: 'ES256', kid: 'synthetic-kid', typ: 'JWT' })}.${b64({ sub: ids.dm })}.c2ln`;
+    const down = (() => Promise.reject(new TypeError('network down'))) as unknown as typeof fetch;
+    const r = await raw({ authorization: `Bearer ${es}` }, list, down);
+    expect(r.status).toBe(503);
+    expect(r.headers.get('retry-after')).toBe('5');
+    expect(await r.json()).toMatchObject({ error: 'DEPENDENCY_UNAVAILABLE', retryable: true });
+  });
+
+  it('a database that cannot be reached is reported as retryable, with a hint', async () => {
+    const down = ((url: string | URL | Request) => (String(url).includes('/rest/v1/') ? Promise.reject(new TypeError('fetch failed')) : fetch(url))) as typeof fetch;
+    const r = await call('chronicle_search', { query: 'x' }, dm(), env, down);
+    expect(r.isError).toBe(true);
+    expect(r.error).toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE', retryable: true });
+    expect(r.raw).not.toMatch(/fetch failed|TypeError/);
+    const bad = await call('chronicle_get_article', { slug: 'Not A Slug' }, dm());
+    expect(bad.error).toMatchObject({ code: 'VALIDATION_FAILED', retryable: false, hint: 'Fix the arguments and call again.' });
+  });
+
+  it('an oversized request is refused with 413, before it is read', async () => {
+    const r = await raw({ authorization: `Bearer ${dm()}`, 'content-length': String(2_000_000) }, list);
+    expect(r.status).toBe(413);
+  });
+
+  it('whoami works as a connection check', async () => {
+    const r = await call('chronicle_whoami', {}, dm());
+    expect(r.data).toMatchObject({ role: 'dm', connection: { client_id: 'synthetic-mcp-client', database: 'reachable' }, can: { read: true, propose: true, save_approved: true } });
+    expect(Date.parse(r.data.connection.token_expires_at)).toBeGreaterThan(Date.now());
+    expect((await call('chronicle_whoami', {}, player())).data.can).toEqual({ read: true, propose: false, save_approved: false });
   });
 });

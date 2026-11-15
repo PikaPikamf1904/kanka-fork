@@ -340,6 +340,8 @@ export type ItemAction = 'create' | 'add_to_existing' | 'imported';
 export interface ItemAnalysis {
   slug: string;
   action: ItemAction;
+  /** Existing pages whose name is close but not the same (a typo, "The", punctuation): check before creating. */
+  similar_in_wiki: { slug: string; title: string }[];
   match: null | { id: string; slug: string; title: string; type: string; version: number; why: string; player_visible: boolean };
   /** Other entries of this import that look like the same subject. */
   similar_in_import: string[];
@@ -369,6 +371,39 @@ export interface ImportAnalysis {
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+/** A name reduced to letters and digits, without a leading "the" or accents. */
+export const nameKey = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/^\s*the\s+/, '').replace(/[^a-z0-9]+/g, '');
+
+/** Edit distance where swapping two neighbouring letters counts once; stops early above max. */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) d[0]![j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let best = Infinity;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, d[i - 2]![j - 2]! + 1);
+      d[i]![j] = v;
+      best = Math.min(best, v);
+    }
+    if (best > max) return max + 1;
+  }
+  return d[a.length]![b.length]!;
+}
+
+/** Close names: the same once punctuation and "the" are ignored, or one or two letters apart (longer names). */
+export function similarName(a: string, b: string): boolean {
+  const x = nameKey(a);
+  const y = nameKey(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  // "Session 3" and "Session 4" are different things, not a typo.
+  if ((x.match(/\d+/g) ?? []).join(',') !== (y.match(/\d+/g) ?? []).join(',')) return false;
+  const max = Math.min(x.length, y.length) >= 10 ? 2 : Math.min(x.length, y.length) >= 6 ? 1 : 0;
+  return max > 0 && editDistance(x, y, max) <= max;
+}
 
 export function analyzeImport(staged: StagedImport, wiki: WikiIndex, alreadyImported: ReadonlySet<string> = new Set()): ImportAnalysis {
   const bySlug = new Map(wiki.articles.map((a) => [a.slug, a]));
@@ -399,7 +434,11 @@ export function analyzeImport(staged: StagedImport, wiki: WikiIndex, alreadyImpo
     for (const alias of it.aliases) {
       found(byTitle.get(norm(alias)) ?? bySlug.get(slugify(alias)), `Its alias "${alias}" is the name of this page.`);
     }
-    const similar = [...new Set([it.title, ...it.aliases].flatMap((t) => importTitles.get(norm(t)) ?? []))].filter((s) => s !== it.slug);
+    const similar = [...new Set([
+      ...[it.title, ...it.aliases].flatMap((t) => importTitles.get(norm(t)) ?? []),
+      ...staged.items.filter((o) => o.slug !== it.slug && similarName(o.title, it.title)).map((o) => o.slug),
+    ])].filter((s) => s !== it.slug);
+    const similar_in_wiki = match ? [] : wiki.articles.filter((w) => similarName(w.title, it.title) || it.aliases.some((al) => similarName(w.title, al))).slice(0, 5).map((w) => ({ slug: w.slug, title: w.title }));
     const existingFields = match ? fieldsOf.get((match as { id: string }).id) ?? new Map<string, string>() : new Map<string, string>();
     const new_fields: ItemAnalysis['new_fields'] = [];
     const same_fields: string[] = [];
@@ -420,10 +459,10 @@ export function analyzeImport(staged: StagedImport, wiki: WikiIndex, alreadyImpo
     }
     const action: ItemAction = alreadyImported.has(it.slug) ? 'imported' : match ? 'add_to_existing' : 'create';
     return {
-      slug: it.slug, action, match, similar_in_import: similar, new_fields, same_fields, conflicts, links, categories,
+      slug: it.slug, action, match, similar_in_wiki, similar_in_import: similar, new_fields, same_fields, conflicts, links, categories,
       provenance: { kind: PROVENANCE_FOR[it.canon], reference: it.source.slice(0, 500) },
       // An existing page is only touched if the DM chooses it page by page.
-      default_decision: action === 'create' && similar.length === 0 ? 'approve' : 'review',
+      default_decision: action === 'create' && similar.length === 0 && similar_in_wiki.length === 0 ? 'approve' : 'review',
     };
   });
 
@@ -455,7 +494,7 @@ export function analyzeImport(staged: StagedImport, wiki: WikiIndex, alreadyImpo
       create: live.filter((i) => i.action === 'create').length,
       add_to_existing: live.filter((i) => i.action === 'add_to_existing').length,
       imported: items.length - live.length,
-      duplicates: live.filter((i) => i.match || i.similar_in_import.length > 0).length,
+      duplicates: live.filter((i) => i.match || i.similar_in_import.length > 0 || i.similar_in_wiki.length > 0).length,
       conflicts: live.reduce((n, i) => n + i.conflicts.length, 0),
       relations: relations.filter((r) => r.basis === 'stated').length,
       suggested_relations: relations.filter((r) => r.basis === 'link').length,
@@ -470,8 +509,30 @@ export function analyzeImport(staged: StagedImport, wiki: WikiIndex, alreadyImpo
 // Decisions -> change sets
 // ---------------------------------------------------------------------------------------------
 export type Decision = 'approve' | 'reject';
-export interface Decisions { items: Record<string, Decision>; relations: Record<string, Decision>; types: Record<string, ArticleType> }
-export const emptyDecisions = (): Decisions => ({ items: {}, relations: {}, types: {} });
+export interface Decisions {
+  items: Record<string, Decision>;
+  relations: Record<string, Decision>;
+  types: Record<string, ArticleType>;
+  /** Categories named in the files that do not exist yet, which the DM chose to create (DM-only). */
+  categories?: Record<string, Decision>;
+}
+export const emptyDecisions = (): Decisions => ({ items: {}, relations: {}, types: {}, categories: {} });
+
+/** Missing categories named by approved entries, and whether the DM chose to create each one. */
+export function missingCategories(analysis: ImportAnalysis, decisions: Decisions): { name: string; slug: string; entries: number; create: boolean }[] {
+  const by = new Map<string, { name: string; slug: string; entries: number; create: boolean }>();
+  for (const a of analysis.items) {
+    if (a.action === 'imported' || decisionOf(decisions, a.slug, a) !== 'approve') continue;
+    for (const name of a.categories.missing) {
+      const slug = slugify(name);
+      if (!slug) continue;
+      const x = by.get(slug) ?? { name, slug, entries: 0, create: (decisions.categories ?? {})[slug] === 'approve' };
+      x.entries++;
+      by.set(slug, x);
+    }
+  }
+  return [...by.values()].sort((x, y) => x.name.localeCompare(y.name));
+}
 
 export function decisionOf(d: Decisions, slug: string, a: Pick<ItemAnalysis, 'default_decision'>): Decision {
   return d.items[slug] ?? (a.default_decision === 'approve' ? 'approve' : 'reject');
@@ -623,6 +684,26 @@ export function recoverProgress(batchId: string, progress: ProgressEntry[], save
   return out;
 }
 
+/**
+ * What a saved part really did. An entry whose page was created by someone else between review
+ * and save is skipped by the engine (it never overwrites): it is reported, not counted as saved.
+ */
+export function progressFromResult(chunk: ImportChunk, result: { change_set_id?: string | null; skipped?: string[] }, at: string): ProgressEntry {
+  const skipped = new Set(result.skipped ?? []);
+  const slugs = chunk.slugs.filter((s) => !skipped.has(s));
+  const lost = chunk.slugs.filter((s) => skipped.has(s));
+  return { chunk: chunk.index, key: chunk.idempotencyKey, slugs, relations: chunk.relationKeys, status: 'applied', change_set_id: result.change_set_id ?? null, at,
+    ...(lost.length ? { message: `not saved because a page with the same address already exists: ${lost.join(', ')}` } : {}) };
+}
+
+/** The import entry a failing change belongs to, from the engine's 1-based change index. */
+export function entryForChange(chunk: ImportChunk, analysis: ImportAnalysis, index: number): string | null {
+  const op = chunk.changeSet.changes[index - 1] as { article_slug?: string; slug?: string; source_slug?: string } | undefined;
+  const target = op?.article_slug ?? op?.slug ?? op?.source_slug;
+  if (!target) return null;
+  return analysis.items.find((a) => a.slug === target || a.match?.slug === target)?.slug ?? null;
+}
+
 /** Connections that can never be saved as chosen: one of their pages is missing and not coming. */
 export function pendingRelations(analysis: ImportAnalysis, decisions: Decisions, wiki: Pick<WikiIndex, 'articles'>, doneRelations: ReadonlySet<string>): RelationProposal[] {
   const target = new Map(analysis.items.map((a) => [a.slug, a.match?.slug ?? a.slug]));
@@ -652,6 +733,7 @@ export function importReport(label: string, staged: StagedImport, analysis: Impo
     const d = a.action === 'imported' ? 'imported' : decisionOf(decisions, a.slug, a) === 'approve' ? 'approved' : 'not approved';
     lines.push(`- **${it.title}** (${decisions.types[a.slug] ?? it.type}, ${CANON_LABEL[it.canon].toLowerCase()}) — ${a.action === 'create' ? 'new page' : a.action === 'imported' ? 'already imported' : `adds to “${a.match!.title}”`}; ${d}. Source: ${it.source}.`);
     for (const c of a.conflicts) lines.push(`  - Conflict, not applied: ${c.label}: wiki “${c.existing}”, import “${c.imported}”.`);
+    if (a.similar_in_wiki.length) lines.push(`  - Similar existing page: ${a.similar_in_wiki.map((w) => w.title).join(', ')}.`);
     if (a.links.missing.length) lines.push(`  - Links to pages that do not exist: ${a.links.missing.join(', ')}.`);
     if (a.categories.missing.length) lines.push(`  - Categories that do not exist yet (not created): ${a.categories.missing.join(', ')}.`);
   }

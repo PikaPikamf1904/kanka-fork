@@ -11,7 +11,7 @@ export const SCOPES = ['chronicle:read', 'chronicle:preview', 'chronicle:draft_w
 export type Scope = (typeof SCOPES)[number];
 
 export interface Whoami { principal_id: string; role: 'dm' | 'player' | null; is_dm: boolean; is_member: boolean; mfa_satisfied: boolean; client_id: string }
-export interface Ctx { db: Db; who: Whoami; scopes: Scope[]; reviewBase: string }
+export interface Ctx { db: Db; who: Whoami; scopes: Scope[]; reviewBase: string; token?: { client_id: string; expires_at: string } }
 
 type Json = Record<string, unknown>;
 export interface Tool {
@@ -124,9 +124,13 @@ function cleanOps(raw: unknown): ChangeOp[] {
 export const TOOLS: Tool[] = [
   {
     name: 'chronicle_whoami', scope: 'chronicle:read', dmOnly: false, annotations: RO,
-    description: 'Who you are signed in as in Chronicle: role, granted scopes and whether two-step sign-in is satisfied.',
+    description: 'Connection check: who you are signed in as in Chronicle, your role, granted scopes, whether two-step sign-in is satisfied, which OAuth client this connection is and when its token expires. Call it first when something does not work.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    run: async (_a, ctx) => ({ principal_id: ctx.who.principal_id, role: ctx.who.role, scopes: ctx.scopes, mfa_satisfied: ctx.who.mfa_satisfied }),
+    run: async (_a, ctx) => ({
+      principal_id: ctx.who.principal_id, role: ctx.who.role, scopes: ctx.scopes, mfa_satisfied: ctx.who.mfa_satisfied,
+      connection: { client_id: ctx.token?.client_id ?? null, token_expires_at: ctx.token?.expires_at ?? null, database: 'reachable' },
+      can: { read: ctx.scopes.includes('chronicle:read'), propose: ctx.who.is_dm && ctx.scopes.includes('chronicle:preview'), save_approved: ctx.who.is_dm && ctx.scopes.includes('chronicle:draft_write') },
+    }),
   },
   {
     name: 'chronicle_search', scope: 'chronicle:read', dmOnly: false, annotations: RO,

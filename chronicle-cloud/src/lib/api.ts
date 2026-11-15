@@ -34,9 +34,26 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
 const ARTICLE_COLUMNS =
   'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at, version';
 
+const LEGACY_SETTINGS =
+  'title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)';
+
 export async function getSettings(): Promise<CampaignSettings | null> {
-  // The location page is embedded through Row Level Security: a page the reader may not see comes back null.
-  return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)').maybeSingle());
+  // Where the party is comes from campaign_location(): the DM always gets it, a player only when the
+  // page is published to players (20261116000100). Before that migration the function does not
+  // exist and the column is read directly, with the page embedded through Row Level Security.
+  // Asked again on every call, so a tab opened before the migration recovers once it is applied.
+  const [settings, loc] = await Promise.all([
+    supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_status').maybeSingle(),
+    supabase.rpc('campaign_location'),
+  ]);
+  if (loc.error) {
+    if (loc.error.code !== 'PGRST202' && !/campaign_location/.test(loc.error.message)) throw new Error(loc.error.message);
+    return must(await supabase.from('campaign_settings').select(LEGACY_SETTINGS).maybeSingle());
+  }
+  const s = must(settings) as Omit<CampaignSettings, 'current_location_id' | 'current_location'> | null;
+  if (!s) return null;
+  const place = ((loc.data ?? []) as { id: string; slug: string; title: string; type: ArticleRef['type'] }[])[0] ?? null;
+  return { ...s, current_location_id: place?.id ?? null, current_location: place ? { slug: place.slug, title: place.title, type: place.type } : null } as CampaignSettings;
 }
 
 export async function updateSettings(patch: Partial<CampaignSettings>) {
@@ -112,6 +129,26 @@ export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string):
   const { data, error } = await supabase.rpc('save_news_story', { p_story: draft, p_expected_version: expectedVersion ?? null });
   if (error) throw toChronicleError(error);
   return data as Article & { pending: boolean };
+}
+
+/** A story an assistant proposed; only the DM, here, can accept it (as a private draft) or dismiss it. */
+export interface NewsProposal {
+  id: string; title: string; subtitle: string; summary: string; body: string; section: NewsSection; reliability: NewsReliability; reporter: string;
+  dateline: string; in_world_date: string; based_on: string[]; warnings: string[]; created_at: string; created_via: string;
+}
+export async function listNewsProposals(): Promise<NewsProposal[]> {
+  const { data, error } = await supabase.from('news_proposals').select('id, title, subtitle, summary, body, section, reliability, reporter, dateline, in_world_date, based_on, warnings, created_at, created_via').eq('status', 'pending').order('created_at', { ascending: false }).limit(50);
+  // Before migration 20261116000200 the table does not exist: there are simply no proposals.
+  if (error) return error.code === '42P01' || error.code === 'PGRST205' ? [] : Promise.reject(new Error(error.message));
+  return data as NewsProposal[];
+}
+export async function acceptNewsProposal(id: string): Promise<{ id: string; slug: string }> {
+  const { data, error } = await supabase.rpc('accept_news_proposal', { p_id: id });
+  if (error) throw toChronicleError(error);
+  return data as { id: string; slug: string };
+}
+export async function dismissNewsProposal(id: string) {
+  must(await supabase.from('news_proposals').update({ status: 'dismissed' }).eq('id', id).select('id'));
 }
 
 export type NewsAction = 'submit' | 'approve' | 'return' | 'publish' | 'unpublish' | 'discard';

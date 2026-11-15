@@ -25,31 +25,32 @@ async function dmToken() {
   return `${head}.${body}.${crypto.createHmac('sha256', secret).update(`${head}.${body}`).digest('base64url')}`;
 }
 
-test('a Gazette draft from the assistant fills the news desk form and is saved only as a private draft', async ({ page }) => {
+test('an assistant proposes a Gazette story; the DM accepts it on the news desk as a private draft; nothing is printed', async ({ page }) => {
   const run = Date.now().toString(36);
+  const headline = `Zz Goats Elect a Mayor ${run}`;
   const res = await fetch('http://127.0.0.1:8789/mcp', {
     method: 'POST', headers: { authorization: `Bearer ${await dmToken()}`, 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'chronicle_draft_gazette_story', arguments: {
-      headline: `Zz Goats Elect a Mayor ${run}`, deck: 'The vote was close.', opening: 'A synthetic opening.', body: 'The goats voted. See [[port-vellmoor|the port]].',
+      headline, deck: 'The vote was close.', opening: 'A synthetic opening.', body: 'The goats voted. See [[port-vellmoor|the port]].',
       section: 'rumors', reliability: 'rumor', reporter: 'pinchcheek', based_on: ['port-vellmoor'] } } }),
   });
-  const json = (await res.json()) as { result: { structuredContent: { data: { draft: unknown; warnings: string[] } }; isError: boolean } };
+  const json = (await res.json()) as { result: { structuredContent: { data: { proposal_id: string; review_url: string } }; isError: boolean } };
   expect(json.result.isError).toBe(false);
-  const draft = json.result.structuredContent.data.draft;
+  expect(json.result.structuredContent.data.review_url).toMatch(/\/dm\/news#proposals$/);
 
   await signInAsDm(page);
-  await page.goto('/dm/news/new');
-  await page.getByText('Start from an assistant draft').click();
-  await page.getByLabel('Assistant draft').fill('{not a draft');
-  await page.getByRole('button', { name: 'Use this draft' }).click();
-  await expect(page.getByRole('alert')).toContainText('not a draft');
-  await page.getByLabel('Assistant draft').fill(JSON.stringify({ draft }));
-  await page.getByRole('button', { name: 'Use this draft' }).click();
-  await expect(page.getByLabel('Headline', { exact: true })).toHaveValue(`Zz Goats Elect a Mayor ${run}`);
-  await expect(page.getByLabel('Section')).toHaveValue('rumors');
+  await page.goto('/dm/news');
+  const proposal = page.getByTestId('news-proposal').filter({ hasText: headline });
+  await expect(proposal).toBeVisible();
+  await expect(proposal.locator('.gz-stamp', { hasText: 'Unconfirmed' })).toBeVisible();
+  await proposal.getByRole('button', { name: 'Read it' }).click();
+  await expect(proposal.getByText('The goats voted.')).toBeVisible();
+  await proposal.getByRole('button', { name: 'Accept as a private draft' }).click();
+  await expect(page).toHaveURL(new RegExp(`/dm/news/edit/zz-goats-elect-a-mayor-${run}$`));
+  await expect(page.getByLabel('Headline', { exact: true })).toHaveValue(headline);
   await expect(page.getByLabel('Kind of reporting')).toHaveValue('rumor');
   await expect(page.getByLabel('Reporter')).toHaveValue('pinchcheek');
-  await page.getByRole('button', { name: 'Save story' }).click();
-  await expect(page.getByText('Saved. Players cannot see it until you print it.')).toBeVisible();
   await expect(page.getByText('Draft: players cannot see this story.')).toBeVisible();
+  await page.goto('/dm/news');
+  await expect(page.getByTestId('news-proposal').filter({ hasText: headline })).toHaveCount(0);
 });

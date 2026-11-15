@@ -59,7 +59,14 @@ section and fact records its source file.
     facts whose label the page does not have yet, and private notes. A fact that disagrees with
     the wiki is listed as a conflict and **never changed**; saving adds a private note about it.
   - *May be the same subject as* another entry of this import: check before approving both.
-  - Links to pages that do not exist, and categories that do not exist, are listed.
+  - *Similar to an existing page*: a name one or two letters away from a page already in the
+    wiki (a typo, swapped letters, "The", accents or punctuation). Treated like a duplicate:
+    **not approved unless you tick it**. Names that differ only in a number ("Session 3",
+    "Session 4") are not flagged.
+  - Links to pages that do not exist are listed.
+- **Missing categories:** categories the import uses that the wiki does not have are listed with
+  a tick box each. Only the ticked ones are created, as DM-only category pages, before the first
+  part is saved.
 - **Connections:** stated ones (from JSON packages) are approved with their pages; ones suggested
   from a link are not approved unless you tick them. Connections are DM-only.
 - **Filters** and *Approve all shown* / *Reject all shown* for working through hundreds of entries.
@@ -67,7 +74,10 @@ section and fact records its source file.
   before each part. If a page changed while you were reviewing, that part is refused and nothing
   in it is saved; review and save again. A lost connection is retried once with the same key, so
   nothing is saved twice. If saving stops, *Continue saving* resumes where it stopped; parts that
-  were saved but not recorded (closed tab) are found again in Chronicle's own record.
+  were saved but not recorded (closed tab) are found again in Chronicle's own record. A failed
+  part names the entry that caused it.
+- **Never overwritten:** if someone creates a page with the same address after you reviewed the
+  batch, that entry is skipped, reported as skipped, and **not** counted as imported.
 - **Download report:** a Markdown summary of every entry, decision, conflict and saved part.
 - **Discard import:** removes the batch; pages already saved stay as drafts.
 
@@ -81,10 +91,13 @@ Split larger collections into several batches.
 
 ## Verified
 
-- `src/lib/loreImport.test.ts` (17): parsing, classification, matching, conflicts, rumours,
-  bounded parts, stable keys, connections waiting for both pages.
-- `tests/db/import-batches.test.ts` (7): who can see and change batches; drafts saved once even
+- `src/lib/loreImport.test.ts` (21): parsing, classification, matching, conflicts, rumours,
+  bounded parts, stable keys, connections waiting for both pages, similar names, missing
+  categories, progress that excludes skipped entries.
+- `tests/db/import-batches.test.ts` (8): who can see and change batches; drafts saved once even
   when every part is retried; additions never replace text or facts and need the current
-  version; an interrupted 45-page import resumes from Chronicle's own record.
+  version; an interrupted 45-page import resumes from Chronicle's own record; a page created
+  between review and save is never overwritten and not counted as saved.
 - `tests/db/mcp-campaign.test.ts`: staging and reading batches through MCP.
-- `tests/e2e/lore-import.spec.ts`: desktop and phone review, a lost answer, players see nothing.
+- `tests/e2e/lore-import.spec.ts`: desktop and phone review, category creation, a lost answer,
+  players see nothing.

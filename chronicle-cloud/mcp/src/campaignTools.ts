@@ -110,15 +110,17 @@ export const CAMPAIGN_TOOLS: Tool[] = [
     async run(a: Json, ctx: CampaignCtx) {
       const n = typeof a.sessions === 'number' && a.sessions >= 1 && a.sessions <= 10 ? Math.floor(a.sessions) : 3;
       const [settings, members, sessions, q] = await Promise.all([
-        ctx.db.get<{ title: string; tagline: string; current_location_id: string | null; current_status: string }>('campaign_settings?select=title,tagline,current_location_id,current_status'),
+        ctx.db.get<{ title: string; tagline: string; current_status: string }>('campaign_settings?select=title,tagline,current_status'),
         party(ctx.db), latestSessions(ctx.db, n), quests(ctx.db, 1000),
       ]);
       const s = settings[0];
-      const loc = s?.current_location_id ? (await ctx.db.get<Art>(`articles?select=${ART}&id=eq.${s.current_location_id}`))[0] ?? null : null;
+      // The DM always gets the location; a member only when the page is published to players.
+      const place = (await ctx.db.rpc<{ id: string }[]>('campaign_location', {}))[0];
+      const loc = place ? (await ctx.db.get<Art>(`articles?select=${ART}&id=eq.${place.id}`))[0] ?? null : null;
       return {
         campaign: s ? { title: s.title, tagline: s.tagline } : null,
         party_location: loc ? { slug: loc.slug, title: loc.title, summary: clip(loc.summary, 400) } : null,
-        party_location_note: loc ? null : s?.current_location_id ? 'A location is set, but you cannot read that page.' : 'No current location is recorded.',
+        party_location_note: loc ? null : 'No current location that you can see is recorded.',
         current_situation: s?.current_status || null,
         party: members,
         latest_sessions: sessions,
@@ -189,15 +191,16 @@ export const CAMPAIGN_TOOLS: Tool[] = [
     inputSchema: { type: 'object', additionalProperties: false, properties: { sessions: { type: 'integer', minimum: 1, maximum: 10, default: 3 } } },
     async run(a: Json, ctx: CampaignCtx) {
       const n = typeof a.sessions === 'number' && a.sessions >= 1 && a.sessions <= 10 ? Math.floor(a.sessions) : 3;
-      const [settings, sessions, q, members] = await Promise.all([
-        ctx.db.get<{ current_location_id: string | null; current_status: string }>('campaign_settings?select=current_location_id,current_status'),
+      const [settings, place, sessions, q, members] = await Promise.all([
+        ctx.db.get<{ current_status: string }>('campaign_settings?select=current_status'),
+        ctx.db.rpc<{ id: string }[]>('campaign_location', {}),
         ctx.db.get<Art>(`articles?select=${ART},session_date&type=eq.session&order=session_date.desc.nullslast,updated_at.desc,id&limit=${n}`),
         quests(ctx.db, 1000), party(ctx.db),
       ]);
       const sections = sessions.length ? await ctx.db.get<{ article_id: string; heading: string; body: string }>(`article_sections?select=article_id,heading,body&article_id=in.(${sessions.map((s) => s.id).join(',')})&order=position`) : [];
       const linked = [...new Set(sections.flatMap((s) => wikiLinkTargets(s.body)).map(slugOf))].filter((t) => SLUG.test(t)).slice(0, 60);
       const linkedPages = linked.length ? await ctx.db.get<Art>(`articles?select=${ART}&slug=in.(${linked.join(',')})`) : [];
-      const locId = settings[0]?.current_location_id;
+      const locId = place[0]?.id;
       const [loc, near] = locId ? await Promise.all([
         ctx.db.get<Art>(`articles?select=${ART}&id=eq.${locId}`),
         ctx.db.get<{ kind: string; source: { slug: string; title: string; type: string } | null; target: { slug: string; title: string; type: string } | null; source_article_id: string }>(
@@ -322,8 +325,8 @@ export const CAMPAIGN_TOOLS: Tool[] = [
     },
   },
   {
-    name: 'chronicle_draft_gazette_story', scope: 'chronicle:preview', dmOnly: true, annotations: RO,
-    description: 'DM only. Checks a proposed Goblin Gazette story (headline, deck, opening, body, section, reporter, kind of reporting) and returns it ready for the DM to paste into the news desk ("Start from an assistant draft"). It saves nothing and can never print: stories are saved, reviewed and printed only by the DM on the website. Base it on documented campaign events; a rumour must be marked reliability "rumor".',
+    name: 'chronicle_draft_gazette_story', scope: 'chronicle:preview', dmOnly: true, annotations: STAGE,
+    description: 'DM only. Files a proposed Goblin Gazette story (headline, deck, opening, body, section, reporter, kind of reporting) on the news desk. It saves no story and can never print: the DM accepts it there as a private draft (or dismisses it), then reviews and prints it as usual. Base it on documented campaign events; mark rumours with reliability "rumor".',
     inputSchema: { type: 'object', required: ['headline', 'body', 'section', 'reliability', 'reporter'], additionalProperties: false, properties: {
       headline: { type: 'string', maxLength: 200 }, deck: { type: 'string', maxLength: 200 }, opening: { type: 'string', maxLength: 2000 }, body: { type: 'string', maxLength: 30000 },
       section: { enum: SECTIONS.map((s) => s.key) }, reliability: { enum: Object.keys(RELIABILITY) }, reporter: { enum: STAFF.map((s) => s.key) },
@@ -336,19 +339,19 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const pages = based.length ? await ctx.db.get<Art>(`articles?select=${ART}&slug=in.(${based.join(',')})`) : [];
       const body = text(a.body, 'body', 30000, true);
       const warnings: string[] = [];
-      if (pages.length === 0) warnings.push('No source pages were given: check every fact against the campaign record before saving.');
+      if (pages.length === 0) warnings.push('No source pages were given: check every fact against the campaign record.');
       if (based.some((b) => !pages.some((p) => p.slug === b))) warnings.push(`Unknown source pages: ${based.filter((b) => !pages.some((p) => p.slug === b)).join(', ')}.`);
       const hidden = pages.filter((p) => !isPublic(p));
       if (hidden.length) warnings.push(`Based on pages players cannot see (${hidden.map((p) => p.slug).join(', ')}): printing this story could reveal them.`);
       if (reliability === 'confirmed' && section === 'rumors') warnings.push('A story in Rumors is marked as confirmed; check the kind of reporting.');
-      const draft = {
-        kind: 'chronicle-gazette-draft', version: 1,
-        article: { title: text(a.headline, 'headline', 200, true).trim(), subtitle: text(a.deck, 'deck', 200), summary: text(a.opening, 'opening', 2000), hero_media_id: null },
-        body,
-        details: { section: section as NewsSection, reliability, reporter: reporter.key, dateline: text(a.dateline, 'dateline', 120), in_world_date: text(a.in_world_date, 'in_world_date', 120), issue_number: null, is_lead: false, corrects_article_id: null },
-      };
-      return { draft, reporter: { name: reporter.name, voice: reporter.voice }, reliability_label: RELIABILITY[reliability].label, based_on: pages.map((p) => ({ slug: p.slug, title: p.title, player_visible: isPublic(p) })), warnings,
-        next_step: `Give the DM this draft (the "draft" object as JSON). On the news desk (${ctx.reviewBase}/dm/news/new) they paste it under "Start from an assistant draft", edit it, and save it as a private draft. Only the DM can send it for review and print it.` };
+      const row = await ctx.db.insert<{ id: string }>('news_proposals', {
+        title: text(a.headline, 'headline', 200, true).trim(), subtitle: text(a.deck, 'deck', 200), summary: text(a.opening, 'opening', 2000), body,
+        section: section as NewsSection, reliability, reporter: reporter.key, dateline: text(a.dateline, 'dateline', 120), in_world_date: text(a.in_world_date, 'in_world_date', 120),
+        based_on: pages.map((p) => p.slug), warnings: warnings.map((w) => clip(w, 290)), // the database refuses items over 300 characters
+      }, 'id');
+      return { proposal_id: row.id, review_url: `${ctx.reviewBase}/dm/news#proposals`, reporter: { name: reporter.name, voice: reporter.voice }, reliability_label: RELIABILITY[reliability].label,
+        based_on: pages.map((p) => ({ slug: p.slug, title: p.title, player_visible: isPublic(p) })), warnings,
+        next_step: 'Tell the DM the proposal is waiting on the news desk (review_url). Only the DM can accept it as a draft, review it and print it.' };
     },
   },
   {
@@ -397,7 +400,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const items = new Map(b.staged.items.map((i) => [i.slug, i]));
       const decisions: Decisions = { items: b.decisions.items ?? {}, relations: b.decisions.relations ?? {}, types: b.decisions.types ?? {} };
       const filter = (['all', 'conflicts', 'duplicates', 'new', 'existing', 'uncertain_type'] as const).find((f) => f === a.filter) ?? 'all';
-      const keep = analysis.items.filter((x) => filter === 'all' || (filter === 'conflicts' && x.conflicts.length > 0) || (filter === 'duplicates' && (x.match || x.similar_in_import.length > 0))
+      const keep = analysis.items.filter((x) => filter === 'all' || (filter === 'conflicts' && x.conflicts.length > 0) || (filter === 'duplicates' && (x.match || x.similar_in_import.length > 0 || x.similar_in_wiki.length > 0))
         || (filter === 'new' && x.action === 'create') || (filter === 'existing' && x.action === 'add_to_existing') || (filter === 'uncertain_type' && items.get(x.slug)!.typeConfidence !== 'high'));
       const limit = typeof a.limit === 'number' && a.limit >= 1 && a.limit <= 200 ? Math.floor(a.limit) : 50;
       const offset = typeof a.offset === 'number' && a.offset >= 0 ? Math.floor(a.offset) : 0;
@@ -407,7 +410,7 @@ export const CAMPAIGN_TOOLS: Tool[] = [
           const it = items.get(x.slug)!;
           return { slug: x.slug, title: it.title, source: it.source, type: decisions.types[x.slug] ?? it.type, type_confidence: it.typeConfidence, type_reason: it.typeReason, canon: CANON_LABEL[it.canon],
             proposal: x.action === 'create' ? 'new page' : x.action === 'imported' ? 'already saved' : `additions to "${x.match!.title}"`, match_reason: x.match?.why ?? null,
-            similar_in_import: x.similar_in_import, conflicts: x.conflicts, missing_links: x.links.missing, missing_categories: x.categories.missing,
+            similar_in_import: x.similar_in_import, similar_existing_pages: x.similar_in_wiki, conflicts: x.conflicts, missing_links: x.links.missing, missing_categories: x.categories.missing,
             dm_choice: x.action === 'imported' ? 'saved' : decisionOf(decisions, x.slug, x) === 'approve' ? 'approved' : 'not approved' };
         }),
         next_offset: offset + limit < keep.length ? offset + limit : null,

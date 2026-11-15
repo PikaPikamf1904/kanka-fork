@@ -42,19 +42,27 @@ export function makeDb(base: string, publishableKey: string, token: string, fetc
     // Never pass database text through.
     throw new ToolError('INTERNAL_ERROR', 'Chronicle could not complete the request.');
   }
+  // A request that never reaches the database (network down, DNS) is "try again", not a bug.
+  const send = async (url: string, init: RequestInit): Promise<Response> => {
+    try {
+      return await fetchImpl(url, init);
+    } catch {
+      throw new ToolError('DEPENDENCY_UNAVAILABLE', "Chronicle's database is not reachable.");
+    }
+  };
   return {
     async get<T>(pathAndQuery: string) {
-      const res = await fetchImpl(`${root}/${pathAndQuery}`, { headers });
+      const res = await send(`${root}/${pathAndQuery}`, { headers });
       if (!res.ok) return fail(res);
       return (await res.json()) as T[];
     },
     async insert<T>(table: string, row: Record<string, unknown>, select: string) {
-      const res = await fetchImpl(`${root}/${table}?select=${select}`, { method: 'POST', headers: { ...headers, prefer: 'return=representation' }, body: JSON.stringify(row) });
+      const res = await send(`${root}/${table}?select=${select}`, { method: 'POST', headers: { ...headers, prefer: 'return=representation' }, body: JSON.stringify(row) });
       if (!res.ok) return fail(res);
       return ((await res.json()) as T[])[0]!;
     },
     async rpc<T>(fn: string, args: Record<string, unknown>) {
-      const res = await fetchImpl(`${root}/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(args) });
+      const res = await send(`${root}/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(args) });
       if (!res.ok) return fail(res);
       return (await res.json()) as T;
     },

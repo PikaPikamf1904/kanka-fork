@@ -6,7 +6,7 @@ import { enrollAsPlayer, noHorizontalOverflow, screenshot, signInAsDm } from './
 
 const run = Date.now().toString(36);
 const files = [
-  { name: `zz-${run}-ferryman.md`, text: `---\ntitle: Zz Ferryman ${run}\ntype: npc\ncanon: confirmed\ntags: [Nonexistent Tag]\n---\nRows boats to [[Port Vellmoor]] and knows [[Zz Lighthouse ${run}]].\n\n## Facts\n- Race: Human\n\n## History\nZZSECRET${run} rowed for years.\n\n## DM notes\nOwes money.` },
+  { name: `zz-${run}-ferryman.md`, text: `---\ntitle: Zz Ferryman ${run}\ntype: npc\ncanon: confirmed\ntags: [Zz Sea Folk ${run}]\n---\nRows boats to [[Port Vellmoor]] and knows [[Zz Lighthouse ${run}]].\n\n## Facts\n- Race: Human\n\n## History\nZZSECRET${run} rowed for years.\n\n## DM notes\nOwes money.` },
   { name: `zz-${run}-places.md`, text: `# Zz Lighthouse ${run}\nA tall light by the sea. ZZSECRET${run}\n\n# Session 99: Zz Storm ${run}\nThe party sheltered from the storm.\n\n# Zz Odd Thing ${run}\nNobody knows.` },
   { name: `zz-${run}-port.md`, text: `---\ntitle: Port Vellmoor\ncanon: rumor\n---\nPeople say the port is cursed.\n\n## Facts\n- Population: Countless\n- Ruler: A goblin, they say` },
   { name: `zz-${run}-broken.json`, text: '{nope' },
@@ -50,6 +50,8 @@ test.describe('Staged lore import', () => {
     await expect(page.locator('.import-item')).toHaveCount(1);
     await page.getByLabel('Show entries').selectOption('all');
     await expect(page.getByText('Choices not saved')).toBeVisible();
+    // A category the files name but the wiki lacks: created only because it is ticked here.
+    await page.getByRole('region', { name: 'Categories that do not exist yet' }).getByRole('checkbox', { name: `Zz Sea Folk ${run}` }).check();
 
     // The first saved part reaches Chronicle but its answer is lost: the retry saves it once.
     let dropped = 0;
@@ -71,6 +73,8 @@ test.describe('Staged lore import', () => {
     // Saving again finds nothing new to do.
     await expect(page.getByRole('button', { name: /Save approved entries|Continue saving/ })).toBeDisabled();
 
+    await page.goto(`/category/zz-sea-folk-${run}`);
+    await expect(page.getByRole('link', { name: `Zz Ferryman ${run}` })).toBeVisible();
     // The saved pages are drafts; the existing page was not changed; the type choice was used.
     await page.goto(`/wiki/zz-odd-thing-${run}`);
     await expect(page.getByText('Item', { exact: true }).first()).toBeVisible();
