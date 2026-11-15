@@ -35,8 +35,21 @@ const ARTICLE_COLUMNS =
   'id, slug, type, title, subtitle, summary, hero_media_id, visibility, status, is_featured, is_party_member, importance, session_date, updated_at, published_at, version';
 
 export async function getSettings(): Promise<CampaignSettings | null> {
-  // The location page is embedded through Row Level Security: a page the reader may not see comes back null.
-  return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)').maybeSingle());
+  // Where the party is comes from campaign_location(): the DM always gets it, a player only when the
+  // page is published to players (20261116000100). Before that migration the function does not
+  // exist and the column is read directly, with the page embedded through Row Level Security.
+  const [settings, loc] = await Promise.all([
+    supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_status').maybeSingle(),
+    supabase.rpc('campaign_location'),
+  ]);
+  if (loc.error) {
+    if (loc.error.code !== 'PGRST202' && !/campaign_location/.test(loc.error.message)) throw new Error(loc.error.message);
+    return must(await supabase.from('campaign_settings').select('title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)').maybeSingle());
+  }
+  const s = must(settings) as Omit<CampaignSettings, 'current_location_id' | 'current_location'> | null;
+  if (!s) return null;
+  const place = ((loc.data ?? []) as { id: string; slug: string; title: string; type: ArticleRef['type'] }[])[0] ?? null;
+  return { ...s, current_location_id: place?.id ?? null, current_location: place ? { slug: place.slug, title: place.title, type: place.type } : null } as CampaignSettings;
 }
 
 export async function updateSettings(patch: Partial<CampaignSettings>) {

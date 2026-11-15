@@ -35,7 +35,8 @@ async function everythingVisibleTo(who: Who) {
     'select * from public.map_fog_areas',
     'select * from public.media',
     "select name from storage.objects where bucket_id = 'chronicle-media'",
-    'select * from public.campaign_settings',
+    'select title, tagline, overview, banner_media_id, current_status from public.campaign_settings',
+    'select * from public.campaign_location()',
     "select * from public.search_wiki('captain OR secretword OR draftword OR spymasterword OR hiddenarticleword OR lighthousewords')",
     "select * from public.suggest_articles('h')",
     "select * from public.suggest_articles('u')",
@@ -226,7 +227,7 @@ describe('everyone without active membership sees nothing', () => {
   for (const who of ['outsider', 'revoked'] as const) {
     it(`${who}: every table and function returns nothing`, async () => {
       const all = await everythingVisibleTo(who);
-      expect(all).toBe(JSON.stringify(Array.from({ length: 24 }, () => [])));
+      expect(all).toBe(JSON.stringify(Array.from({ length: 25 }, () => [])));
     });
   }
 

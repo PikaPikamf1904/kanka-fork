@@ -110,15 +110,17 @@ export const CAMPAIGN_TOOLS: Tool[] = [
     async run(a: Json, ctx: CampaignCtx) {
       const n = typeof a.sessions === 'number' && a.sessions >= 1 && a.sessions <= 10 ? Math.floor(a.sessions) : 3;
       const [settings, members, sessions, q] = await Promise.all([
-        ctx.db.get<{ title: string; tagline: string; current_location_id: string | null; current_status: string }>('campaign_settings?select=title,tagline,current_location_id,current_status'),
+        ctx.db.get<{ title: string; tagline: string; current_status: string }>('campaign_settings?select=title,tagline,current_status'),
         party(ctx.db), latestSessions(ctx.db, n), quests(ctx.db, 1000),
       ]);
       const s = settings[0];
-      const loc = s?.current_location_id ? (await ctx.db.get<Art>(`articles?select=${ART}&id=eq.${s.current_location_id}`))[0] ?? null : null;
+      // The DM always gets the location; a member only when the page is published to players.
+      const place = (await ctx.db.rpc<{ id: string }[]>('campaign_location', {}))[0];
+      const loc = place ? (await ctx.db.get<Art>(`articles?select=${ART}&id=eq.${place.id}`))[0] ?? null : null;
       return {
         campaign: s ? { title: s.title, tagline: s.tagline } : null,
         party_location: loc ? { slug: loc.slug, title: loc.title, summary: clip(loc.summary, 400) } : null,
-        party_location_note: loc ? null : s?.current_location_id ? 'A location is set, but you cannot read that page.' : 'No current location is recorded.',
+        party_location_note: loc ? null : 'No current location that you can see is recorded.',
         current_situation: s?.current_status || null,
         party: members,
         latest_sessions: sessions,
@@ -189,15 +191,16 @@ export const CAMPAIGN_TOOLS: Tool[] = [
     inputSchema: { type: 'object', additionalProperties: false, properties: { sessions: { type: 'integer', minimum: 1, maximum: 10, default: 3 } } },
     async run(a: Json, ctx: CampaignCtx) {
       const n = typeof a.sessions === 'number' && a.sessions >= 1 && a.sessions <= 10 ? Math.floor(a.sessions) : 3;
-      const [settings, sessions, q, members] = await Promise.all([
-        ctx.db.get<{ current_location_id: string | null; current_status: string }>('campaign_settings?select=current_location_id,current_status'),
+      const [settings, place, sessions, q, members] = await Promise.all([
+        ctx.db.get<{ current_status: string }>('campaign_settings?select=current_status'),
+        ctx.db.rpc<{ id: string }[]>('campaign_location', {}),
         ctx.db.get<Art>(`articles?select=${ART},session_date&type=eq.session&order=session_date.desc.nullslast,updated_at.desc,id&limit=${n}`),
         quests(ctx.db, 1000), party(ctx.db),
       ]);
       const sections = sessions.length ? await ctx.db.get<{ article_id: string; heading: string; body: string }>(`article_sections?select=article_id,heading,body&article_id=in.(${sessions.map((s) => s.id).join(',')})&order=position`) : [];
       const linked = [...new Set(sections.flatMap((s) => wikiLinkTargets(s.body)).map(slugOf))].filter((t) => SLUG.test(t)).slice(0, 60);
       const linkedPages = linked.length ? await ctx.db.get<Art>(`articles?select=${ART}&slug=in.(${linked.join(',')})`) : [];
-      const locId = settings[0]?.current_location_id;
+      const locId = place[0]?.id;
       const [loc, near] = locId ? await Promise.all([
         ctx.db.get<Art>(`articles?select=${ART}&id=eq.${locId}`),
         ctx.db.get<{ kind: string; source: { slug: string; title: string; type: string } | null; target: { slug: string; title: string; type: string } | null; source_article_id: string }>(
