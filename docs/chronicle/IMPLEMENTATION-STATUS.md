@@ -1,5 +1,18 @@
 # Chronicle implementation status
 
+## 2026-11-16 — website features (branch `claude/chronicle-website-features`, draft PR #31)
+
+Stacked on PR #30 (`8c58704a2`). Local, committed and pushed only; nothing deployed; no
+migrations.
+
+- **Picture viewer** (commit `038d4f18d`): click or Enter on a wiki picture opens a full-screen
+  viewer over the pictures the reader can see on that page.
+- **DM wiki tidy-up report** (commit `8dc55c9bf`): read-only report at `/dm/tidy` with broken
+  links, unlinked pages, missing summaries and pictures, and empty pages.
+- User guides: see [WEBSITE-FEATURES.md](WEBSITE-FEATURES.md).
+
+Full verification: PENDING
+
 ## 2026-11-15 — release prep (branch `claude/chronicle-release-prep`, draft PR #30)
 
 Resume here. Local, committed and pushed only; **nothing applied to production**, nothing
