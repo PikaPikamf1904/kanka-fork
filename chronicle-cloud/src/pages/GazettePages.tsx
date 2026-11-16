@@ -93,7 +93,7 @@ function LeadArt({ id, alt, caption }: { id: string | null | undefined; alt: str
   if (!id || !url) return null;
   return (
     <figure className="gz-art">
-      <img src={url} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={onError} />
+      <img src={url} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => onError()} />
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   );

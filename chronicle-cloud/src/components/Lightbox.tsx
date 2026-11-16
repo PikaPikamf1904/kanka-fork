@@ -10,6 +10,8 @@ export interface LightboxEntry {
   url: string;
   alt: string;
   caption: string;
+  /** Asks the figure for a fresh link after `failedUrl` stopped loading; it re-registers with the new one. */
+  refresh?: (failedUrl: string) => void;
 }
 
 interface LightboxApi {
@@ -141,7 +143,7 @@ function Viewer({ entries, currentId, onChange, onClose }: { entries: LightboxEn
               <span aria-hidden="true">‹</span>
             </button>
           )}
-          <img key={entry.id} src={entry.url} alt={entry.alt} draggable={false} referrerPolicy="no-referrer" />
+          <img key={entry.id} src={entry.url} alt={entry.alt} draggable={false} referrerPolicy="no-referrer" onError={() => entry.refresh?.(entry.url)} />
           {many && (
             <button type="button" className="lightbox-button lightbox-next" aria-label="Next picture" onClick={() => go(1)}>
               <span aria-hidden="true">›</span>

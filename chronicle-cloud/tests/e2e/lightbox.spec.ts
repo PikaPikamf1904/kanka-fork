@@ -172,6 +172,27 @@ test.describe('Picture viewer', () => {
     await desktop.keyboard.press('ArrowLeft');
     await expect(viewer(desktop).getByText(`The ship ${tag}`)).toBeVisible();
     await expect.poll(() => viewer(desktop).locator('img').evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+
+    // An expired link: make the current signed URL fail once, then force the viewer to reload the
+    // picture by stepping away and back. It must ask for a fresh link and end up showing it.
+    const shipImg = viewer(desktop).locator('img');
+    const staleSrc = (await shipImg.getAttribute('src'))!;
+    let aborted = 0;
+    await desktop.route((u) => u.href === staleSrc, (route) => {
+      aborted += 1;
+      return route.abort();
+    });
+    await new Promise((r) => setTimeout(r, 1100)); // a fresh signed link differs from the old one
+    await viewer(desktop).getByRole('button', { name: 'Next picture' }).click();
+    await expect(position(desktop)).toHaveText('3 of 3');
+    await viewer(desktop).getByRole('button', { name: 'Previous picture' }).click();
+    await expect(position(desktop)).toHaveText('2 of 3');
+    await expect.poll(() => shipImg.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+    const freshSrc = (await shipImg.getAttribute('src'))!;
+    expect(freshSrc).not.toBe(staleSrc);
+    expect(aborted).toBeGreaterThan(0);
+    await expect(viewer(desktop).getByRole('link', { name: 'Open original' })).toHaveAttribute('href', freshSrc);
+    await desktop.unroute((u) => u.href === staleSrc).catch(() => undefined);
     await noHorizontalOverflow(desktop);
     await desktop.waitForTimeout(300);
     await desktop.screenshot({ path: path.join(docsShots, 'lightbox-desktop.png') });
