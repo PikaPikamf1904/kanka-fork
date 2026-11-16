@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { LightboxProvider } from '../components/Lightbox.tsx';
 import { CharacterProfile, EncyclopediaPage, SessionJournal } from './ArticleViews.tsx';
 import { getArticle, previewAsPlayer, resolveSlug, type ArticleBundle } from '../lib/api.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
@@ -88,7 +89,12 @@ export function ArticlePage() {
   // A heading with nothing under it is noise for readers; the editor still shows it.
   const v = { ...data, sections: data.sections.filter((x) => x.body.trim()) };
   const from = params.get('from');
-  if (v.type === 'character') return <CharacterProfile v={v} isDm={isDm} from={from} />;
-  if (v.type === 'session') return <SessionJournal v={v} isDm={isDm} from={from} />;
-  return <EncyclopediaPage v={v} isDm={isDm} from={from} />;
+  // One viewer for the whole article body, so it steps through every picture on the page.
+  return (
+    <LightboxProvider>
+      {v.type === 'character' ? <CharacterProfile v={v} isDm={isDm} from={from} />
+        : v.type === 'session' ? <SessionJournal v={v} isDm={isDm} from={from} />
+        : <EncyclopediaPage v={v} isDm={isDm} from={from} />}
+    </LightboxProvider>
+  );
 }

@@ -2,6 +2,7 @@ import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link } from 'react-router';
 import { expandWikiLinks } from '../lib/slug.ts';
+import { LightboxProvider, useLightbox } from './Lightbox.tsx';
 import { MediaFigure, MediaImage } from './MediaImage.tsx';
 
 interface HastNode {
@@ -31,6 +32,13 @@ function pictureParagraph(children: HastNode[] | undefined) {
  * pull in tracking pixels or images from elsewhere.
  */
 export default function MarkdownImpl({ text }: { text: string }) {
+  // A page can wrap its whole body in one LightboxProvider; otherwise this text is its own set.
+  const inherited = useLightbox();
+  const body = <MarkdownBody text={text} />;
+  return inherited ? body : <LightboxProvider>{body}</LightboxProvider>;
+}
+
+function MarkdownBody({ text }: { text: string }) {
   return (
     <div className="prose">
       <ReactMarkdown

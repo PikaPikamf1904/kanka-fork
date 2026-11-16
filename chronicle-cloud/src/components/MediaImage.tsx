@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useLightbox } from './Lightbox.tsx';
 import { forgetMediaUrl, mediaUrlForPath, mediaUrls } from '../lib/api.ts';
 
 /**
@@ -38,15 +39,33 @@ export function MediaImage({ id, path, alt, className }: { id?: string | null; p
   return <img src={url} alt={alt} className={className} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={onError} />;
 }
 
-/** A picture with its caption. Renders nothing at all (caption included) when the reader may not see the file. */
+/**
+ * A picture with its caption. Renders nothing at all (caption included) when the reader may not see
+ * the file. Inside a LightboxProvider it opens the shared viewer; elsewhere it links to the file.
+ */
 export function MediaFigure({ path, alt, caption }: { path: string; alt: string; caption?: string }) {
   const { url, onError } = useMediaUrl(undefined, path);
+  const lightbox = useLightbox();
+  const id = useId();
+  const figure = useRef<HTMLElement>(null);
+  const register = lightbox?.register;
+  useEffect(() => {
+    if (!register || !url || !figure.current) return;
+    return register({ id, el: figure.current, url, alt, caption: caption ?? '' });
+  }, [register, id, url, alt, caption]);
   if (!url) return null;
+  const img = <img src={url} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={onError} />;
   return (
-    <figure className="prose-figure">
-      <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open the picture${alt ? `: ${alt}` : ''} full size`}>
-        <img src={url} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={onError} />
-      </a>
+    <figure className="prose-figure" ref={figure}>
+      {lightbox ? (
+        <button type="button" className="prose-figure-open" aria-label={`View picture${alt ? `: ${alt}` : ''}`} onClick={(e) => lightbox.open(id, e.currentTarget)}>
+          {img}
+        </button>
+      ) : (
+        <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open the picture${alt ? `: ${alt}` : ''} full size`}>
+          {img}
+        </a>
+      )}
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   );

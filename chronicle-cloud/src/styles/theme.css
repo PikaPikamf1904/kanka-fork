@@ -244,6 +244,37 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .prose-figure { margin: 1rem 0; break-inside: avoid; }
 .prose-figure img { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; border-radius: 8px; border: 1px solid var(--line); }
 .prose-figure a { display: block; }
+.prose-figure-open { display: block; width: 100%; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; cursor: zoom-in; border-radius: 8px; }
+
+/* Picture viewer: a native modal <dialog> over a dark, translucent backdrop. */
+.lightbox { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgb(11 16 38 / 0.97); color: var(--text-on-night, #ece4d2); overflow: hidden; overscroll-behavior: contain; }
+.lightbox::backdrop { background: rgb(11 16 38 / 0.7); }
+.lightbox[open] { display: grid; place-items: center; }
+.lightbox-frame { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; max-width: 1200px; max-height: 100dvh; padding: 0.5rem 1rem 0.75rem; font-family: var(--font-ui); }
+.lightbox-bar { display: flex; align-items: center; gap: 0.75rem; }
+.lightbox-position { margin: 0; flex: 1; font-size: 1rem; color: var(--gold-light); }
+.lightbox-original { display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.5rem; color: var(--gold-light); }
+.lightbox-original:visited { color: var(--gold-light); }
+.lightbox-stage { position: relative; display: flex; align-items: center; justify-content: center; gap: 0.5rem; min-width: 0; touch-action: pan-y; }
+.lightbox-stage img { display: block; min-width: 0; max-width: 100%; max-height: calc(100dvh - 140px); object-fit: contain; border-radius: 6px; border: 1px solid var(--night-2); user-select: none; -webkit-user-drag: none; }
+.lightbox-button { flex: none; display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0; border: 1px solid var(--gold); border-radius: 999px; background: var(--night-1); color: var(--gold-light); font-size: 1.75rem; line-height: 1; cursor: pointer; }
+.lightbox-button:hover { background: var(--night-2); }
+.lightbox :focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px; }
+.lightbox-text { text-align: center; max-height: 5.5rem; overflow-y: auto; }
+.lightbox-text p { margin: 0; overflow-wrap: anywhere; }
+.lightbox-caption { font-family: var(--font-body); font-style: italic; font-size: 1.05rem; }
+.lightbox-alt { font-size: 0.9rem; color: var(--muted-on-night, #b1a68f); }
+@media (max-width: 600px) {
+  .lightbox-frame { padding-inline: 0.5rem; }
+  .lightbox-stage { flex-wrap: wrap; }
+  .lightbox-stage img { order: -1; flex: 0 0 100%; }
+  .lightbox-stage .lightbox-prev, .lightbox-stage .lightbox-next { margin-top: 0.25rem; }
+  .lightbox-stage { justify-content: space-between; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lightbox[open] { animation: lightbox-in 0.15s ease-out; }
+  @keyframes lightbox-in { from { opacity: 0; } to { opacity: 1; } }
+}
 .prose-figure figcaption { margin-top: 0.35rem; font-size: 0.9rem; font-style: italic; text-align: center; color: var(--muted, inherit); }
 .prose-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(180px, 45%), 1fr)); gap: 0.75rem; margin: 1rem 0; align-items: start; }
 .prose-gallery .prose-figure { margin: 0; }
