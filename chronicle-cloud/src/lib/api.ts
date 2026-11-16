@@ -7,6 +7,7 @@ import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, t
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
 import type { AuditData } from './visibilityAudit.ts';
+import type { RecentPage, RecentSection } from './recentChanges.ts';
 import { FAMILY_KINDS, MAX_GENERATIONS, MAX_PEOPLE, type FamilyEdge, type FamilyPerson } from './familyTree.ts';
 import { minLengthPattern, STUB_LONG_SECTION, STUB_MEDIUM_SECTION, type TidyArticle, type TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
@@ -263,6 +264,28 @@ export async function loadFamily(slug: string): Promise<{ rootId: string; people
     frontier = next;
   }
   return { rootId: root.id, people: [...people.values()], edges: [...edges.values()] };
+}
+
+/**
+ * Material for "Recently updated": the newest section edits and publications the reader can read.
+ * Players get only what Row Level Security lets them read; `readerView` narrows the DM's own view to
+ * the same. Page timestamps are not used, because editing hidden text also moves them.
+ */
+export async function loadRecentChanges(readerView: boolean): Promise<{ pages: RecentPage[]; sections: RecentSection[] }> {
+  let sq = supabase.from('article_sections').select('article_id, heading, updated_at').order('updated_at', { ascending: false }).limit(400);
+  if (readerView) sq = sq.eq('visibility', 'players').eq('status', 'published');
+  let pq = supabase.from('articles').select('id, slug, title, type, summary, published_at').neq('type', 'news').not('published_at', 'is', null).order('published_at', { ascending: false }).limit(100);
+  if (readerView) pq = pq.eq('visibility', 'players').eq('status', 'published');
+  const [sections, published] = await Promise.all([sq, pq]);
+  const secs = must(sections) as RecentSection[];
+  const pages = new Map((must(published) as RecentPage[]).map((p) => [p.id, p]));
+  const missing = [...new Set(secs.map((s) => s.article_id))].filter((id) => !pages.has(id));
+  for (let i = 0; i < missing.length; i += 150) {
+    let q = supabase.from('articles').select('id, slug, title, type, summary, published_at').in('id', missing.slice(i, i + 150));
+    if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+    for (const p of must(await q) as RecentPage[]) pages.set(p.id, p);
+  }
+  return { pages: [...pages.values()], sections: secs };
 }
 
 export async function loadWikiTidyData(): Promise<TidyData> {

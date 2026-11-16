@@ -802,3 +802,12 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .status-captured { background: #3b4a6d; }
 .status-rumoured { background: #5d4a73; }
 .status-retired { background: #52604f; }
+
+/* Recently updated */
+.recent-day h2 { font-size: 1.15rem; margin: 1.25rem 0 0.4rem; }
+.recent-list { list-style: none; margin: 0; padding: 0; }
+.recent-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.75rem; padding: 0.55rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.recent-title { font-weight: 700; display: inline-flex; align-items: center; min-height: 32px; }
+.recent-what { color: var(--muted); font-family: var(--font-ui); font-size: 0.9rem; flex: 1 1 14rem; }
+.recent-new { color: var(--text); font-weight: 600; }
+.recent-time { color: var(--muted); font-family: var(--font-ui); font-size: 0.85rem; margin-left: auto; }

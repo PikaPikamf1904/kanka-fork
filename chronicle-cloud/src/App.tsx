@@ -14,6 +14,7 @@ import { WanderPage } from './pages/WanderPage.tsx';
 // Maps (Leaflet) and DM tools load on demand, so players' first page load stays small.
 const MapsPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapsPage })));
 const MapPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapPage })));
+const RecentPage = lazy(() => import('./pages/RecentPage.tsx').then((m) => ({ default: m.RecentPage })));
 const FamilyPage = lazy(() => import('./pages/FamilyPage.tsx').then((m) => ({ default: m.FamilyPage })));
 const ArticleEditor = lazy(() => import('./pages/dm/ArticleEditor.tsx').then((m) => ({ default: m.ArticleEditor })));
 const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'TimelineEditor' | 'MapEditor') =>
@@ -86,6 +87,7 @@ const router = createBrowserRouter([
       { path: '/maps', element: page(<MapsPage />) },
       { path: '/maps/:slug', element: page(<MapPage />) },
       { path: '/family/:slug', element: page(<FamilyPage />) },
+      { path: '/recent', element: page(<RecentPage />) },
       {
         path: '/dm',
         element: <DmOnly><Outlet /></DmOnly>,
