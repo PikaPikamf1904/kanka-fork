@@ -954,9 +954,19 @@ watch(() => props.centerNonce, () => {
     }
 })
 
-// One watcher for all three: when pins and groups change in the same tick (every explorer
-// load and refresh), the markers are rebuilt once instead of up to three times.
-watch(() => [props.pins, props.groups, props.legacyPins], () => {
+watch(() => props.pins, () => {
+    if (leafletMap) {
+        buildPins()
+    }
+})
+
+watch(() => props.groups, () => {
+    if (leafletMap) {
+        buildPins()
+    }
+})
+
+watch(() => props.legacyPins, () => {
     if (leafletMap) {
         buildPins()
     }

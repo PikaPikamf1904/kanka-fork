@@ -9,12 +9,11 @@ if ($model instanceof \App\Models\Post) {
     $modelName = 'TimelineElement';
     $modelId = $model->id;
 } elseif ($model instanceof \App\Models\QuestElement) {
-    $modelName = 'QuestElement';
+    $modelName = 'TimelineElement';
     $modelId = $model->id;
 } else {
-    // Chronicle: a module model (Character, Location, …) is warned about through its entity.
     $modelName = 'Entity';
-    $modelId = $model instanceof \App\Models\Entity ? $model->id : ($model->entity->id ?? $model->id);
+    $modelId = $model->id;
 }
 ?>
 <x-dialog id="edit-warning" :loading="true" :dismissible="false"></x-dialog>

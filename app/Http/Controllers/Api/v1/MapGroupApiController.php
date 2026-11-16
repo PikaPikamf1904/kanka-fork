@@ -33,10 +33,6 @@ class MapGroupApiController extends ApiController
     {
         $this->authorize('access', $campaign);
         $this->authorize('view', $map->entity);
-        // Chronicle: the record must belong to this map, not to one the viewer can't open.
-        if ($mapGroup->map_id !== $map->id) {
-            abort(404);
-        }
 
         return new Resource($mapGroup);
     }
@@ -62,9 +58,6 @@ class MapGroupApiController extends ApiController
     ) {
         $this->authorize('access', $campaign);
         $this->authorize('update', $map->entity);
-        if ($mapGroup->map_id !== $map->id) {
-            abort(404);
-        }
         $mapGroup->update($request->all());
 
         return new Resource($mapGroup);
@@ -83,9 +76,6 @@ class MapGroupApiController extends ApiController
     ) {
         $this->authorize('access', $campaign);
         $this->authorize('update', $map->entity);
-        if ($mapGroup->map_id !== $map->id) {
-            abort(404);
-        }
         $mapGroup->delete();
 
         return response()->json(null, 204);

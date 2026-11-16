@@ -113,6 +113,5 @@ it('does not expose an import from another campaign', function () {
     $import->save();
 
     $this->get(route('campaign.import.csv', [$campaign, $import]))
-        // Chronicle: EnsureNestedBindings refuses another campaign's import with a 404.
-        ->assertNotFound();
+        ->assertForbidden();
 });

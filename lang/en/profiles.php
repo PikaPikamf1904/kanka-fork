@@ -81,7 +81,6 @@ return [
         'success'   => 'Theme changed.',
         'themes'    => [
             'chronicle' => 'Chronicle',
-            'chronicle-night' => 'Chronicle Night',
             'dark'      => 'Dark',
             'default'   => 'Light',
             'future'    => 'Future',

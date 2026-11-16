@@ -33,7 +33,7 @@ class LayerController extends Controller
         if (request()->ajax()) {
             return response()->json(['success' => true]);
         }
-        $count = $this->bulkProcess($request, MapLayer::class, ['map_id' => $map->id]);
+        $count = $this->bulkProcess($request, MapLayer::class);
 
         return redirect()
             ->route('maps.map_layers.index', [$campaign, $map])

@@ -11,7 +11,6 @@ enum UserTheme: string
     case Dark = 'dark';
     case Midnight = 'midnight';
     case Chronicle = 'chronicle';
-    case ChronicleNight = 'chronicle-night';
 
     /**
      * @return string[]

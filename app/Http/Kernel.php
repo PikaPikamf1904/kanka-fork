@@ -54,7 +54,6 @@ class Kernel extends HttpKernel
             Middleware\VerifyCsrfToken::class,
             Middleware\SharedEntrance::class,
             SubstituteBindings::class,
-            Middleware\EnsureNestedBindings::class,
             // Middleware\HttpsProtocol::class, // Force https in prod
             Middleware\LocaleChange::class, // Save language changing
             Middleware\LocalizeDatetime::class,
@@ -68,7 +67,6 @@ class Kernel extends HttpKernel
         'api' => [
             // Do this in the routes 'throttle:rate_limit,1',
             'bindings',
-            Middleware\EnsureNestedBindings::class,
             Middleware\ApiLogMiddleware::class,
         ],
         // Used for locale-less routes like our sitemaps, go/, auth/callbacks, webhooks

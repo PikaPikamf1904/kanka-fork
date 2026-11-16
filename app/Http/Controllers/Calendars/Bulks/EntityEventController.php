@@ -32,7 +32,7 @@ class EntityEventController extends Controller
         if (request()->ajax()) {
             return response()->json(['success' => true]);
         }
-        $count = $this->campaign($campaign)->bulkProcess($request, Reminder::class, ['calendar_id' => $calendar->id]);
+        $count = $this->campaign($campaign)->bulkProcess($request, Reminder::class);
 
         return redirect()
             ->route('calendars.events', [$campaign, 'calendar' => $calendar])

@@ -20,10 +20,6 @@ class TemplateController extends Controller
     public function update(Campaign $campaign, Post $post)
     {
         $this->authorize('setPostTemplates', $campaign);
-        // Chronicle: the post must be in this campaign, not just any post id.
-        if ($post->entity?->campaign_id !== $campaign->id) {
-            abort(404);
-        }
 
         if (request()->ajax()) {
             return response()->json();

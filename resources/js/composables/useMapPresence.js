@@ -1,7 +1,12 @@
 import { onBeforeUnmount, ref, watch } from 'vue'
+import Echo from 'laravel-echo'
+import Pusher from 'pusher-js'
 
-// laravel-echo and pusher-js are only fetched when a map actually has live presence
-// (see connect()), so maps without it don't download or parse them.
+// laravel-echo's reverb broadcaster routes through the same Pusher-protocol
+// connector as the 'pusher' broadcaster, which requires a Pusher client to be
+// globally available (or passed via options.client) — it is never bundled
+// automatically, so it must be set here explicitly.
+window.Pusher = Pusher
 
 const CURSOR_EVENT = 'cursor'
 
@@ -11,7 +16,7 @@ export function colourForUser(userId) {
     return `hsl(${hue}, 70%, 50%)`
 }
 
-export function useMapPresence(getInteractive, getI18n, { onMapUpdated, onContentsChanged, onMarkerChanged, onMarkersResync, onTilingChanged } = {}) {
+export function useMapPresence(getInteractive, getI18n, { canEdit, onMapUpdated, onContentsChanged, onMarkerChanged, onTilingChanged } = {}) {
     const activeUsers = ref([])
     const remoteCursors = ref({})
     const error = ref(null)
@@ -20,37 +25,9 @@ export function useMapPresence(getInteractive, getI18n, { onMapUpdated, onConten
     let channel = null
     let connectedChannelName = null
     let adminChannelName = null
-    let userChannelName = null
-    let wasConnected = false
 
-    let connecting = false
-    let unmounted = false
-
-    async function connect(interactive) {
-        if (!interactive || channel || connecting) {
-            return
-        }
-        connecting = true
-
-        let Echo
-        try {
-            const [echoModule, pusherModule] = await Promise.all([
-                import('laravel-echo'),
-                import('pusher-js'),
-            ])
-            Echo = echoModule.default
-            // laravel-echo's reverb broadcaster routes through the same Pusher-protocol
-            // connector as the 'pusher' broadcaster, which requires a Pusher client to be
-            // globally available (or passed via options.client) — it is never bundled
-            // automatically, so it must be set here explicitly.
-            window.Pusher = pusherModule.default
-        } catch (e) {
-            connecting = false
-            return
-        }
-
-        if (unmounted) {
-            connecting = false
+    function connect(interactive) {
+        if (!interactive || channel) {
             return
         }
 
@@ -72,17 +49,6 @@ export function useMapPresence(getInteractive, getI18n, { onMapUpdated, onConten
 
         echo.connector.pusher.connection.bind('error', () => {
             error.value = i18n.error_connecting
-        })
-
-        // Marker updates sent while the socket was down are lost: reload the pins on reconnect.
-        echo.connector.pusher.connection.bind('state_change', ({ current }) => {
-            if (current !== 'connected') {
-                return
-            }
-            if (wasConnected) {
-                onMarkersResync?.()
-            }
-            wasConnected = true
         })
 
         channel = echo.join(interactive.channel)
@@ -124,32 +90,21 @@ export function useMapPresence(getInteractive, getI18n, { onMapUpdated, onConten
             onTilingChanged?.(payload)
         })
 
-        // Only campaign admins may join the admin channel (it carries Admin-only groups and
-        // layers); the server says whether this user is one.
-        if (interactive.admin_channel) {
-            adminChannelName = interactive.admin_channel
+        if (canEdit) {
+            adminChannelName = interactive.channel + '.admin'
             const adminChannel = echo.private(adminChannelName)
             adminChannel.listen('.MapContentsChanged', (payload) => {
                 onContentsChanged?.(payload)
+            })
+            adminChannel.listen('.MapMarkerChanged', (payload) => {
+                onMarkerChanged?.(payload)
             })
         } else {
             channel.listen('.MapContentsChanged', (payload) => {
                 onContentsChanged?.(payload)
             })
-        }
-
-        // Markers never go out on the shared map channels. Each member gets a private feed of
-        // the ids of markers they can see, and fetches the marker itself from the map API.
-        if (interactive.user_channel) {
-            userChannelName = interactive.user_channel
-            const userChannel = echo.private(userChannelName)
-            userChannel.listen('.MapMarkerChanged', (payload) => {
+            channel.listen('.MapMarkerChanged', (payload) => {
                 onMarkerChanged?.(payload)
-            })
-            userChannel.listen('.MapMarkersResync', (payload) => {
-                if (Number(payload?.campaign_id) === Number(interactive.campaign_id)) {
-                    onMarkersResync?.()
-                }
             })
         }
 
@@ -175,15 +130,11 @@ export function useMapPresence(getInteractive, getI18n, { onMapUpdated, onConten
     }
 
     onBeforeUnmount(() => {
-        unmounted = true
         if (echo && connectedChannelName) {
             echo.leave(connectedChannelName)
         }
         if (echo && adminChannelName) {
             echo.leave(adminChannelName)
-        }
-        if (echo && userChannelName) {
-            echo.leave(userChannelName)
         }
     })
 

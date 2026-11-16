@@ -144,10 +144,6 @@ class LayerController extends Controller
     public function edit(Campaign $campaign, Map $map, MapLayer $mapLayer)
     {
         $this->authorize('update', $map->entity);
-        // Chronicle: the record must belong to this map.
-        if ($mapLayer->map_id !== $map->id) {
-            abort(404);
-        }
 
         // Migrate to gallery
         //        if (!empty($mapLayer->image_path)) {
@@ -172,9 +168,6 @@ class LayerController extends Controller
     public function update(StoreMapLayer $request, Campaign $campaign, Map $map, MapLayer $mapLayer)
     {
         $this->authorize('update', $map->entity);
-        if ($mapLayer->map_id !== $map->id) {
-            abort(404);
-        }
 
         // For ajax requests, send back that the validation succeeded, so we can really send the form to be saved.
         if (request()->ajax()) {
@@ -208,9 +201,6 @@ class LayerController extends Controller
     public function destroy(Campaign $campaign, Map $map, MapLayer $mapLayer)
     {
         $this->authorize('update', $map->entity);
-        if ($mapLayer->map_id !== $map->id) {
-            abort(404);
-        }
 
         $mapLayer->delete();
 

@@ -1,48 +1,120 @@
 <?php
 
+use App\Enums\Visibility;
 use App\Events\Maps\MarkerChanged;
+use App\Http\Resources\Maps\Explore\PinResource;
 use App\Models\Map;
 use App\Models\MapGroup;
 use App\Models\MapMarker;
+use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Facades\Event;
 
-it('broadcasts on each recipient\'s private maps channel', function () {
-    $event = new MarkerChanged(5, 9, 'created', [1, 7]);
+it('broadcasts on the public presence channel by default', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $marker = MapMarker::factory()->create(['map_id' => $map->id]);
+
+    $event = new MarkerChanged($marker, 'created');
 
     $channels = $event->broadcastOn();
-    expect($channels)->toHaveCount(2);
-    expect($channels[0])->toBeInstanceOf(PrivateChannel::class);
-    expect(collect($channels)->pluck('name')->all())->toBe(['private-users.1.maps', 'private-users.7.maps']);
+    expect($channels)->toHaveCount(1);
+    expect($channels[0])->toBeInstanceOf(PresenceChannel::class);
+    expect($channels[0]->name)->toBe('presence-map.' . $map->id);
     expect($event->broadcastAs())->toBe('MapMarkerChanged');
-    expect($event->broadcastWhen())->toBeTrue();
 });
 
-it('broadcasts only the action and the ids', function () {
-    $payload = new MarkerChanged(5, 9, 'updated', [1])->broadcastWith();
+it('broadcasts on the private admin channel when includeRestricted is true', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $marker = MapMarker::factory()->create(['map_id' => $map->id]);
 
-    expect($payload)->toBe(['action' => 'updated', 'id' => 9, 'map_id' => 5]);
+    $event = new MarkerChanged($marker, 'created', true);
+
+    $channels = $event->broadcastOn();
+    expect($channels)->toHaveCount(1);
+    expect($channels[0])->toBeInstanceOf(PrivateChannel::class);
+    expect($channels[0]->name)->toBe('private-map.' . $map->id . '.admin');
 });
 
-it('does not broadcast when nobody may see the marker', function () {
-    expect(new MarkerChanged(5, 9, 'updated', [])->broadcastWhen())->toBeFalse();
+it('broadcasts a PinResource for created/updated actions on a publicly visible marker', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $marker = MapMarker::factory()->create(['map_id' => $map->id, 'visibility_id' => Visibility::All, 'name' => 'Camp']);
+
+    $payload = new MarkerChanged($marker, 'updated')->broadcastWith();
+
+    expect($payload['action'])->toBe('updated');
+    expect($payload['id'])->toBe($marker->id);
+    expect($payload['pin'])->toBeInstanceOf(PinResource::class);
+    expect($payload['pin']->resource->is($marker))->toBeTrue();
 });
 
-it('dispatches MarkerChanged to the DM when a marker is created, updated or deleted', function () {
+it('broadcasts a null pin for the deleted action', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $marker = MapMarker::factory()->create(['map_id' => $map->id]);
+
+    $payload = new MarkerChanged($marker, 'deleted')->broadcastWith();
+
+    expect($payload['action'])->toBe('deleted');
+    expect($payload['id'])->toBe($marker->id);
+    expect($payload['pin'])->toBeNull();
+});
+
+it('downgrades the public action to deleted when the marker is not publicly visible', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $marker = MapMarker::factory()->create(['map_id' => $map->id, 'visibility_id' => Visibility::Admin]);
+
+    $payload = new MarkerChanged($marker, 'updated')->broadcastWith();
+
+    expect($payload['action'])->toBe('deleted');
+    expect($payload['pin'])->toBeNull();
+});
+
+it('does not downgrade the action on the admin channel even when restricted', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $marker = MapMarker::factory()->create(['map_id' => $map->id, 'visibility_id' => Visibility::Admin]);
+
+    $payload = new MarkerChanged($marker, 'updated', true)->broadcastWith();
+
+    expect($payload['action'])->toBe('updated');
+    expect($payload['pin'])->toBeInstanceOf(PinResource::class);
+});
+
+it('dispatches both MarkerChanged variants when a marker is created', function () {
+    Event::fake([MarkerChanged::class]);
     $this->asUser()->withCampaign();
     $map = Map::factory()->create(['campaign_id' => 1]);
 
-    Event::fake([MarkerChanged::class]);
+    MapMarker::factory()->create(['map_id' => $map->id]);
+
+    Event::assertDispatched(MarkerChanged::class, fn ($event) => $event->action === 'created' && ! $event->includeRestricted);
+    Event::assertDispatched(MarkerChanged::class, fn ($event) => $event->action === 'created' && $event->includeRestricted);
+});
+
+it('dispatches both MarkerChanged variants when a marker is updated', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
     $marker = MapMarker::factory()->create(['map_id' => $map->id]);
+
+    Event::fake([MarkerChanged::class]);
     $marker->update(['name' => 'Renamed']);
+
+    Event::assertDispatchedTimes(MarkerChanged::class, 2);
+});
+
+it('dispatches both MarkerChanged variants when a marker is deleted', function () {
+    $this->asUser()->withCampaign();
+    $map = Map::factory()->create(['campaign_id' => 1]);
+    $marker = MapMarker::factory()->create(['map_id' => $map->id]);
+
+    Event::fake([MarkerChanged::class]);
     $marker->delete();
 
-    foreach (['created', 'updated', 'deleted'] as $action) {
-        Event::assertDispatched(MarkerChanged::class, fn ($event) => $event->action === $action
-            && $event->markerId === $marker->id
-            && $event->mapId === $map->id
-            && in_array(1, $event->userIds, true));
-    }
+    Event::assertDispatchedTimes(MarkerChanged::class, 2);
 });
 
 it('dispatches on a partial move-style update, matching the dedicated move endpoint', function () {
@@ -53,8 +125,8 @@ it('dispatches on a partial move-style update, matching the dedicated move endpo
     Event::fake([MarkerChanged::class]);
     $marker->update(['latitude' => 42, 'longitude' => 42]);
 
-    Event::assertDispatchedTimes(MarkerChanged::class, 1);
-    Event::assertDispatched(MarkerChanged::class, fn ($event) => $event->action === 'updated' && $event->markerId === $marker->id);
+    Event::assertDispatched(MarkerChanged::class, fn ($event) => $event->action === 'updated' && $event->marker->id === $marker->id);
+    Event::assertDispatchedTimes(MarkerChanged::class, 2);
 });
 
 it('dispatches MarkerChanged when a marker is bulk-patched', function () {
@@ -65,7 +137,7 @@ it('dispatches MarkerChanged when a marker is bulk-patched', function () {
     Event::fake([MarkerChanged::class]);
     $marker->patch(['name' => 'Bulk Renamed']);
 
-    Event::assertDispatchedTimes(MarkerChanged::class, 1);
+    Event::assertDispatchedTimes(MarkerChanged::class, 2);
     expect($marker->fresh()->name)->toBe('Bulk Renamed');
 });
 

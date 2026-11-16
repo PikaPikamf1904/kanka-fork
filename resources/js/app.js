@@ -36,7 +36,6 @@ import './utility/dialog';
 import './utility/colour-picker';
 import './share';
 import './visibility-picker';
-import './graph-panel';
 
 // VueJS elements
 import './header';

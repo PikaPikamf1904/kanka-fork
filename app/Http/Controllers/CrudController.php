@@ -165,11 +165,10 @@ class CrudController extends Controller
             /** @var EntityType $entityType */
             $entityType = $this->getEntityType();
             if ($entityType->hasEntity()) {
-                // Chronicle: keep the page, filters and order of old /characters?… links.
-                return redirect()->route('entities.index', array_merge([
+                return redirect()->route('entities.index', [
                     $this->campaign,
                     $entityType,
-                ], $request->query()));
+                ]);
             }
         }
 

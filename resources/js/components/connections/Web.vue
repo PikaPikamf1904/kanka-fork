@@ -21,7 +21,7 @@
             <ul
                 v-if="search.trim().length > 0"
                 id="web-search-results"
-                class="absolute z-10 top-full mt-1 left-0 right-0 flex flex-col bg-base-100 shadow-lg rounded-xl p-1 max-h-72 overflow-y-auto"
+                class="absolute top-full mt-1 left-0 right-0 flex flex-col bg-base-100 shadow-lg rounded-xl p-1 max-h-72 overflow-y-auto"
                 role="listbox"
             >
                 <li v-for="result in searchResults" :key="result.id" role="option">
@@ -50,7 +50,7 @@
                 </button>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a :href="selected.link" :target="props.embed ? '_top' : null" class="btn2 btn-primary btn-sm">
+                <a :href="selected.link" class="btn2 btn-primary btn-sm">
                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                     <span v-html="trans('open')"></span>
                 </a>
@@ -64,7 +64,7 @@
 
     <!-- Bottom toolbar -->
     <div v-if="ready" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-700 flex items-center gap-1.5 bg-base-100/80 backdrop-blur rounded-xl shadow-lg px-2 py-1.5">
-        <a v-if="ready && !props.embed" :href="urls.back" :title="trans('back')" class="btn2 btn-ghost" tabindex="0">
+        <a v-if="ready" :href="urls.back" :title="trans('back')" class="btn2 btn-ghost" tabindex="0">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
         </a>
 
@@ -196,10 +196,6 @@ const props = defineProps<{
     api: String,
     premium: Boolean,
     creator: Boolean,
-    // Embedded in the floating graph panel: entity links open in the main page, and the graph
-    // starts focused on the entity that page shows.
-    embed?: Boolean,
-    focus?: String,
 }>()
 
 const ready = ref(false)
@@ -213,10 +209,7 @@ const cy = shallowRef(null)
 const currentEntity = shallowRef(null)
 const relation = shallowRef(null)
 const cyContainer = ref()
-// Tooltip HTML by entity id. A plain object: `ref(Array)` stored the Array constructor itself.
-const entityTooltips: Record<string, string> = {}
-// Ids of the entities already in `elements`, so adding one doesn't scan the whole list.
-let knownEntityIds = new Set<string>()
+const entityTooltips = ref(Array)
 let nodeTippy: Instance | null = null
 const downloadDropdown = ref(false)
 const fabDropdown = ref(false)
@@ -272,28 +265,10 @@ onMounted(async () => {
 
     window.initTooltips();
 
-    if (props.embed) {
-        focusOn(props.focus)
-    } else if (!props.premium) {
+    if (!props.premium) {
         window.openDialog('web-premium')
     }
 })
-
-const focusOn = (id) => {
-    if (!id || !cy.value) return
-    const node = cy.value.getElementById(String(id))
-    if (node.length === 0) return
-    selectNode(node)
-    toggleFocus()
-}
-
-const openLink = (link: string) => {
-    if (props.embed && window.top) {
-        window.top.location.assign(link)
-        return
-    }
-    window.location.assign(link)
-}
 
 onBeforeUnmount(() => {
     if (cy.value) {
@@ -322,10 +297,9 @@ const parseData = (data) => {
 
 const addEntity = (entity) => {
     // Already loaded entity
-    if (knownEntityIds.has(String(entity.id))) {
+    if (elements.value.find(e => e.data.id == entity.id)) {
         return;
     }
-    knownEntityIds.add(String(entity.id));
 
     const element = {
         group: 'nodes',
@@ -478,6 +452,7 @@ const addToCy = async () => {
     if (!cy.value) return
 
     drawing.value = true;
+    drawing.value = true;
 
     // add all of the elements (nodes and edges) to the graph. Hide orphans to keep the graph clean.
     cy.value.add(elements.value);
@@ -518,7 +493,7 @@ const addListeners = () => {
     cy.value.on('dbltap', 'node', function (evt) {
         const link = evt.target.data('link');
         if (link) {
-            openLink(link);
+            window.location.assign(link);
         }
     });
 
@@ -749,15 +724,15 @@ const showNodeTooltip = (node: any) => {
         appendTo: () => document.body, // keep it simple & safe
         onShow(instance) {
             const id = String(node.id());
-            if (id in entityTooltips) {
-                instance.setContent(entityTooltips[id]);
+            if (id in entityTooltips.value) {
+                instance.setContent(entityTooltips.value[id]);
                 return;
             }
             axios.get(node.data().tooltip)
                 .then((res) => {
                     const html = res.data;
                     instance.setContent(html);
-                    entityTooltips[id] = html;
+                    entityTooltips.value[id] = html;
                 })
                 .catch((error) => {
                         instance.setContent(`Failed loading tooltip. ${error}`);
@@ -915,7 +890,6 @@ const handleRelationCreate = async (data) => {
 
 const reloadData = async () => {
     elements.value = [];
-    knownEntityIds = new Set<string>();
     await loadData();
     cy.value.elements().remove();
     cy.value.add(elements.value);

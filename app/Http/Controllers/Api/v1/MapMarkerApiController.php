@@ -23,12 +23,7 @@ class MapMarkerApiController extends ApiController
         $this->authorize('access', $campaign);
         $this->authorize('view', $map->entity);
 
-        // Chronicle: like the explorer, leave out markers in a group or pointing at an entity the
-        // viewer can't see (both relations go through their visibility scopes).
-        return Resource::collection($map->markers()
-            ->where(fn ($query) => $query->whereNull('group_id')->orWhereHas('group'))
-            ->where(fn ($query) => $query->whereNull('entity_id')->orWhereHas('entity'))
-            ->paginate());
+        return Resource::collection($map->markers()->paginate());
     }
 
     /**
@@ -38,10 +33,6 @@ class MapMarkerApiController extends ApiController
     {
         $this->authorize('access', $campaign);
         $this->authorize('view', $map->entity);
-        // Chronicle: only markers of this map, and only those the explorer would show.
-        if ($mapMarker->map_id !== $map->id || ! $mapMarker->visible()) {
-            abort(404);
-        }
 
         return new Resource($mapMarker);
     }
@@ -75,9 +66,6 @@ class MapMarkerApiController extends ApiController
     ) {
         $this->authorize('access', $campaign);
         $this->authorize('update', $map->entity);
-        if ($mapMarker->map_id !== $map->id) {
-            abort(404);
-        }
         $mapMarker->update($request->all());
 
         return new Resource($mapMarker);
@@ -96,9 +84,6 @@ class MapMarkerApiController extends ApiController
     ) {
         $this->authorize('access', $campaign);
         $this->authorize('update', $map->entity);
-        if ($mapMarker->map_id !== $map->id) {
-            abort(404);
-        }
         $mapMarker->delete();
 
         return response()->json(null, 204);

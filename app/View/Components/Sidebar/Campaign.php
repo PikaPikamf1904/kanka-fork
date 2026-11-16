@@ -98,9 +98,6 @@ class Campaign extends Component
         'relations' => [
             'relations',
         ],
-        'graph' => [
-            'connections',
-        ],
         'history' => [
             'history',
         ],

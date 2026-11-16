@@ -129,10 +129,6 @@ class GroupController extends Controller
     public function edit(Campaign $campaign, Map $map, MapGroup $mapGroup)
     {
         $this->authorize('update', $map->entity);
-        // Chronicle: the record must belong to this map.
-        if ($mapGroup->map_id !== $map->id) {
-            abort(404);
-        }
         $model = $mapGroup;
 
         return view(
@@ -144,9 +140,6 @@ class GroupController extends Controller
     public function update(StoreMapGroup $request, Campaign $campaign, Map $map, MapGroup $mapGroup)
     {
         $this->authorize('update', $map->entity);
-        if ($mapGroup->map_id !== $map->id) {
-            abort(404);
-        }
 
         // For ajax requests, send back that the validation succeeded, so we can really send the form to be saved.
         if (request()->ajax()) {
@@ -177,9 +170,6 @@ class GroupController extends Controller
     public function destroy(Campaign $campaign, Map $map, MapGroup $mapGroup)
     {
         $this->authorize('update', $map->entity);
-        if ($mapGroup->map_id !== $map->id) {
-            abort(404);
-        }
 
         $mapGroup->delete();
 
