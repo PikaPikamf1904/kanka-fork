@@ -834,3 +834,12 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
   .searchbox input { padding-right: 3rem; }
   .link-button { display: inline-flex; align-items: center; }
 }
+
+/* Infobox field browse */
+.infobox dd { position: relative; }
+.infobox-more { display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; margin-left: 0.25rem; border-radius: 6px; color: var(--muted) !important; text-decoration: none; float: right; }
+.infobox-more:hover, .infobox-more:focus-visible { color: var(--gold) !important; background: var(--surface-2); }
+@media (pointer: coarse) { .infobox-more { min-width: 44px; min-height: 44px; } }
+.facts-list { list-style: none; margin: 0; padding: 0; }
+.facts-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.75rem; padding: 0.55rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.facts-summary { flex: 1 1 100%; font-size: 0.9rem; }

@@ -288,6 +288,25 @@ export async function loadRecentChanges(readerView: boolean): Promise<{ pages: R
   return { pages: [...pages.values()], sections: secs };
 }
 
+/**
+ * Pages sharing one infobox value (label and value compared case-insensitively), plus every value
+ * used under that label, for "Infobox field browse". Row Level Security decides which fields come
+ * back, so a DM-only field never lists a page for a player.
+ */
+export async function loadFacts(label: string, value: string): Promise<{ pages: Pick<Article, 'id' | 'slug' | 'title' | 'type' | 'summary'>[]; values: string[] }> {
+  const [matches, values] = await Promise.all([
+    supabase.from('infobox_fields').select('article_id, article:articles(id, slug, title, type, summary)')
+      .ilike('label', likeLiteral(label.trim())).ilike('value', likeLiteral(value.trim())).limit(500),
+    supabase.from('infobox_fields').select('value').ilike('label', likeLiteral(label.trim())).limit(3000),
+  ]);
+  const rows = must(matches) as unknown as { article: Pick<Article, 'id' | 'slug' | 'title' | 'type' | 'summary'> | null }[];
+  const pages = new Map(rows.filter((r) => r.article && r.article.type !== 'news').map((r) => [r.article!.id, r.article!]));
+  return {
+    pages: [...pages.values()].sort((a, b) => a.title.localeCompare(b.title)),
+    values: (must(values) as { value: string }[]).map((v) => v.value),
+  };
+}
+
 export async function loadWikiTidyData(): Promise<TidyData> {
   // Section lengths without downloading bodies: the server filters with a regular expression
   // ("." also matches line breaks in PostgreSQL; one repetition is capped at 255, hence minLengthPattern), so only ids come back. See STUB_* in wikiTidy.ts.
