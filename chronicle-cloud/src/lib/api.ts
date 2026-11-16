@@ -4,6 +4,7 @@ import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
 import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, type WikiIndex } from './loreImport.ts';
 import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
+import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
 import type { TidyArticle, TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
@@ -402,6 +403,31 @@ export async function wanderToSlug(opts: { type?: ArticleType; readerView: boole
       return rows[0]?.slug ?? null;
     },
   });
+}
+
+/** Every title and type the reader can see, titles only (no bodies), to know which letters of the A-Z index have entries. */
+export async function listIndexTitles(): Promise<{ title: string; type: ArticleType }[]> {
+  return fetchAll((from, to) => supabase.from('articles').select('title, type').neq('type', 'news').order('title').order('id').range(from, to));
+}
+
+export type IndexEntry = Pick<Article, 'id' | 'slug' | 'type' | 'title' | 'summary' | 'visibility' | 'status'>;
+
+/**
+ * Pages for the A-Z index, from the server: one letter (titles starting with it; "#" = not A-Z) or
+ * titles containing `contains`, optionally of one type. Row Level Security decides what comes back.
+ */
+export async function listIndexEntries(opts: { letter?: string; contains?: string; type?: ArticleType | null }): Promise<IndexEntry[]> {
+  const build = (from: number, to: number) => {
+    let q = supabase.from('articles').select('id, slug, type, title, summary, visibility, status').neq('type', 'news');
+    if (opts.type) q = q.eq('type', opts.type);
+    if (opts.contains) q = q.ilike('title', `%${likeLiteral(opts.contains)}%`);
+    else if (opts.letter === '#') q = q.filter('title', 'match', '^[^A-Za-z]');
+    else if (opts.letter) q = q.ilike('title', `${opts.letter}%`);
+    return q.order('title').order('id').range(from, to);
+  };
+  // A search is capped (it is for finding a page, not listing); a letter is read in full.
+  if (opts.contains) return must(await build(0, 99)) as IndexEntry[];
+  return fetchAll<IndexEntry>(build);
 }
 
 export async function listRelations(): Promise<(Relation & { source: ArticleRef; target: ArticleRef })[]> {

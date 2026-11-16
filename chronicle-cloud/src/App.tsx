@@ -6,6 +6,7 @@ import { AccessPage } from './pages/AccessPage.tsx';
 import { ArticlePage } from './pages/ArticlePage.tsx';
 import { BrowsePage, CategoriesPage, CategoryPage, ConnectionsPage, SearchPage, TimelinePage } from './pages/BrowsePages.tsx';
 import { HomePage } from './pages/HomePage.tsx';
+import { IndexPage } from './pages/IndexPage.tsx';
 import { NotFound } from './pages/NotFound.tsx';
 import { SignInPage } from './pages/SignInPage.tsx';
 import { WanderPage } from './pages/WanderPage.tsx';
@@ -70,6 +71,7 @@ const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/wiki/:slug', element: <ArticlePage /> },
       { path: '/browse/:type', element: <BrowsePage /> },
+      { path: '/a-z', element: <IndexPage /> },
       { path: '/wander', element: <WanderPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/categories', element: <CategoriesPage /> },

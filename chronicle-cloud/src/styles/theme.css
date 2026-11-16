@@ -713,3 +713,29 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .place-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .profile-heading .place-chips { margin-bottom: 0; }
 @media (max-width: 560px) { .profile-heading .place-chips { justify-content: center; } }
+
+/* ---------- A-Z index ---------- */
+.az-index { min-width: 0; }
+.az-controls { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; margin-bottom: 0.9rem; }
+.az-field { display: flex; flex-direction: column; gap: 0.2rem; flex: 1 1 14rem; min-width: 0; max-width: 26rem; }
+.az-label { font-family: var(--font-ui); font-size: 0.85rem; color: var(--muted); }
+.az-field input, .az-field select { width: 100%; box-sizing: border-box; min-height: 44px; padding: 0.45rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-family: var(--font-ui); }
+.az-bar { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0 0 1rem; padding: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); max-width: 100%; box-sizing: border-box; }
+.az-letter { min-width: 44px; min-height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--text); font-family: var(--font-display); font-size: 1.05rem; cursor: pointer; }
+.az-letter:hover:not(:disabled) { border-color: var(--gold); }
+.az-letter:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.az-letter:disabled { opacity: 0.35; cursor: default; }
+.az-letter-on { background: var(--gold); border-color: #8a6a26; color: #20180a; font-weight: 700; }
+.az-heading { font-size: 1.3rem; margin: 0 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); }
+.az-list { list-style: none; margin: 0; padding: 0; }
+.az-row { padding: 0.55rem 0; border-bottom: 1px dotted var(--line); min-width: 0; }
+.az-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; }
+.az-title { font-family: var(--font-display); font-size: 1.1rem; overflow-wrap: anywhere; display: inline-block; min-height: 24px; }
+.az-type { display: inline-flex; align-items: center; min-height: 28px; padding: 0 0.6rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted) !important; font-family: var(--font-ui); font-size: 0.8rem; text-decoration: none; }
+.az-snippet { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.98rem; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  /* One scrolling row inside its own container, so 27 letters never push the page sideways. */
+  .az-bar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .az-letter { flex: 0 0 auto; scroll-snap-align: start; }
+  .az-title, .az-type { min-height: 44px; display: inline-flex; align-items: center; }
+}
