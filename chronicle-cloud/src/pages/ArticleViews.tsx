@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../components/Badges.tsx';
 import { Crest } from '../components/Crest.tsx';
 import { FamilyTree } from '../components/FamilyTree.tsx';
+import { OrgChart } from '../components/OrgChart.tsx';
 import { isFamilyKind } from '../lib/familyTree.ts';
 import { Infobox } from '../components/Infobox.tsx';
 import { LocationChips } from '../components/LocationChips.tsx';
@@ -173,6 +174,7 @@ export function EncyclopediaPage({ v, isDm, from }: ViewProps) {
           {v.summary && <div className="article-lead"><Markdown text={v.summary} /></div>}
           <Toc headings={v.sections.map((s) => splitTimestamp(s.heading).text)} />
           <Sections v={v} isDm={isDm} />
+          {v.type === 'faction' && !v.previewing && <OrgChart faction={{ id: v.id, slug: v.slug, title: v.title, type: v.type }} />}
           <Connections v={v} isDm={isDm} />
           <Backlinks items={v.backlinks} />
           <Footer v={v} isDm={isDm} />

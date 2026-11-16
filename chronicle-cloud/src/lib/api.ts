@@ -8,6 +8,7 @@ import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
 import { slugify } from './slug.ts';
 import type { AuditData } from './visibilityAudit.ts';
+import type { OrgRel } from './orgChart.ts';
 import type { GraphInput } from './knowledgeGraph.ts';
 import type { RecentPage, RecentSection } from './recentChanges.ts';
 import { FAMILY_KINDS, MAX_GENERATIONS, MAX_PEOPLE, type FamilyEdge, type FamilyPerson } from './familyTree.ts';
@@ -352,6 +353,31 @@ export async function loadGraphData(readerView: boolean): Promise<GraphInput> {
 /** A page's summary for the graph's preview card (Row Level Security applies). */
 export async function getPagePreview(id: string): Promise<{ summary: string; hero_media_id: string | null } | null> {
   return must(await supabase.from('articles').select('summary, hero_media_id').eq('id', id).maybeSingle()) as { summary: string; hero_media_id: string | null } | null;
+}
+
+/** "Member of" connections into a faction and its sub-factions (two levels), under Row Level Security. */
+export async function loadOrg(factionId: string): Promise<OrgRel[]> {
+  type Row = { label: string; source: OrgRel['source'] | null; target: OrgRel['target'] | null };
+  const out: OrgRel[] = [];
+  let frontier = [factionId];
+  const asked = new Set<string>();
+  for (let level = 0; level < 3 && frontier.length; level++) {
+    frontier.forEach((id) => asked.add(id));
+    const rows = must(await supabase
+      .from('relations')
+      .select('label, source:articles!relations_source_article_id_fkey(id, slug, title, type), target:articles!relations_target_article_id_fkey(id, slug, title, type)')
+      .eq('kind', 'member_of')
+      .in('target_article_id', frontier)
+      .limit(500)) as unknown as Row[];
+    const next: string[] = [];
+    for (const r of rows) {
+      if (!r.source || !r.target) continue;
+      out.push({ label: r.label ?? '', source: r.source, target: r.target });
+      if (r.source.type === 'faction' && !asked.has(r.source.id) && !next.includes(r.source.id)) next.push(r.source.id);
+    }
+    frontier = next;
+  }
+  return out;
 }
 
 export async function loadWikiTidyData(): Promise<TidyData> {
