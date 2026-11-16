@@ -863,3 +863,6 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .graph-list-edges { margin: 0.25rem 0 0 1.4rem; font-size: 0.9rem; color: var(--muted); }
 @media (pointer: coarse) { .graph-kind { min-height: 44px; } }
 @media (max-width: 600px) { .graph-canvas { height: 62vh; } }
+
+/* Maintenance notice */
+.maintenance-notice { background: #6d5a1f; color: #fff8ec; text-align: center; padding: 0.45rem 1rem; font-family: var(--font-ui); font-size: 0.95rem; border-top: 1px solid rgba(0, 0, 0, 0.25); }

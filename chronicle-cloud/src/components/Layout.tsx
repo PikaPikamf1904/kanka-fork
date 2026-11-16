@@ -6,6 +6,7 @@ import { TEMPLATES } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 import { prefetchMarkdown } from './Markdown.tsx';
+import { MaintenanceNotice } from './MaintenanceNotice.tsx';
 import { SearchBox } from './SearchBox.tsx';
 
 const BROWSE: ArticleType[] = ['character', 'location', 'faction', 'item', 'quest', 'session'];
@@ -146,6 +147,7 @@ export function Layout() {
             </label>
           </div>
         </div>
+        <MaintenanceNotice />
         {playerPreview && (
           <div className="preview-banner" role="status">
             Viewing as a player. Article pages show exactly what players receive.
