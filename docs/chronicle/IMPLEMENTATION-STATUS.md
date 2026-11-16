@@ -22,7 +22,7 @@ fields and connections never reach a player):
 - Test maintenance: documentation screenshots only with `SAVE_DOC_SHOTS=1`.
 
 Waiting for owner approval: bookmarks, reading lists and personal notes need a migration
-(design in [PROPOSAL-PLAYER-DATA.md](PROPOSAL-PLAYER-DATA.md)). Roadmap:
+(design in [PROPOSAL-MIGRATIONS.md](PROPOSAL-MIGRATIONS.md)). Roadmap:
 [ROADMAP-50.md](ROADMAP-50.md). Guides: [WEBSITE-FEATURES.md](WEBSITE-FEATURES.md).
 
 Verified at `bfbd88849` (local, PostgreSQL 17.12): lint 0, typecheck 0 (site and MCP worker), unit

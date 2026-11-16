@@ -154,5 +154,5 @@ Documentation screenshots are written only with `SAVE_DOC_SHOTS=1`, for example
 
 ## Waiting for approval
 Bookmarks, reading lists and personal notes need one new table each. The design is in
-[PROPOSAL-PLAYER-DATA.md](PROPOSAL-PLAYER-DATA.md). Nothing has been written yet.
+[PROPOSAL-MIGRATIONS.md](PROPOSAL-MIGRATIONS.md). Nothing has been written yet.
 
