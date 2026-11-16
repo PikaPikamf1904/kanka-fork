@@ -134,7 +134,11 @@ test.describe('MCP: a real OAuth client connection', () => {
     });
     expect(refreshed.status, await refreshed.clone().text()).toBe(200);
     const next = (await refreshed.json()) as Tokens;
-    expect(next.access_token).not.toBe(tokens.access_token);
+    // A refresh always rotates the refresh token. The access token is not compared: one issued in
+    // the same second with the same claims can be byte-identical, which made this check flaky.
+    expect(next.access_token).toBeTruthy();
+    expect(next.refresh_token).toBeTruthy();
+    expect(next.refresh_token).not.toBe(tokens.refresh_token);
 
     const applied = await tool(next.access_token, 'chronicle_apply_changes', { preview_id: p.preview_id, digest: p.digest, idempotency_key: `oauth-e2e-${slug}` });
     expect(applied.isError, JSON.stringify(applied)).toBe(false);
