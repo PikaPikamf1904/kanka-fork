@@ -49,9 +49,18 @@ export function BulkLoreImport() {
       return;
     }
     const parsed = parsePackageText(await file.text());
+    // Ask the wiki again rather than trusting the list loaded earlier: right after an import that
+    // list may still be refreshing, and pages just created would be selected a second time.
+    let known = existing;
+    try {
+      known = new Set((await listAllArticleRefs()).map((r) => r.slug));
+    } catch {
+      // Keep the earlier list; saving still never overwrites an existing page.
+    }
     setFilename(file.name);
     setPack(parsed);
-    setChosen(new Set(parsed.articles.filter((a) => !existing.has(a.slug)).map((a) => a.slug)));
+    setChosen(new Set(parsed.articles.filter((a) => !known.has(a.slug)).map((a) => a.slug)));
+    refs.reload();
   }
 
   function toggle(slug: string, on: boolean) {
