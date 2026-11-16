@@ -11,7 +11,11 @@ migrations.
   links, unlinked pages, missing summaries and pictures, and empty pages.
 - User guides: see [WEBSITE-FEATURES.md](WEBSITE-FEATURES.md).
 
-Full verification: PENDING
+Full verification at `44a4eca44`, local PostgreSQL 17.12: lint 0, typecheck 0, unit 138/138,
+database 311/311, browser 65/65. The first full run found two problems, both fixed: the package
+importer could re-select pages it had just created when the next file was chosen right after an
+import (`44f5d1374`), and the picture-viewer browser test shared an article with the image test
+(`44a4eca44`).
 
 ## 2026-11-15 — release prep (branch `claude/chronicle-release-prep`, draft PR #30)
 
