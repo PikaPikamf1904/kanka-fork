@@ -6,6 +6,7 @@ import { TEMPLATES } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 import { prefetchMarkdown } from './Markdown.tsx';
+import { CommandPalette } from './CommandPalette.tsx';
 import { MaintenanceNotice } from './MaintenanceNotice.tsx';
 import { SearchBox } from './SearchBox.tsx';
 
@@ -158,6 +159,16 @@ export function Layout() {
 
       <div className="shell">
         <nav id="site-nav" ref={navRef} className={menuOpen ? 'sidebar open' : 'sidebar'} aria-label="Wiki">
+          <button
+            type="button"
+            className="palette-open"
+            onClick={() => {
+              setMenuOpen(false);
+              document.dispatchEvent(new Event('chronicle:open-palette'));
+            }}
+          >
+            Jump to… <kbd>Ctrl K</kbd>
+          </button>
           <div className="sidebar-search">
             <SearchBox onDone={() => setMenuOpen(false)} />
           </div>
@@ -226,6 +237,7 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette />
       <footer className="site-footer">
         {title} · a private campaign wiki · unofficial fan content for a home game
       </footer>

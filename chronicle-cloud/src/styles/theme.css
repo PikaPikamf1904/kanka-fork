@@ -829,7 +829,7 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 }
 /* Touch screens: every control at least 44px high. */
 @media (pointer: coarse) {
-  .link-button, .button.small, .chip, .nav-group a, .breadcrumbs a, .tidy-sort select, .searchbox input, .preview-banner button { min-height: 44px; }
+  .link-button, .button.small, .chip, .nav-group a, .breadcrumbs a, .tidy-sort select, .searchbox input, .preview-banner button, .palette-open { min-height: 44px; }
   .searchbox-button { min-width: 44px; min-height: 44px; right: 0; }
   .searchbox input { padding-right: 3rem; }
   .link-button { display: inline-flex; align-items: center; }
@@ -866,3 +866,20 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 
 /* Maintenance notice */
 .maintenance-notice { background: #6d5a1f; color: #fff8ec; text-align: center; padding: 0.45rem 1rem; font-family: var(--font-ui); font-size: 0.95rem; border-top: 1px solid rgba(0, 0, 0, 0.25); }
+
+/* Command palette (Ctrl/Cmd + K) */
+.palette-open { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; margin-bottom: 0.75rem; padding: 0.3rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--muted); font: inherit; font-family: var(--font-ui); cursor: pointer; }
+.palette-open:hover { border-color: var(--gold); color: var(--text); }
+.palette-open kbd { font-family: var(--font-ui); font-size: 0.75rem; padding: 0.05rem 0.35rem; border: 1px solid var(--line); border-radius: 4px; background: var(--surface-2); }
+.palette { padding: 0; border: 1px solid var(--gold); border-radius: 12px; background: var(--surface); color: var(--text); width: min(640px, calc(100vw - 2rem)); margin-top: 12vh; box-shadow: var(--shadow); }
+.palette::backdrop { background: rgb(10 12 30 / 0.55); }
+.palette-box { display: grid; }
+.palette-input { min-height: 52px; padding: 0.6rem 1rem; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: 1.1rem; font-family: var(--font-ui); outline: none; }
+.palette-list { list-style: none; margin: 0; padding: 0.35rem; max-height: min(55vh, 420px); overflow-y: auto; }
+.palette-item { display: flex; align-items: center; gap: 0.75rem; min-height: 44px; padding: 0.3rem 0.75rem; border-radius: 8px; cursor: pointer; font-family: var(--font-ui); }
+.palette-item.active { background: var(--surface-2); outline: 2px solid var(--gold); outline-offset: -2px; }
+.palette-label { flex: 1; overflow-wrap: anywhere; }
+.palette-hint { color: var(--muted); font-size: 0.85rem; }
+.palette-empty { padding: 0.75rem; color: var(--muted); font-family: var(--font-ui); }
+.palette-keys { margin: 0; padding: 0.4rem 1rem 0.6rem; border-top: 1px solid var(--line); }
+@media (max-width: 600px) { .palette { margin-top: 1rem; } .palette-keys { display: none; } }
