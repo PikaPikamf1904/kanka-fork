@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { getSettings } from '../lib/api.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
@@ -10,10 +10,18 @@ import { SearchBox } from './SearchBox.tsx';
 
 const BROWSE: ArticleType[] = ['character', 'location', 'faction', 'item', 'quest', 'session'];
 
-function useTheme(): [string, () => void] {
-  const [theme, setTheme] = useState(() => {
+type Theme = 'auto' | 'light' | 'dark';
+const THEMES: { value: Theme; label: string }[] = [
+  { value: 'auto', label: 'Theme: match device' },
+  { value: 'light', label: 'Theme: light' },
+  { value: 'dark', label: 'Theme: dark' },
+];
+
+function useTheme(): [Theme, (t: Theme) => void] {
+  const [theme, setTheme] = useState<Theme>(() => {
     try {
-      return localStorage.getItem('chronicle-theme') ?? 'auto';
+      const saved = localStorage.getItem('chronicle-theme');
+      return saved === 'light' || saved === 'dark' ? saved : 'auto';
     } catch {
       return 'auto';
     }
@@ -27,8 +35,7 @@ function useTheme(): [string, () => void] {
       // Private mode: the choice just isn't remembered.
     }
   }, [theme]);
-  const next = () => setTheme((t) => (t === 'auto' ? 'dark' : t === 'dark' ? 'light' : 'auto'));
-  return [theme, next];
+  return [theme, setTheme];
 }
 
 export function Layout() {
@@ -37,7 +44,10 @@ export function Layout() {
   const realDm = state.kind === 'member' && state.role === 'dm';
   const settings = useLoad(getSettings, []);
   const [menuPath, setMenuPath] = useState<string | null>(null);
-  const [theme, nextTheme] = useTheme();
+  const [theme, setTheme] = useTheme();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const focusSearch = useRef(false);
   const location = useLocation();
   const menuOpen = menuPath === location.pathname;
   const setMenuOpen = (open: boolean | ((o: boolean) => boolean)) =>
@@ -51,12 +61,38 @@ export function Layout() {
 
   useEffect(prefetchMarkdown, []);
 
+  // The phone menu behaves like a dialog: focus moves into it, Escape closes it, focus returns to
+  // the menu button, and the page behind it is inert (see `inert` below) while it is open.
+  const openedOn = useRef<string | null>(null);
+  useEffect(() => {
+    if (menuOpen) {
+      const target = focusSearch.current
+        ? navRef.current?.querySelector<HTMLInputElement>('.sidebar-search input')
+        : navRef.current?.querySelector<HTMLElement>('input, a[href], button');
+      focusSearch.current = false;
+      requestAnimationFrame(() => target?.focus());
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setMenuPath(null);
+      };
+      document.addEventListener('keydown', onKey);
+      openedOn.current = location.pathname;
+      return () => document.removeEventListener('keydown', onKey);
+    }
+    if (openedOn.current !== null) {
+      // Closed on the same page (Escape, the scrim, the menu button): focus goes back to the menu
+      // button. Closed by following a link: the new page keeps the focus.
+      if (openedOn.current === location.pathname) toggleRef.current?.focus();
+      openedOn.current = null;
+    }
+  }, [menuOpen, location.pathname]);
+
   return (
     <div className={playerPreview ? 'app preview-mode' : 'app'}>
       <a className="skip-link" href="#main">Skip to content</a>
       <header className="site-header">
         <div className="site-header-inner">
           <button
+            ref={toggleRef}
             type="button"
             className="menu-toggle"
             aria-expanded={menuOpen}
@@ -74,14 +110,31 @@ export function Layout() {
             <SearchBox />
           </div>
           <div className="header-actions">
-            <button type="button" className="icon-button" onClick={nextTheme} title={`Theme: ${theme}`}>
+            <button
+              type="button"
+              className="icon-button search-toggle"
+              aria-label="Open search"
+              onClick={() => {
+                focusSearch.current = true;
+                setMenuOpen(true);
+              }}
+            >
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="2" />
+                <path d="M12.5 12.5 L17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <label className="theme-picker">
+              <span className="visually-hidden">Colour theme</span>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" className="theme-icon">
                 <circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
                 {theme === 'dark' && <circle cx="10" cy="10" r="7.5" fill="currentColor" />}
                 {theme === 'auto' && <path d="M10 2.5 A7.5 7.5 0 0 1 10 17.5 Z" fill="currentColor" />}
               </svg>
-              <span className="visually-hidden">Change theme (now {theme})</span>
-            </button>
+              <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)} aria-label="Colour theme">
+                {THEMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </label>
           </div>
         </div>
         {playerPreview && (
@@ -93,7 +146,7 @@ export function Layout() {
       </header>
 
       <div className="shell">
-        <nav id="site-nav" className={menuOpen ? 'sidebar open' : 'sidebar'} aria-label="Wiki">
+        <nav id="site-nav" ref={navRef} className={menuOpen ? 'sidebar open' : 'sidebar'} aria-label="Wiki">
           <div className="sidebar-search">
             <SearchBox onDone={() => setMenuOpen(false)} />
           </div>
@@ -152,7 +205,7 @@ export function Layout() {
           </div>
         </nav>
         {menuOpen && <button type="button" className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
-        <main id="main" className="content" tabIndex={-1}>
+        <main id="main" className="content" tabIndex={-1} inert={menuOpen || undefined}>
           <Outlet />
         </main>
       </div>

@@ -407,7 +407,8 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
   .timeline-date { text-align: left; }
 }
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  .card:hover, .card-portrait:hover { transform: none; }
 }
 @media print {
   .site-header, .sidebar, .site-footer, .article-dm-tools, .preview-banner { display: none !important; }
@@ -811,3 +812,25 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .recent-what { color: var(--muted); font-family: var(--font-ui); font-size: 0.9rem; flex: 1 1 14rem; }
 .recent-new { color: var(--text); font-weight: 600; }
 .recent-time { color: var(--muted); font-family: var(--font-ui); font-size: 0.85rem; margin-left: auto; }
+
+/* ---------- Header tools: search on phones, named theme choice ---------- */
+.search-toggle { display: none; place-items: center; }
+.theme-picker { position: relative; display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 8px; color: var(--gold-light); border: 1px solid transparent; }
+.theme-picker:hover, .theme-picker:focus-within { border-color: currentColor; }
+.theme-picker:focus-within { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+/* The native select covers the icon: it is what is clicked and announced, the icon is decoration. */
+.theme-picker select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+@media (max-width: 900px) {
+  .search-toggle { display: inline-grid; }
+}
+/* Desktop: the menu stays in view while a long page scrolls. */
+@media (min-width: 901px) {
+  .sidebar { position: sticky; top: var(--header-height, 62px); align-self: start; max-height: calc(100vh - var(--header-height, 62px)); overflow-y: auto; overscroll-behavior: contain; }
+}
+/* Touch screens: every control at least 44px high. */
+@media (pointer: coarse) {
+  .link-button, .button.small, .chip, .nav-group a, .breadcrumbs a, .tidy-sort select, .searchbox input, .preview-banner button { min-height: 44px; }
+  .searchbox-button { min-width: 44px; min-height: 44px; right: 0; }
+  .searchbox input { padding-right: 3rem; }
+  .link-button { display: inline-flex; align-items: center; }
+}
