@@ -889,3 +889,13 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .search-form input { flex: 1; min-width: 0; min-height: 44px; padding: 0.4rem 0.8rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-family: var(--font-ui); }
 .search-tips { margin-bottom: 0.75rem; font-family: var(--font-ui); font-size: 0.9rem; }
 .search-tips summary { cursor: pointer; min-height: 32px; color: var(--link); }
+
+/* Reading comfort (header "Aa" choice) and a comfortable line length */
+.reading-icon { font-family: var(--font-display); font-size: 1rem; font-weight: 700; }
+.article-body .prose { max-width: 72ch; }
+[data-reading='large'] .prose, [data-reading='plain'] .prose { font-size: 1.18rem; }
+[data-reading='large'] .article-body .prose p, [data-reading='plain'] .article-body .prose p { line-height: 1.85; }
+[data-reading='large'] .article-lead .prose p, [data-reading='plain'] .article-lead .prose p { font-size: 1.3rem; }
+[data-reading='plain'] { --font-body: Verdana, Tahoma, 'Segoe UI', system-ui, sans-serif; }
+[data-reading='plain'] .prose { letter-spacing: 0.01em; word-spacing: 0.08em; }
+[data-reading='plain'] .prose em { font-style: normal; font-weight: 600; }

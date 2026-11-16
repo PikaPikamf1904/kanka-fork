@@ -55,6 +55,21 @@ test.describe('Navigation and accessibility', () => {
     await expect(page.locator('#site-nav').getByRole('link', { name: 'Main page' })).toBeInViewport();
   });
 
+  test('reading comfort: larger text and a plain font, remembered', async ({ page }) => {
+    await signInAsDm(page);
+    await page.goto('/wiki/port-vellmoor');
+    const para = page.locator('.article-body .prose p').first();
+    const before = await para.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    await page.getByLabel('Reading comfort').selectOption('plain');
+    await expect(page.locator('html')).toHaveAttribute('data-reading', 'plain');
+    await expect.poll(() => para.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(before);
+    expect(await para.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Verdana');
+    await page.reload();
+    await expect(page.getByLabel('Reading comfort')).toHaveValue('plain');
+    await page.getByLabel('Reading comfort').selectOption('standard');
+    await expect(page.locator('html')).not.toHaveAttribute('data-reading', /.+/);
+  });
+
   test('reduced motion: cards do not move on hover', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();

@@ -19,6 +19,35 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'dark', label: 'Theme: dark' },
 ];
 
+type Reading = 'standard' | 'large' | 'plain';
+const READINGS: { value: Reading; label: string }[] = [
+  { value: 'standard', label: 'Reading: standard' },
+  { value: 'large', label: 'Reading: larger text' },
+  { value: 'plain', label: 'Reading: larger text, plain font' },
+];
+
+/** Reading comfort, remembered per browser and applied to the whole page. */
+function useReading(): [Reading, (r: Reading) => void] {
+  const [reading, setReading] = useState<Reading>(() => {
+    try {
+      const saved = localStorage.getItem('chronicle-reading');
+      return saved === 'large' || saved === 'plain' ? saved : 'standard';
+    } catch {
+      return 'standard';
+    }
+  });
+  useEffect(() => {
+    if (reading === 'standard') document.documentElement.removeAttribute('data-reading');
+    else document.documentElement.setAttribute('data-reading', reading);
+    try {
+      localStorage.setItem('chronicle-reading', reading);
+    } catch {
+      // Private mode: not remembered.
+    }
+  }, [reading]);
+  return [reading, setReading];
+}
+
 function useTheme(): [Theme, (t: Theme) => void] {
   const [theme, setTheme] = useState<Theme>(() => {
     try {
@@ -47,6 +76,7 @@ export function Layout() {
   const settings = useLoad(getSettings, []);
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const [theme, setTheme] = useTheme();
+  const [reading, setReading] = useReading();
   const toggleRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const focusSearch = useRef(false);
@@ -144,6 +174,13 @@ export function Layout() {
               </svg>
               <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)} aria-label="Colour theme">
                 {THEMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </label>
+            <label className="theme-picker reading-picker">
+              <span className="visually-hidden">Reading comfort</span>
+              <span aria-hidden="true" className="reading-icon">Aa</span>
+              <select value={reading} onChange={(e) => setReading(e.target.value as Reading)} aria-label="Reading comfort">
+                {READINGS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </label>
           </div>
