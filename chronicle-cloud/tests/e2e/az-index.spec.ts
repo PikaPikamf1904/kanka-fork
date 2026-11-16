@@ -66,7 +66,7 @@ test.describe('A-Z index', () => {
     await expect(alderman).toContainText('A synthetic harbour official who counts barrels'); // markup removed from the snippet
     await expect(alderman).not.toContainText('**');
     await page.waitForTimeout(300);
-    await page.screenshot({ path: path.join(docsShots, 'az-index-desktop.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await page.screenshot({ path: path.join(docsShots, 'az-index-desktop.png') });
 
     // Kind filter: kept in the address, narrows this letter.
     await page.getByLabel('Kind of page').selectOption('location');
@@ -144,6 +144,6 @@ test.describe('A-Z index', () => {
     await letter(page, 'Q').tap();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
-    await page.screenshot({ path: path.join(docsShots, 'az-index-phone.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await page.screenshot({ path: path.join(docsShots, 'az-index-phone.png') });
   });
 });

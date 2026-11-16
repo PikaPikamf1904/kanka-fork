@@ -167,7 +167,7 @@ test.describe('Tidy up the wiki', () => {
     await section(desktop, 'stubs').locator('summary').click();
     await expect(section(desktop, 'broken').getByRole('listitem').filter({ hasText: 'Harbour Ledger Notes' })).toBeVisible();
     await desktop.waitForTimeout(300);
-    await desktop.screenshot({ path: path.join(docsShots, 'wiki-tidy-desktop.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await desktop.screenshot({ path: path.join(docsShots, 'wiki-tidy-desktop.png') });
     // The stubs view, as the summary link leaves it: the stubs section open with the to-do marker.
     await desktop.goto('/dm/tidy?type=location');
     await expect(section(desktop, 'stubs')).toBeVisible();
@@ -175,7 +175,7 @@ test.describe('Tidy up the wiki', () => {
     await expect(section(desktop, 'stubs').getByRole('listitem').filter({ hasText: 'Harbour Ledger Notes' })).toBeVisible();
     await expect(section(desktop, 'stubs')).toBeInViewport();
     await desktop.waitForTimeout(300);
-    await desktop.screenshot({ path: path.join(docsShots, 'tidy-stubs.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await desktop.screenshot({ path: path.join(docsShots, 'tidy-stubs.png') });
     await noHorizontalOverflow(desktop);
 
     // Phone: no sideways scroll, rows wrap, controls are at least 44px tall.
@@ -193,7 +193,7 @@ test.describe('Tidy up the wiki', () => {
     }
     await phone.evaluate(() => window.scrollTo(0, 0));
     await phone.waitForTimeout(300);
-    await phone.screenshot({ path: path.join(docsShots, 'wiki-tidy-phone.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await phone.screenshot({ path: path.join(docsShots, 'wiki-tidy-phone.png') });
     await screenshot(phone, 'wiki-tidy-phone');
   });
 

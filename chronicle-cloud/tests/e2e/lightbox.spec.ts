@@ -195,7 +195,7 @@ test.describe('Picture viewer', () => {
     await desktop.unroute((u) => u.href === staleSrc).catch(() => undefined);
     await noHorizontalOverflow(desktop);
     await desktop.waitForTimeout(300);
-    await desktop.screenshot({ path: path.join(docsShots, 'lightbox-desktop.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await desktop.screenshot({ path: path.join(docsShots, 'lightbox-desktop.png') });
 
     // Esc closes; focus returns to the picture that was clicked.
     await desktop.keyboard.press('Escape');
@@ -239,7 +239,7 @@ test.describe('Picture viewer', () => {
     await expect.poll(() => viewer(phone).locator('img').evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
     expect(await phone.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     await phone.waitForTimeout(300);
-    await phone.screenshot({ path: path.join(docsShots, 'lightbox-phone.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await phone.screenshot({ path: path.join(docsShots, 'lightbox-phone.png') });
     await screenshot(phone, 'lightbox-phone');
     await phone.keyboard.press('Escape');
     await expect(viewer(phone)).toHaveCount(0);

@@ -83,7 +83,7 @@ test.describe('Place chips', () => {
     const seen = bodies.map((b) => b.body).join('\n');
     for (const t of DM_ONLY) expect(seen).not.toContain(t);
     await noHorizontalOverflow(desktop);
-    await desktop.screenshot({ path: path.join(docsShots, 'location-chips.png') });
+    if (process.env.SAVE_DOC_SHOTS === '1') await desktop.screenshot({ path: path.join(docsShots, 'location-chips.png') });
 
     // The chip opens the map focused on the pin, with its popup.
     await mapChip.click();
