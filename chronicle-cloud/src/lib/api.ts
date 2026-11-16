@@ -3,6 +3,7 @@
 import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
 import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, type WikiIndex } from './loreImport.ts';
+import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
 import type { TidyArticle, TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
@@ -346,6 +347,31 @@ export async function getMap(slug: string): Promise<{ map: WikiMap; markers: Map
     children: childMaps,
     parent: must(parent) as WikiMap | null,
     fog: must(fog) as MapFogArea[],
+  };
+}
+
+/**
+ * The places an article is connected to and the maps that show them, for the "place" chips. Three
+ * small queries, all under the reader's Row Level Security: a location, pin or map the reader may
+ * not see simply returns no row, so it can never become a chip.
+ */
+export async function getPlaceChips(articleId: string, title: string): Promise<{ places: PlaceChip[]; maps: MapChip[] }> {
+  const rels = must(
+    await supabase
+      .from('relations')
+      .select('kind, source_article_id, target_article_id, source:articles!relations_source_article_id_fkey(id, slug, title, type), target:articles!relations_target_article_id_fkey(id, slug, title, type)')
+      .or(`source_article_id.eq.${articleId},target_article_id.eq.${articleId}`)
+      .limit(300),
+  ) as unknown as PlaceRelationRow[];
+  const places = placeChips(articleId, rels);
+  const ids = [articleId, ...places.map((p) => p.id)];
+  const [markers, maps] = await Promise.all([
+    supabase.from('map_markers').select('id, article_id, map:maps(slug, title)').in('article_id', ids).limit(200),
+    supabase.from('maps').select('slug, title, article_id').in('article_id', ids).limit(100),
+  ]);
+  return {
+    places,
+    maps: mapChips(articleId, title, places, must(markers) as unknown as PlaceMarkerRow[], must(maps) as PlaceMapRow[]),
   };
 }
 

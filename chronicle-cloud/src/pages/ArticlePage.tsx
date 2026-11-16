@@ -26,6 +26,8 @@ export interface ViewModel {
   categories: { slug: string; name: string; kind: string; visibility?: Visibility }[];
   relations: { key: string; kind: string; label: string; other: ArticleRef; visibility?: Visibility }[];
   backlinks: ArticleRef[];
+  /** The DM's "preview as player" view, built from a function rather than the table rows. */
+  previewing?: boolean;
 }
 
 function fromBundle(b: ArticleBundle): ViewModel {
@@ -62,6 +64,7 @@ export function ArticlePage() {
         relations: (p.relations ?? []).map((r, i) => ({ key: `${r.slug}-${i}`, kind: r.kind, label: r.label, other: { slug: r.slug, title: r.title, type: 'lore' as ArticleType } })),
         // Backlinks are not part of the preview function; hide them rather than show DM-visible ones.
         backlinks: [],
+        previewing: true,
       };
     }
     const bundle = await getArticle(slug);

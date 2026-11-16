@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../components/Badges.tsx';
 import { Crest } from '../components/Crest.tsx';
 import { Infobox } from '../components/Infobox.tsx';
+import { LocationChips } from '../components/LocationChips.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { sectionAnchor, Toc } from '../components/Toc.tsx';
@@ -29,6 +30,11 @@ function DmBar({ v, isDm }: { v: ViewModel; isDm: boolean }) {
       <Link className="button small" to={`/dm/edit/${v.slug}`}>Edit</Link>
     </div>
   );
+}
+
+/** Place and map chips; not in the DM's "preview as player" view, which has no row ids to look up. */
+function Places({ v }: { v: ViewModel }) {
+  return v.previewing ? null : <LocationChips articleId={v.id} title={v.title} />;
 }
 
 function Sections({ v, isDm, chapter = false }: { v: ViewModel; isDm: boolean; chapter?: boolean }) {
@@ -154,6 +160,7 @@ export function EncyclopediaPage({ v, isDm, from }: ViewProps) {
       <div className="article-layout">
         <Infobox title={v.title} type={v.type} heroMediaId={v.heroMediaId} fields={v.infobox} showVisibility={isDm} />
         <div className="article-body">
+          <Places v={v} />
           {v.summary && <div className="article-lead"><Markdown text={v.summary} /></div>}
           <Toc headings={v.sections.map((s) => splitTimestamp(s.heading).text)} />
           <Sections v={v} isDm={isDm} />
@@ -218,6 +225,7 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
             {isParty && <span className="chip chip-party">Of the party</span>}
             {facts.status && <span className="chip">{facts.status}</span>}
           </p>
+          <Places v={v} />
         </div>
       </header>
 
@@ -289,6 +297,7 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
         {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
         {from && <p className="redirect-note">(Redirected from {from})</p>}
       </header>
+      <Places v={v} />
       {v.heroMediaId && <MediaImage id={v.heroMediaId} alt={`Picture for ${v.title}`} className="journal-hero" />}
       {v.summary && (
         <div className="journal-recap">

@@ -704,3 +704,12 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .tidy-list li .button { margin-left: auto; }
 .tidy-list li .button + .button { margin-left: 0; }
 .tidy-list .button.small { min-height: 44px; }
+
+/* ---------- Place chips (locations and maps connected to a page) ---------- */
+.place-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0 0.9rem; min-width: 0; }
+.place-chip { display: inline-flex; align-items: center; gap: 0.3rem; min-height: 44px; max-width: 100%; box-sizing: border-box; padding: 0.35rem 0.85rem; border-radius: 999px; border: 1px solid var(--line); border-left: 3px solid var(--accent, var(--gold)); background: var(--surface-2); color: var(--text) !important; text-decoration: none; font-family: var(--font-ui); font-size: 0.95rem; line-height: 1.25; overflow-wrap: anywhere; }
+.place-chip:hover { border-color: var(--gold); background: var(--surface); }
+.place-chip-map { border-left-color: var(--sea); }
+.place-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.profile-heading .place-chips { margin-bottom: 0; }
+@media (max-width: 560px) { .profile-heading .place-chips { justify-content: center; } }
