@@ -17,19 +17,19 @@ test.describe('Navigation and accessibility', () => {
     await expect(page.locator('main#main')).toHaveAttribute('inert', '');
     await page.keyboard.press('Escape');
     await expect(page.locator('#site-nav')).not.toHaveClass(/open/);
-    await expect(page.getByRole('button', { name: 'Menu' })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toBeFocused();
     await expect(page.locator('main#main')).not.toHaveAttribute('inert', '');
 
     // Opening with the menu button also moves focus into the menu.
-    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('#site-nav'))).toBe(true);
     // Following a link closes the menu and leaves focus with the new page, not the menu button.
     await page.locator('#site-nav').getByRole('link', { name: 'A–Z index' }).click();
     await expect(page).toHaveURL(/\/a-z/);
-    await expect(page.getByRole('button', { name: 'Menu' })).not.toBeFocused();
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).not.toBeFocused();
 
     // Touch targets in the menu are at least 44px high.
-    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     for (const el of await page.locator('#site-nav a, #site-nav button').all()) {
       const box = await el.boundingBox();
       if (box) expect(box.height).toBeGreaterThanOrEqual(43.5);

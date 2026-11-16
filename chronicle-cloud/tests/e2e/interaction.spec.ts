@@ -40,7 +40,8 @@ test.describe('Interaction', () => {
     await box.fill('port');
     await page.waitForTimeout(400); // the slow request is now on its way
     await box.fill('captain');
-    const options = page.getByRole('option');
+    // Suggestions only: the header's theme picker is a native select with options of its own.
+    const options = page.getByRole('listbox').getByRole('option');
     await expect(options.first()).toContainText('Merrin');
     await page.waitForTimeout(2000); // the late answer has arrived by now
     const texts = await options.allTextContents();

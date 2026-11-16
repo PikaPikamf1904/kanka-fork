@@ -63,6 +63,8 @@ export function Layout() {
 
   // The phone menu behaves like a dialog: focus moves into it, Escape closes it, focus returns to
   // the menu button, and the page behind it is inert (see `inert` below) while it is open.
+  // Set by the explicit ways of closing (Escape, the scrim, the menu button), not by following a link.
+  const returnFocus = useRef(false);
   const openedOn = useRef<string | null>(null);
   useEffect(() => {
     if (menuOpen) {
@@ -72,16 +74,20 @@ export function Layout() {
       focusSearch.current = false;
       requestAnimationFrame(() => target?.focus());
       const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') setMenuPath(null);
+        if (e.key === 'Escape') {
+          returnFocus.current = true;
+          setMenuPath(null);
+        }
       };
       document.addEventListener('keydown', onKey);
       openedOn.current = location.pathname;
       return () => document.removeEventListener('keydown', onKey);
     }
     if (openedOn.current !== null) {
-      // Closed on the same page (Escape, the scrim, the menu button): focus goes back to the menu
-      // button. Closed by following a link: the new page keeps the focus.
-      if (openedOn.current === location.pathname) toggleRef.current?.focus();
+      // Closed with Escape, the scrim or the menu button: focus goes back to the menu button.
+      // Closed by following a link or a search: the new page keeps the focus.
+      if (returnFocus.current) toggleRef.current?.focus();
+      returnFocus.current = false;
       openedOn.current = null;
     }
   }, [menuOpen, location.pathname]);
@@ -97,7 +103,10 @@ export function Layout() {
             className="menu-toggle"
             aria-expanded={menuOpen}
             aria-controls="site-nav"
-            onClick={() => setMenuOpen((o) => !o)}
+            onClick={() => {
+              returnFocus.current = menuOpen;
+              setMenuOpen((o) => !o);
+            }}
           >
             <span aria-hidden="true">☰</span>
             <span className="visually-hidden">Menu</span>
@@ -204,7 +213,12 @@ export function Layout() {
             </button>
           </div>
         </nav>
-        {menuOpen && <button type="button" className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+        {menuOpen && (
+          <button type="button" className="scrim" aria-label="Close menu" onClick={() => {
+            returnFocus.current = true;
+            setMenuOpen(false);
+          }} />
+        )}
         <main id="main" className="content" tabIndex={-1} inert={menuOpen || undefined}>
           <Outlet />
         </main>

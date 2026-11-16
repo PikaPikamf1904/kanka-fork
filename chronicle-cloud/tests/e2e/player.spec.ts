@@ -82,7 +82,7 @@ test.describe('player', () => {
     await box.fill('Port');
     await expect(page.getByRole('option', { name: /Port Vellmoor/ })).toBeVisible();
     await box.fill('the masked');
-    await expect(page.getByRole('option')).toHaveCount(0);
+    await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(0);
     await page.goto('/search?q=ledger');
     await expect(page.getByRole('link', { name: 'Operation Emberfall' })).toBeVisible();
     await expect(page.locator('.search-results mark').first()).toBeVisible();
