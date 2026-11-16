@@ -78,6 +78,8 @@ it('keeps hidden entities out of the character list', function () {
     dmOnlyPlayer();
     $this->asWebRequest();
     $this->get(route('characters.index', [1]))->assertRedirect(route('entities.index', [Campaign::find(1), 1]));
+    // Old list links keep their page and filters through the redirect.
+    $this->get(route('characters.index', [1, 'page' => 2, 'order' => 'name']))->assertRedirect(route('entities.index', [Campaign::find(1), 1, 'page' => 2, 'order' => 'name']));
     $this->get(route('entities.index', [1, 1]))->assertOk();
     $response = $this->getJson(route('entities.index-api', [1, 1]))->assertOk();
     expect((string) $response->getContent())->toContain('Harbor Watch');

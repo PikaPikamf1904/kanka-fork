@@ -1,0 +1,1205 @@
+{
+  "pack": "dragonlance",
+  "version": 2,
+  "title": "Dragonlance campaign: first lore pack",
+  "generated_from": "DM briefs of 2026-11-10; no underlying source file was available",
+  "note": "Drafted with AI assistance from the DM's notes; every page needs the DM's edit before players see it.",
+  "articles": [
+    {
+      "ref": "campaign-overview",
+      "slug": "campaign-overview",
+      "type": "lore",
+      "title": "The campaign so far",
+      "subtitle": "",
+      "summary": "Where the story has been, and where the notes run out.",
+      "group": "Campaign",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "The campaign is a customised run of Dragonlance: Shadow of the Dragon Queen with homebrew adventures.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The group had earlier adventures before the main Dragonlance storyline.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Vogler features in the campaign's early setting.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "A later Halloween adventure took place aboard the Bone Pelican.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "disputed",
+          "text": "Documents disagree over the spelling of the port the party is working from.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "The story so far",
+          "body": "This is a Dragonlance campaign that follows Shadow of the Dragon Queen where it suits us and wanders off where it doesn't.\n\nThe group was already adventuring together before the main story began. Those early days centre on [[vogler|Vogler]], and the notes from them name [[swift-claw|Swift Claw]], [[frost|Frost]], [[orkus|Orkus]] and [[pubert|Pubert]].\n\nLater came a Halloween voyage aboard the [[the-bone-pelican|Bone Pelican]], where a ghost asked the party to find out who had killed her. That is the [[the-bone-pelican-murder|murder aboard the Bone Pelican]], and it is how [[gears|Gears]] came to travel with the party."
+        },
+        {
+          "heading": "What comes next (DM)",
+          "body": "[[operation-dragon-nest|Operation Dragon Nest]] is written but not played. Nothing on that page, or on any page it links to, has happened yet."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "What should the players' version of this page say?",
+        "What is the correct spelling of the port the party is working from?",
+        "Were there sessions between Vogler and the Bone Pelican that should have their own journals?"
+      ]
+    },
+    {
+      "ref": "vogler",
+      "slug": "vogler",
+      "type": "location",
+      "title": "Vogler",
+      "subtitle": "",
+      "summary": "Where the campaign's early days were spent.",
+      "group": "Campaign",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Vogler features in the campaign's early setting.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Earlier character references include Swift Claw, Frost, Orkus and Pubert.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In our campaign",
+          "body": "The early part of the campaign belongs to Vogler. The character notes from that time mention [[swift-claw|Swift Claw]], [[frost|Frost]], [[orkus|Orkus]] and [[pubert|Pubert]].\n\nWhat actually happened here at our table has not been written up yet. This page is waiting for it."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Type",
+          "value": "Village"
+        }
+      ],
+      "questions": [
+        "Which Vogler events happened at the table, and in what order?",
+        "Is Vogler still standing in our version of the story?",
+        "Who in Vogler mattered to the party?"
+      ]
+    },
+    {
+      "ref": "campaign-timeline",
+      "slug": "campaign-timeline",
+      "type": "lore",
+      "title": "Order of events",
+      "subtitle": "",
+      "summary": "What happened first, what happened next, and what has not happened at all.",
+      "group": "Campaign",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "The early Vogler period came before the Bone Pelican voyage.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "planned",
+          "text": "Operation Dragon Nest has not been played.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "disputed",
+          "text": "The planning documents disagree about when the heist is set up and how much the party knows beforehand.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In order",
+          "body": "1. Earlier adventures, before the main Dragonlance story.\n2. The early campaign in [[vogler|Vogler]].\n3. The Halloween voyage: the [[the-bone-pelican-murder|murder aboard the Bone Pelican]].\n\nNo dates are attached to any of these yet. Add them here as they are confirmed, rather than guessing."
+        },
+        {
+          "heading": "Not yet played (DM)",
+          "body": "[[operation-dragon-nest|Operation Dragon Nest]]. A heist was hinted at when the Bone Pelican business wrapped up; the notes disagree on how much the party was told."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Real-world dates for each session?",
+        "Does the campaign use an in-world calendar?"
+      ]
+    },
+    {
+      "ref": "the-party",
+      "slug": "the-party",
+      "type": "faction",
+      "title": "The party",
+      "subtitle": "",
+      "summary": "The adventurers this chronicle follows.",
+      "group": "The party",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Earlier character references include Swift Claw, Frost, Orkus and Pubert.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Gears joined the party aboard the Bone Pelican.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The party received 10 gold pieces each after the Bone Pelican investigation.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "speculative",
+          "text": "That all five are current player characters is assumed from the notes, not stated.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Who they are",
+          "body": "- [[swift-claw|Swift Claw]]\n- [[frost|Frost]]\n- [[orkus|Orkus]]\n- [[pubert|Pubert]], who is a rat, most of the time\n- [[gears|Gears]], who joined aboard the [[the-bone-pelican|Bone Pelican]]"
+        },
+        {
+          "heading": "What they have done",
+          "body": "They were together before the main story started, spent the early campaign around [[vogler|Vogler]], and solved the [[the-bone-pelican-murder|murder aboard the Bone Pelican]]. That last job paid 10 gold pieces each."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Who are the current player characters, and has anyone left?",
+        "Does the party have a name?",
+        "Players' real names stay off this wiki unless each player asks otherwise."
+      ]
+    },
+    {
+      "ref": "swift-claw",
+      "slug": "swift-claw",
+      "type": "character",
+      "title": "Swift Claw",
+      "subtitle": "",
+      "summary": "One of the party from the early days.",
+      "group": "The party",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Swift Claw is named in the earlier character references.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Swift Claw has been part of this since the early days around [[vogler|Vogler]].\n\nThis page needs its owner: a line or two on who they are, in the player's own words, would do more than anything written from notes."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Is Swift Claw a current player character?",
+        "Ancestry and class, if the player wants them listed?",
+        "One thing Swift Claw did at the table that everyone remembers?",
+        "Confirm the spelling of the name."
+      ]
+    },
+    {
+      "ref": "frost",
+      "slug": "frost",
+      "type": "character",
+      "title": "Frost",
+      "subtitle": "",
+      "summary": "One of the party from the early days.",
+      "group": "The party",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Frost is named in the earlier character references.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Frost has been part of this since the early days around [[vogler|Vogler]].\n\nThis page needs its owner: a line or two on who they are, in the player's own words, would do more than anything written from notes."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Is Frost a current player character?",
+        "Ancestry and class, if the player wants them listed?",
+        "One thing Frost did at the table that everyone remembers?",
+        "Confirm the spelling of the name."
+      ]
+    },
+    {
+      "ref": "orkus",
+      "slug": "orkus",
+      "type": "character",
+      "title": "Orkus",
+      "subtitle": "",
+      "summary": "One of the party from the early days.",
+      "group": "The party",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Orkus is named in the earlier character references.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Orkus has been part of this since the early days around [[vogler|Vogler]].\n\nThis page needs its owner: a line or two on who they are, in the player's own words, would do more than anything written from notes."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Is Orkus a current player character?",
+        "Ancestry and class, if the player wants them listed?",
+        "One thing Orkus did at the table that everyone remembers?",
+        "Confirm the spelling of the name."
+      ]
+    },
+    {
+      "ref": "pubert",
+      "slug": "pubert",
+      "type": "character",
+      "title": "Pubert",
+      "subtitle": "",
+      "summary": "A rat. Sometimes a much bigger one.",
+      "group": "The party",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Pubert is a rat capable of changing to a much larger form.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The exact mechanics of the change are not fully established.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Pubert is named in the earlier character references.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Pubert is a rat who can change into a much larger form.\n\nHow the change works, how large the larger form is and what brings it on have not been pinned down. Until they are, this page says only what is certain: small rat, big rat, same Pubert."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Kind",
+          "value": "Rat"
+        },
+        {
+          "label": "Known for",
+          "value": "A much larger second form"
+        }
+      ],
+      "questions": [
+        "Is Pubert a player character, a companion or something else?",
+        "How does the change work, in rules terms and in the story?",
+        "Whose rat is Pubert, if anyone's?"
+      ]
+    },
+    {
+      "ref": "gears",
+      "slug": "gears",
+      "type": "character",
+      "title": "Gears",
+      "subtitle": "",
+      "summary": "A mechanical adventurer who joined the party aboard the Bone Pelican.",
+      "group": "The party",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Gears is a mechanical adventurer.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Gears joined the party aboard the ship during the Bone Pelican adventure.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Gears is a mechanical adventurer. The party met Gears aboard the [[the-bone-pelican|Bone Pelican]], in the middle of the [[the-bone-pelican-murder|murder inquiry]], and Gears has been one of them since.\n\nWho built Gears, and what Gears was doing on that ship in the first place, are still open."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Nature",
+          "value": "Mechanical"
+        },
+        {
+          "label": "Joined",
+          "value": "Aboard the Bone Pelican"
+        }
+      ],
+      "questions": [
+        "Is Gears a player character?",
+        "What is Gears, exactly: a construct, a warforged-style person, something stranger?",
+        "Why was Gears aboard the Bone Pelican?",
+        "Which pronouns should the wiki use for Gears?"
+      ]
+    },
+    {
+      "ref": "the-bone-pelican",
+      "slug": "the-bone-pelican",
+      "type": "location",
+      "title": "The Bone Pelican",
+      "subtitle": "",
+      "summary": "The ship where the party spent Halloween solving a murder.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "A Halloween adventure aboard the Bone Pelican involved a murder investigation.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The investigation covered the suspects' cabins.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "disputed",
+          "text": "Documents disagree about Captain Mac's role.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Aboard",
+          "body": "A ship, and for one Halloween voyage the whole of the party's world. There are cabins, and during the [[the-bone-pelican-murder|murder inquiry]] the party went through the suspects' cabins one by one.\n\n[[captain-mac|Captain Mac]] is tied to the ship, though the notes do not agree on how."
+        },
+        {
+          "heading": "What happened here",
+          "body": "[[jenna|Jenna]] died here. [[gears|Gears]] joined the party here. [[charlie-jennings|Charlie]] tried to run from here and was caught."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Type",
+          "value": "Ship"
+        }
+      ],
+      "questions": [
+        "What kind of ship is it, and where was it sailing?",
+        "Is the party still aboard, or did the voyage end?",
+        "Is Captain Mac its captain? The notes disagree about the role."
+      ]
+    },
+    {
+      "ref": "the-bone-pelican-murder",
+      "slug": "the-bone-pelican-murder",
+      "type": "session",
+      "title": "The murder aboard the Bone Pelican",
+      "subtitle": "A Halloween session",
+      "summary": "A Halloween voyage, a ghost with a grievance, and a culprit who ran.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Jenna, a spirit, alleged she had been murdered, and the party investigated.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The group investigated a missing medical scalpel, a damaged latch, cord fibers and the suspects' cabins.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Gears joined the party aboard the ship.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Charlie tried to flee and was apprehended.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Jenna's spirit became linked to a silver pendant.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "The party received 10 gold pieces each.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "A future heist was teased.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "speculative",
+          "text": "The recap does not say outright that Charlie was the killer; the journal below stops at the capture.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "What happened",
+          "body": "It was Halloween, and the party was at sea aboard the [[the-bone-pelican|Bone Pelican]].\n\nA spirit named [[jenna|Jenna]] came to them with a plain accusation: she had been murdered. So the party set about finding out by whom.\n\nThe evidence came in pieces. A medical scalpel had gone missing. A latch had been damaged. There were cord fibres to account for. The party searched the suspects' cabins. Somewhere in the middle of it [[gears|Gears]], a mechanical adventurer, threw in with them.\n\nIt ended when [[charlie-jennings|Charlie]] tried to flee and was caught."
+        },
+        {
+          "heading": "Afterwards",
+          "body": "- Jenna's spirit is now bound up with a [[jennas-silver-pendant|silver pendant]].\n- Each member of the party was paid 10 gold pieces.\n- Gears stayed.\n- Before the session closed there was the first hint of a heist."
+        },
+        {
+          "heading": "Loose ends (DM)",
+          "body": "The recap this was written from is transcript-derived and has not been checked against the full recording. It never states what Charlie actually did, only that Charlie ran. Settle that before a players' version of this page goes up.\n\nThe heist hint points at [[operation-dragon-nest|Operation Dragon Nest]]. The planning notes disagree on how much the party was told."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Occasion",
+          "value": "Halloween session"
+        },
+        {
+          "label": "Where",
+          "value": "Aboard the Bone Pelican"
+        },
+        {
+          "label": "Reward",
+          "value": "10 gp each"
+        }
+      ],
+      "questions": [
+        "Was Charlie the murderer? How, and why?",
+        "Who else was a suspect, and what cleared them?",
+        "Who paid the 10 gold each?",
+        "Exactly what was said about the heist?",
+        "Real-world date of the session?"
+      ]
+    },
+    {
+      "ref": "jenna",
+      "slug": "jenna",
+      "type": "character",
+      "title": "Jenna",
+      "subtitle": "",
+      "summary": "A spirit who came to the party to say she had been murdered.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Jenna is a spirit alleging she was murdered.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "Jenna's spirit became linked to a silver pendant.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "The party never met Jenna alive. She came to them as a spirit aboard the [[the-bone-pelican|Bone Pelican]] and told them she had been murdered, which is how the [[the-bone-pelican-murder|inquiry]] began.\n\nWhen it was over her spirit did not simply leave. It is linked now to a [[jennas-silver-pendant|silver pendant]]."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Dead; her spirit is linked to a silver pendant"
+        }
+      ],
+      "questions": [
+        "Who was Jenna in life, and what was she doing aboard?",
+        "Can she still speak through the pendant?",
+        "Does she want anything more from the party?"
+      ]
+    },
+    {
+      "ref": "jennas-silver-pendant",
+      "slug": "jennas-silver-pendant",
+      "type": "item",
+      "title": "Jenna's silver pendant",
+      "subtitle": "",
+      "summary": "A silver pendant that Jenna's spirit is linked to.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Jenna's spirit became linked to a silver pendant.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "What we know",
+          "body": "A silver pendant. At the end of the [[the-bone-pelican-murder|Bone Pelican inquiry]] the spirit of [[jenna|Jenna]] became linked to it.\n\nNobody has yet established what that means in practice: whether she can be heard through it, whether it does anything else, or who is carrying it."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Material",
+          "value": "Silver"
+        }
+      ],
+      "questions": [
+        "Who carries the pendant?",
+        "Does it have any effect in play?",
+        "Where did the pendant come from: was it Jenna's?"
+      ]
+    },
+    {
+      "ref": "charlie-jennings",
+      "slug": "charlie-jennings",
+      "type": "character",
+      "title": "Charlie Jennings",
+      "subtitle": "",
+      "summary": "Ran when the Bone Pelican inquiry closed in, and was caught.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Charlie tried to flee and was apprehended.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "speculative",
+          "text": "The recap says 'Charlie'; that this is Charlie Jennings is assumed from the list of figures.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "speculative",
+          "text": "Whether Charlie killed Jenna is not stated in the recap.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "When the [[the-bone-pelican-murder|inquiry into Jenna's death]] closed in, Charlie tried to flee the [[the-bone-pelican|Bone Pelican]]. The party caught up.\n\nThat is all the record says. It gives the running and the catching, not the reason."
+        },
+        {
+          "heading": "DM notes",
+          "body": "Do not publish this page until it is settled what Charlie did. As written, a reader will assume Charlie is the killer."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Apprehended"
+        }
+      ],
+      "questions": [
+        "Is the 'Charlie' of the recap Charlie Jennings?",
+        "Did Charlie kill Jenna? Motive?",
+        "Where is Charlie now?"
+      ]
+    },
+    {
+      "ref": "captain-mac",
+      "slug": "captain-mac",
+      "type": "character",
+      "title": "Captain Mac",
+      "subtitle": "",
+      "summary": "The captain in the Bone Pelican story, though the notes disagree on the details.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Captain Mac is one of the figures of the Bone Pelican adventure.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "disputed",
+          "text": "Documents disagree about Captain Mac's role.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Captain Mac belongs to the [[the-bone-pelican|Bone Pelican]] voyage."
+        },
+        {
+          "heading": "DM notes",
+          "body": "The planning documents give Captain Mac different roles. Pick one before this page says more; until then it deliberately says almost nothing."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Role",
+          "value": "Disputed in the notes"
+        }
+      ],
+      "questions": [
+        "What is Captain Mac's role: captain of the Bone Pelican, something else, or both at different times?",
+        "Does Captain Mac have anything to do with the heist that was hinted at?"
+      ]
+    },
+    {
+      "ref": "serafina",
+      "slug": "serafina",
+      "type": "character",
+      "title": "Serafina",
+      "subtitle": "",
+      "summary": "One of the people caught up in the Bone Pelican inquiry.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Serafina is one of the figures of the Bone Pelican adventure.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Serafina was part of the [[the-bone-pelican-murder|Bone Pelican murder inquiry]]. The notes available so far give the name and nothing else."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Who was Serafina: crew, passenger, suspect?",
+        "What did the party learn about them?",
+        "Anything the players do not know yet?"
+      ]
+    },
+    {
+      "ref": "nicholas",
+      "slug": "nicholas",
+      "type": "character",
+      "title": "Nicholas",
+      "subtitle": "",
+      "summary": "One of the people caught up in the Bone Pelican inquiry.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Nicholas is one of the figures of the Bone Pelican adventure.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Nicholas was part of the [[the-bone-pelican-murder|Bone Pelican murder inquiry]]. The notes available so far give the name and nothing else."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Who was Nicholas: crew, passenger, suspect?",
+        "What did the party learn about them?",
+        "Anything the players do not know yet?"
+      ]
+    },
+    {
+      "ref": "inga",
+      "slug": "inga",
+      "type": "character",
+      "title": "Inga",
+      "subtitle": "",
+      "summary": "One of the people caught up in the Bone Pelican inquiry.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "Inga is one of the figures of the Bone Pelican adventure.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "Inga was part of the [[the-bone-pelican-murder|Bone Pelican murder inquiry]]. The notes available so far give the name and nothing else."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Who was Inga: crew, passenger, suspect?",
+        "What did the party learn about them?",
+        "Anything the players do not know yet?"
+      ]
+    },
+    {
+      "ref": "george-evans",
+      "slug": "george-evans",
+      "type": "character",
+      "title": "George Evans",
+      "subtitle": "",
+      "summary": "One of the people caught up in the Bone Pelican inquiry.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "George Evans is one of the figures of the Bone Pelican adventure.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "George Evans was part of the [[the-bone-pelican-murder|Bone Pelican murder inquiry]]. The notes available so far give the name and nothing else."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Who was George Evans: crew, passenger, suspect?",
+        "What did the party learn about them?",
+        "Anything the players do not know yet?"
+      ]
+    },
+    {
+      "ref": "william-mournhill",
+      "slug": "william-mournhill",
+      "type": "character",
+      "title": "William Mournhill",
+      "subtitle": "",
+      "summary": "One of the people caught up in the Bone Pelican inquiry.",
+      "group": "The Bone Pelican",
+      "facts": [
+        {
+          "level": "transcript-derived",
+          "text": "William Mournhill is one of the figures of the Bone Pelican adventure.",
+          "source": "DM brief, 2026-11-10"
+        },
+        {
+          "level": "disputed",
+          "text": "The spelling of the surname has not been verified.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "In the story",
+          "body": "William Mournhill was part of the [[the-bone-pelican-murder|Bone Pelican murder inquiry]]. The notes available so far give the name and nothing else. Even the spelling of the surname is unconfirmed."
+        }
+      ],
+      "infobox": [],
+      "questions": [
+        "Who was William Mournhill: crew, passenger, suspect?",
+        "What did the party learn about them?",
+        "Anything the players do not know yet?",
+        "Correct spelling of the surname?"
+      ]
+    },
+    {
+      "ref": "operation-dragon-nest",
+      "slug": "operation-dragon-nest",
+      "type": "quest",
+      "title": "Operation Dragon Nest",
+      "subtitle": "",
+      "summary": "Planned covert operation against a Dragon Army site.",
+      "group": "Operation Dragon Nest (planned)",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "The operation involves Dragon Army intelligence and a covert operation.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "planned",
+          "text": "The target is described as a quarry or a military facility.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "planned",
+          "text": "Scouts have gone missing.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "transcript-derived",
+          "text": "A future heist was teased at the end of the Bone Pelican session.",
+          "source": "Transcript-derived recap, as summarised in the DM brief of 2026-11-10 (recording not checked)"
+        },
+        {
+          "level": "disputed",
+          "text": "Documents disagree about the timing of the heist and what the party knows beforehand.",
+          "source": "DM brief, 2026-11-10"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "The job",
+          "body": "**Not played.** These are planning notes. Nothing here has happened, and any of it may change.\n\nA covert operation built around Dragon Army intelligence. The target is the [[dragon-nest-site|Dragon Nest site]]. Scouts sent that way have not come back, and finding out why is part of the job.\n\nWhat the party is really walking into is on the [[dragon-nest-dm-dossier|DM dossier]]."
+        },
+        {
+          "heading": "Before it runs",
+          "body": "- Decide what the party has already been told. A heist was hinted at when the Bone Pelican business ended; the planning documents do not agree on how much was said or when.\n- Merge the runbook and the print packet into this page. They were not available when this draft was written."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Planned, not played"
+        }
+      ],
+      "questions": [
+        "Who gives the party this job?",
+        "What is the stated objective, as the party hears it?",
+        "Which planning document is the current one where they disagree?"
+      ]
+    },
+    {
+      "ref": "dragon-nest-site",
+      "slug": "dragon-nest-site",
+      "type": "location",
+      "title": "The Dragon Nest site",
+      "subtitle": "",
+      "summary": "Planned location: a quarry or military facility held by the Dragon Army.",
+      "group": "Operation Dragon Nest (planned)",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "The site is described both as a quarry and as a military facility.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "planned",
+          "text": "Facility personnel are planned homebrew characters, including Mara Venn and Nera Sol.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "The place",
+          "body": "**Not played.** These are planning notes. Nothing here has happened, and any of it may change.\n\nThe notes call it a quarry in some places and a military facility in others. It may be both: a working quarry with something else going on inside it. That needs deciding.\n\nPeople planned for the site include [[mara-venn|Mara Venn]] and [[nera-sol|Nera Sol]]."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Planned"
+        }
+      ],
+      "questions": [
+        "Quarry, military facility, or one hiding the other?",
+        "Where is it? Do not put it on any map until this is decided.",
+        "Is 'Dragon Nest' what people in the world call it, or only the operation's code name?"
+      ]
+    },
+    {
+      "ref": "dragon-nest-dm-dossier",
+      "slug": "dragon-nest-dm-dossier",
+      "type": "dossier",
+      "title": "Dragon Nest: DM dossier",
+      "subtitle": "",
+      "summary": "What is really at the site. Secrets; never publish.",
+      "group": "Operation Dragon Nest (planned)",
+      "facts": [
+        {
+          "level": "dm-secret",
+          "text": "The site hides an experimental program.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "dm-secret",
+          "text": "Four metallic dragon eggs are involved.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "dm-secret",
+          "text": "The eggs open future dragon-bonding possibilities.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "What is really there",
+          "body": "**Not played.** These are planning notes. Nothing here has happened, and any of it may change.\n\nBehind the ordinary business of the [[dragon-nest-site|site]] there is an experimental program, and at the centre of it are [[metallic-dragon-eggs|four metallic dragon eggs]].\n\nThis is the reveal the whole operation is built around. Nothing player-facing should mention eggs, experiments or bonding until the party finds them."
+        },
+        {
+          "heading": "Where it could lead",
+          "body": "The eggs leave room for dragon-bonding later in the campaign. That is a possibility in the notes, not a plan with scenes attached."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Planned"
+        },
+        {
+          "label": "Handling",
+          "value": "DM only"
+        }
+      ],
+      "questions": [
+        "What is the experimental program trying to do?",
+        "Who runs it?",
+        "What happens to the eggs if the party fails, or never finds them?"
+      ]
+    },
+    {
+      "ref": "metallic-dragon-eggs",
+      "slug": "metallic-dragon-eggs",
+      "type": "item",
+      "title": "The four metallic dragon eggs",
+      "subtitle": "",
+      "summary": "DM secret. The prize hidden at the Dragon Nest site.",
+      "group": "Operation Dragon Nest (planned)",
+      "facts": [
+        {
+          "level": "dm-secret",
+          "text": "Four metallic dragon eggs are part of the Dragon Nest material.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        },
+        {
+          "level": "dm-secret",
+          "text": "They are tied to a hidden experimental program and to future dragon-bonding possibilities.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "What they are",
+          "body": "**Not played.** These are planning notes. Nothing here has happened, and any of it may change.\n\nFour eggs of metallic dragons, held at the [[dragon-nest-site|Dragon Nest site]] as part of the program described in the [[dragon-nest-dm-dossier|DM dossier]].\n\nThe title of this page is a spoiler by itself. Keep it unpublished, and do not link to it from anything players can read."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Count",
+          "value": "Four"
+        },
+        {
+          "label": "Status",
+          "value": "Planned; DM secret"
+        }
+      ],
+      "questions": [
+        "Which metals?",
+        "Are all four alike?",
+        "Who, if anyone, might bond with them?"
+      ]
+    },
+    {
+      "ref": "mara-venn",
+      "slug": "mara-venn",
+      "type": "character",
+      "title": "Mara Venn",
+      "subtitle": "",
+      "summary": "Planned homebrew character for the Dragon Nest site.",
+      "group": "Operation Dragon Nest (planned)",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "Mara Venn is a potential homebrew character associated with the facility.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Planning notes",
+          "body": "**Not played.** These are planning notes. Nothing here has happened, and any of it may change.\n\nMara Venn is pencilled in as one of the people at the [[dragon-nest-site|Dragon Nest site]]. Role, loyalties and what they know are still to be decided."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Planned"
+        }
+      ],
+      "questions": [
+        "What does Mara Venn do at the site?",
+        "Ally, enemy, or someone who could go either way?",
+        "What do they know about the program?"
+      ]
+    },
+    {
+      "ref": "nera-sol",
+      "slug": "nera-sol",
+      "type": "character",
+      "title": "Nera Sol",
+      "subtitle": "",
+      "summary": "Planned homebrew character for the Dragon Nest site.",
+      "group": "Operation Dragon Nest (planned)",
+      "facts": [
+        {
+          "level": "planned",
+          "text": "Nera Sol is a potential homebrew character associated with the facility.",
+          "source": "Dragon Nest planning notes, as summarised in the DM brief of 2026-11-10 (documents not read)"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "Planning notes",
+          "body": "**Not played.** These are planning notes. Nothing here has happened, and any of it may change.\n\nNera Sol is pencilled in as one of the people at the [[dragon-nest-site|Dragon Nest site]]. Role, loyalties and what they know are still to be decided."
+        }
+      ],
+      "infobox": [
+        {
+          "label": "Status",
+          "value": "Planned"
+        }
+      ],
+      "questions": [
+        "What does Nera Sol do at the site?",
+        "Ally, enemy, or someone who could go either way?",
+        "What do they know about the program?"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "source": "swift-claw",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Member",
+      "level": "speculative"
+    },
+    {
+      "source": "frost",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Member",
+      "level": "speculative"
+    },
+    {
+      "source": "orkus",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Member",
+      "level": "speculative"
+    },
+    {
+      "source": "pubert",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Member",
+      "level": "speculative"
+    },
+    {
+      "source": "gears",
+      "target": "the-party",
+      "kind": "member_of",
+      "label": "Member",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "the-bone-pelican-murder",
+      "target": "the-bone-pelican",
+      "kind": "located_in",
+      "label": "Took place aboard",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "gears",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Joined the party here",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "jenna",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "The victim, and the one who asked",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "charlie-jennings",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Fled and was caught",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "captain-mac",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Involved",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "serafina",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Involved",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "nicholas",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Involved",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "inga",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Involved",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "george-evans",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Involved",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "william-mournhill",
+      "target": "the-bone-pelican-murder",
+      "kind": "appears_in",
+      "label": "Involved",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "jennas-silver-pendant",
+      "target": "jenna",
+      "kind": "related_to",
+      "label": "Her spirit is linked to it",
+      "level": "transcript-derived"
+    },
+    {
+      "source": "dragon-nest-site",
+      "target": "operation-dragon-nest",
+      "kind": "part_of",
+      "label": "Target",
+      "level": "planned"
+    },
+    {
+      "source": "dragon-nest-dm-dossier",
+      "target": "operation-dragon-nest",
+      "kind": "part_of",
+      "label": "The truth of it",
+      "level": "dm-secret"
+    },
+    {
+      "source": "metallic-dragon-eggs",
+      "target": "dragon-nest-site",
+      "kind": "located_in",
+      "label": "Hidden here",
+      "level": "dm-secret"
+    },
+    {
+      "source": "mara-venn",
+      "target": "dragon-nest-site",
+      "kind": "member_of",
+      "label": "Planned personnel",
+      "level": "planned"
+    },
+    {
+      "source": "nera-sol",
+      "target": "dragon-nest-site",
+      "kind": "member_of",
+      "label": "Planned personnel",
+      "level": "planned"
+    }
+  ]
+}

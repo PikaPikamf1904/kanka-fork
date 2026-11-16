@@ -6,6 +6,9 @@
 $seoTitle = isset($seoTitle) ? $seoTitle : (isset($title) ? $title : null);
 $showSidebar = (!empty($sidebar) && $sidebar === 'settings') || !empty($campaign);
 $sidebarCollapsed = Cookie::get('toggleState') === 'collapsed';
+// The floating relations graph needs what the relations web page needs (WebController).
+$graphPanel = !empty($campaign) && $campaign instanceof \App\Models\Campaign
+    && auth()->check() && auth()->user()->can('access', $campaign);
 $cleanCanonical = \Illuminate\Support\Str::before(request()->fullUrl(), '%3');
 $themeOverride = request()->get('_theme');
 if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme::values(), 'base'])) {
@@ -110,6 +113,7 @@ if (!empty($themeOverride) && in_array($themeOverride, [...\App\Enums\UserTheme:
     <x-dialog id="primary-dialog" :loading="true" />
     <div id="dialog-backdrop" class="z-1000 fixed top-0 left-0 right-0 bottom-0 h-full w-full backdrop-blur-sm hidden" style="--tw-bg-opacity: 0.2"></div>
 
+    @includeWhen($graphPanel, 'layouts.graph-panel')
     @include('layouts.dialogs.languages')
     @yield('modals')
 

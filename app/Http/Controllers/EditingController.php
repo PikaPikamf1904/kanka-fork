@@ -25,10 +25,19 @@ class EditingController extends Controller
         $id = request()->get('id');
         if (empty($model)) {
             $model = $campaign;
+            $this->authorize('update', $campaign);
         } else {
-            $modelName = app()->make('App\Models\\' . $model);
-            $model = new $modelName;
-            $model = $model->findOrFail($id);
+            // Chronicle: only the models that have an edit warning, and only ones the user may
+            // edit in this campaign. Otherwise the dialog names who is editing any record.
+            $class = match ($model) {
+                'Entity' => Entity::class,
+                'Post' => Post::class,
+                'TimelineElement' => TimelineElement::class,
+                'QuestElement' => QuestElement::class,
+                default => abort(404),
+            };
+            $model = $class::findOrFail($id);
+            $this->authorizeEditing($campaign, $model);
         }
 
         $editingUsers = $this->service
@@ -57,6 +66,26 @@ class EditingController extends Controller
             ->with('url', $url)
             ->with('show', $show)
             ->with('editingUsers', $editingUsers);
+    }
+
+    private function authorizeEditing(Campaign $campaign, Model $model): void
+    {
+        $entity = match (true) {
+            $model instanceof Post => $model->entity,
+            $model instanceof TimelineElement => $model->timeline?->entity,
+            $model instanceof QuestElement => $model->quest?->entity,
+            default => $model,
+        };
+        if (! $entity instanceof Entity || $entity->campaign_id !== $campaign->id) {
+            abort(404);
+        }
+
+        if ($model instanceof Post) {
+            $this->authorize('post', [$entity, 'edit', $model]);
+
+            return;
+        }
+        $this->authorize('update', $entity);
     }
 
     private function confirmHandle(Model $model)

@@ -53,16 +53,15 @@ class ContentsChanged implements ShouldBroadcastNow, ShouldRescue
         $groups = $this->map->groups();
         $layers = $this->map->layers();
 
-        if ($this->includeRestricted) {
-            // The acting user (whoever triggered the save) may not be an
-            // admin — this channel must be complete regardless, so the
-            // visibility scope is bypassed entirely rather than relied on.
-            $groups->withoutGlobalScope(VisibilityIDScope::class);
-            $layers->withoutGlobalScope(VisibilityIDScope::class);
-        } else {
-            $groups->whereIn('visibility_id', [Visibility::All, Visibility::Member]);
-            $layers->whereIn('visibility_id', [Visibility::All, Visibility::Member]);
-        }
+        // The acting user (whoever triggered the save) may not be an admin, so the visibility
+        // scope is bypassed and each channel gets the visibilities its audience may see. The
+        // admin channel is for campaign admins only, and still leaves out everyone's Self items:
+        // those are their creator's alone, and a shared channel can't tell creators apart.
+        $visibilities = $this->includeRestricted
+            ? [Visibility::All, Visibility::Member, Visibility::Admin, Visibility::AdminSelf]
+            : [Visibility::All, Visibility::Member];
+        $groups->withoutGlobalScope(VisibilityIDScope::class)->whereIn('visibility_id', $visibilities);
+        $layers->withoutGlobalScope(VisibilityIDScope::class)->whereIn('visibility_id', $visibilities);
 
         return [
             'groups' => GroupResource::collection($groups->get()),

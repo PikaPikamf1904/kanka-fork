@@ -134,9 +134,13 @@ class CampaignPolicy
         return $user->can('admin', $campaign) || $this->checkPermission(CampaignPermission::ACTION_DASHBOARD, $user, $campaign);
     }
 
+    /**
+     * Chronicle: the stats and achievements count every entity, hidden ones included, so they
+     * are for the campaign admins only.
+     */
     public function stats(User $user, Campaign $campaign): bool
     {
-        return $this->member($user, $campaign);
+        return $this->member($user, $campaign) && $user->can('admin', $campaign);
     }
 
     public function search(User $user, Campaign $campaign): bool

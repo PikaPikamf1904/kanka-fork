@@ -26,7 +26,8 @@ return [
     |--------------------------------------------------------------------------
     | Credit
     |--------------------------------------------------------------------------
-    | Chronicle is built on the open-source Kanka codebase (AGPL-3.0, Owlchester SNC).
+    | Chronicle is built on the Kanka codebase by Owlchester SNC, which is source-available under
+    | the Commons Clause licence condition (see LICENSE), not an open-source licence such as AGPL.
     */
     'credit_url' => 'https://github.com/owlchester/kanka',
 ];

@@ -1,0 +1,13 @@
+{"id":11,"name":"Captain Merrin","title":"Harbourmaster","age":"52","sex":null,"pronouns":"she/her","is_dead":false,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-02T00:00:00Z","is_private":false,
+ "entity":{"id":101,"name":"Captain Merrin","type":"NPC","is_private":false,"is_attributes_private":false,"image_path":"w/1/legacy/merrin.png","header_image":null,
+  "entry":"<p>Merrin runs the harbour of [location:102|the port].</p><script>alert('x')</script><p><img src=\"w/1/x.png\"> She once met [note:103] and <strong>never</strong> talks about [character:999].</p><ul><li>Gruff</li><li>Generous</li></ul>",
+  "posts":[{"id":501,"name":"Public rumours","entry":"<p>People say she can <em>smell</em> a storm.</p>","visibility_id":1,"position":1},
+           {"id":502,"name":"GM: true allegiance","entry":"<p>SECRETPOST works for the Broker.</p>","visibility_id":2,"position":2}],
+  "entityAttributes":[{"id":601,"name":"Rank","value":"Captain","is_private":false,"is_hidden":false,"default_order":1},
+                      {"id":602,"name":"Bribe price","value":"SECRETATTR 500 gold","is_private":true,"is_hidden":false,"default_order":2},
+                      {"id":603,"name":"Hidden stat","value":"9","is_private":false,"is_hidden":true,"default_order":3}],
+  "relationships":[{"id":701,"owner_id":101,"target_id":102,"relation":"Works in","visibility_id":1},
+                   {"id":702,"owner_id":101,"target_id":103,"relation":"Wrote","visibility_id":1},
+                   {"id":703,"owner_id":101,"target_id":102,"relation":"Secretly owns","visibility_id":2},
+                   {"id":704,"owner_id":101,"target_id":888,"relation":"Knows","visibility_id":1}],
+  "entityTags":[{"tag_id":900}]}}

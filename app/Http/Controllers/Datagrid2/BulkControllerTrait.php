@@ -18,7 +18,13 @@ trait BulkControllerTrait
         return $values;
     }
 
-    public function bulkProcess(Request $request, string $className): int
+    /**
+     * @param  array<string, int>  $parent  Chronicle: the parent the ids must belong to (for
+     *                                      example ['map_id' => 3]). Without it, any id of the class
+     *                                      could be deleted or patched through any parent the user
+     *                                      may edit, including another campaign's.
+     */
+    public function bulkProcess(Request $request, string $className, array $parent): int
     {
         $action = $request->get('action');
         $models = $request->get('model');
@@ -35,9 +41,8 @@ trait BulkControllerTrait
             }
         }
         foreach ($models as $id) {
-            /** @var MapGroup|Model $modelClass */
-            $modelClass = new $className;
-            $model = $modelClass->find($id);
+            /** @var MapGroup|Model|null $model */
+            $model = $className::query()->where($parent)->find($id);
             if (empty($model)) {
                 continue;
             }

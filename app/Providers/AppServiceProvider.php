@@ -15,6 +15,7 @@ use App\Models\CampaignDashboardWidget;
 use App\Models\CampaignDescription;
 use App\Models\CampaignFollower;
 use App\Models\CampaignInvite;
+use App\Models\CampaignPermission;
 use App\Models\CampaignPlugin;
 use App\Models\CampaignRole;
 use App\Models\CampaignRoleUser;
@@ -46,6 +47,7 @@ use App\Models\TimelineEra;
 use App\Models\User;
 use App\Models\UserLog;
 use App\Models\Webhook;
+use App\Services\Maps\MarkerAudience;
 use App\Observers\AdminInviteObserver;
 use App\Observers\CalendarObserver;
 use App\Observers\CampaignDescriptionObserver;
@@ -127,7 +129,11 @@ class AppServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function register() {}
+    public function register()
+    {
+        // One per request: it remembers who could see a marker between "updating" and "updated".
+        $this->app->scoped(MarkerAudience::class);
+    }
 
     protected function registerDevelopWarning()
     {
@@ -228,6 +234,7 @@ class AppServiceProvider extends ServiceProvider
         MapLayer::observe('App\Observers\MapLayerObserver');
         MapGroup::observe('App\Observers\MapGroupObserver');
         MapMarker::observe('App\Observers\MapMarkerObserver');
+        CampaignPermission::observe('App\Observers\CampaignPermissionObserver');
         Bookmark::observe('App\Observers\BookmarkObserver');
         OrganisationMember::observe(OrganisationMemberObserver::class);
         Preset::observe('App\Observers\PresetObserver');

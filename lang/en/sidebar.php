@@ -15,6 +15,7 @@ return [
     'entity-creator'    => 'Quick Creator',
     'gallery'           => 'Gallery',
     'game'              => 'Game',
+    'graph'             => 'Relationship Graph',
     'other'             => 'Other',
     'recent'            => 'Recent changes',
     'relations'         => 'Relations',

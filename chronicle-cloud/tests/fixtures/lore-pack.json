@@ -1,0 +1,20 @@
+{
+  "pack": "test-pack",
+  "version": 1,
+  "title": "Synthetic test pack",
+  "generated_from": "synthetic test fixtures",
+  "articles": [
+    {
+      "ref": "alpha", "slug": "synthetic-alpha", "type": "character", "title": "Synthetic Alpha", "summary": "A fictional test person.", "group": "Synthetic",
+      "facts": [{"level": "transcript-derived", "text": "A synthetic fact.", "source": "fixture"}],
+      "sections": [{"heading": "Overview", "body": "Brassoracleword: see [[synthetic-beta]]."}],
+      "infobox": [{"label": "Role", "value": "A fictional role"}], "questions": []
+    },
+    {
+      "ref": "beta", "slug": "synthetic-beta", "type": "location", "title": "Synthetic Beta", "summary": "A fictional test place.", "group": "Synthetic",
+      "facts": [{"level": "planned", "text": "A synthetic plan.", "source": "fixture"}],
+      "sections": [{"heading": "Overview", "body": "A fictional place."}], "infobox": [], "questions": ["Synthetic question?"]
+    }
+  ],
+  "relations": [{"source": "alpha", "target": "beta", "kind": "located_in", "label": "Lives here", "level": "speculative"}]
+}

@@ -20,6 +20,6 @@ class EntityMentionApiController extends ApiController
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
 
-        return Resource::collection($entity->mentions()->paginate());
+        return Resource::collection($entity->mentions()->filterValid()->has('target')->paginate());
     }
 }

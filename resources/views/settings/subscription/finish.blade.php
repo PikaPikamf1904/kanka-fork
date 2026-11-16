@@ -38,7 +38,7 @@
                         @if ($availableCampaign->image)
                             <img src="{{ $availableCampaign->thumbnail(320, 240) }}" alt="{{ $availableCampaign->name }}" loading="lazy" class="rounded-full w-12 h-12" />
                         @else
-                            <img src="https://th.kanka.io/zzKcBpijSBvm4rPWdzRpI82pTNQ=/320x240/smart/src/app/backgrounds/mountain-background-medium.jpg" alt="{{ $availableCampaign->name }}" loading="lazy" class="rounded-full w-12 h-12" />
+                            <img src="{{ asset('images/chronicle/vale.svg') }}" alt="{{ $availableCampaign->name }}" loading="lazy" class="rounded-full w-12 h-12" />
                         @endif
 
                         <div class="flex gap-4 w-full items-center justify-between">

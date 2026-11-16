@@ -25,7 +25,7 @@ class EntityAbilityApiController extends ApiController
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
 
-        return Resource::collection($entity->abilities()->paginate());
+        return Resource::collection($entity->abilities()->has('ability.entity')->paginate());
     }
 
     /**
@@ -35,6 +35,9 @@ class EntityAbilityApiController extends ApiController
     {
         $this->authorize('access', $campaign);
         $this->authorize('view', $entity);
+
+        // An ability the user cannot see is hidden, as it is in index().
+        abort_unless($entityAbility->ability?->entity, 404);
 
         return new Resource($entityAbility);
     }

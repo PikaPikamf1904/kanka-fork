@@ -61,6 +61,7 @@ Route::delete('/w/{campaign}/entities/{entity}/delete', [DeleteController::class
 Route::get('/w/{campaign}/entities/{entity}/children', [ChildrenController::class, 'index'])->name('entities.children');
 
 Route::get('/w/{campaign}/entities/{entity}/map-api', [EntityMapApiController::class, 'index'])->name('entities.map-api');
+Route::get('/w/{campaign}/entities/{entity}/map-api/markers/{pin}', [EntityMapApiController::class, 'marker'])->whereNumber('pin')->name('entities.map-api.marker');
 Route::get('/w/{campaign}/entities/{entity}/map', [EntityMapShowController::class, 'index'])->name('entities.map');
 Route::patch('/w/{campaign}/entities/{entity}/map/settings', [EntityMapSettingsController::class, 'update'])->name('entities.map-settings.update');
 Route::get('/w/{campaign}/entities/{entity}/map/markers/{map_marker}', [EntityMapMarkerController::class, 'preview'])->name('entities.map-markers.preview');

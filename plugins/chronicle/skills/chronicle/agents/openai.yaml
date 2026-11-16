@@ -1,0 +1,11 @@
+interface:
+  display_name: "Chronicle"
+  short_description: "Campaign wiki lookups and DM-approved draft changes"
+  default_prompt: "Use the Chronicle connection to answer from the campaign wiki."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "chronicle"
+      description: "Chronicle MCP server (sign in with a Chronicle account)"
+      transport: "streamable_http"
+      url: "https://chronicle-mcp.life-line-gaming-solutions.workers.dev/mcp"

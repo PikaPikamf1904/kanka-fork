@@ -53,6 +53,24 @@ class DashboardController extends Controller
             $hasCampaignHeader = true;
         }
 
+        // Chronicle: a dashboard without widgets shows the campaign's modules and its latest
+        // entries instead of an empty page. Entity queries go through the permission scope.
+        $overview = null;
+        if ($widgets->reject(fn ($w) => $w->widget === Widget::Campaign)->isEmpty()) {
+            $overview = [
+                'modules' => $campaign->getEntityTypes()
+                    ->reject(fn ($type) => $type->isBookmark() || $type->isAttributeTemplate())
+                    ->values(),
+                'recent' => Entity::query()
+                    ->where('entities.campaign_id', $campaign->id)
+                    ->whereNull('entities.archived_at')
+                    ->with('entityType')
+                    ->orderByDesc('entities.updated_at')
+                    ->limit(8)
+                    ->get(),
+            ];
+        }
+
         return view('home', compact(
             'campaign',
             'widgets',
@@ -60,6 +78,7 @@ class DashboardController extends Controller
             'dashboards',
             'welcome',
         ))
+            ->with('overview', $overview)
             ->with('hasMap', $hasMap)
             ->with('hasCampaignHeader', $hasCampaignHeader);
     }

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+  <!-- Synthetic sample map for local previews. Original drawing. -->
+  <defs>
+    <radialGradient id="paper" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0" stop-color="#f4e8c8"/>
+      <stop offset="1" stop-color="#d9c294"/>
+    </radialGradient>
+    <pattern id="waves" width="40" height="20" patternUnits="userSpaceOnUse">
+      <path d="M0 10 Q10 4 20 10 T40 10" fill="none" stroke="#6f8fa6" stroke-width="1.2" opacity="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="1100" fill="#9fb8c8"/>
+  <rect width="1600" height="1100" fill="url(#waves)"/>
+  <path d="M0 0 H1600 V1100 H760 C700 980 640 940 560 900 C470 860 380 900 300 860 C220 820 160 700 120 600 C80 500 40 420 0 380 Z" fill="url(#paper)" stroke="#7a5c2e" stroke-width="4"/>
+  <g fill="none" stroke="#7a5c2e" stroke-width="3" opacity="0.8">
+    <path d="M900 160 l40 -60 l40 60 M960 200 l40 -70 l40 70 M1040 150 l35 -55 l35 55 M1250 220 l45 -70 l45 70 M1320 280 l40 -60 l40 60"/>
+    <path d="M1100 300 l30 -45 l30 45 M1200 470 l30 -45 l30 45"/>
+  </g>
+  <circle cx="1170" cy="360" r="95" fill="#3b2a24" stroke="#7a2a1c" stroke-width="10"/>
+  <circle cx="1170" cy="360" r="55" fill="#c2471f" opacity="0.85"/>
+  <path d="M430 610 C600 560 800 520 1080 400" stroke="#8a6a3c" stroke-width="5" stroke-dasharray="14 10" fill="none"/>
+  <g fill="#5d6b3a" opacity="0.55">
+    <circle cx="700" cy="420" r="26"/><circle cx="735" cy="440" r="22"/><circle cx="680" cy="455" r="20"/>
+    <circle cx="560" cy="300" r="24"/><circle cx="595" cy="320" r="20"/>
+  </g>
+  <g font-family="Georgia, serif" fill="#3b2a14">
+    <text x="800" y="1040" font-size="56" text-anchor="middle" letter-spacing="6">THE EMBER COAST</text>
+    <text x="230" y="980" font-size="30" font-style="italic" fill="#2c4a5c">The Lantern Sea</text>
+    <text x="1170" y="500" font-size="26" text-anchor="middle" font-style="italic">the caldera</text>
+  </g>
+  <g transform="translate(1440 900)" stroke="#3b2a14" fill="none" stroke-width="2">
+    <circle r="60"/><path d="M0 -75 L12 0 L0 75 L-12 0 Z" fill="#c99a3d"/><path d="M-75 0 L0 12 L75 0 L0 -12 Z"/>
+    <text y="-82" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#3b2a14" stroke="none">N</text>
+  </g>
+</svg>

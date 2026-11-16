@@ -12,6 +12,10 @@
         api="{{ route('connections.web.api', [$campaign]) }}"
         :premium="@js($campaign->boosted())"
         :creator="{{ auth()->check() && !empty($campaign) && auth()->user()->can('member', $campaign) ? 1 : 0 }}"
+        @if (request()->boolean('embed'))
+        :embed="true"
+        focus="{{ (int) request()->query('focus') ?: '' }}"
+        @endif
     >
     </connections-web>
 </div>

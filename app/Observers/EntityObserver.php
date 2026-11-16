@@ -13,6 +13,7 @@ use App\Jobs\EntityWebhookJob;
 use App\Models\CampaignPermission;
 use App\Models\Entity;
 use App\Models\Image;
+use App\Services\Maps\MarkerAudience;
 use App\Services\Maps\TilingTriggerService;
 
 class EntityObserver
@@ -79,6 +80,11 @@ class EntityObserver
      */
     public function updated(Entity $entity)
     {
+        // Privacy and type decide who may see markers linked to this entity, or the map itself.
+        if ($entity->wasChanged(['is_private', 'type_id'])) {
+            app(MarkerAudience::class)->resync($entity->campaign_id);
+        }
+
         // Being assigned an entity shouldn't trigger any side effects
         if ($entity->wasChanged('entity_id') && $entity->getOriginal('entity_id') === null) {
             return;
@@ -93,6 +99,9 @@ class EntityObserver
 
     public function deleted(Entity $entity)
     {
+        // Markers linked to a deleted entity disappear from the explorer, and so does a deleted map.
+        app(MarkerAudience::class)->resync($entity->campaign_id);
+
         // When an entity is soft-deleted, we just want some webhooks to trigger,
         // not actually delete the entity and its image.
         if ($entity->trashed()) {
@@ -110,6 +119,7 @@ class EntityObserver
 
     public function restored(Entity $entity)
     {
+        app(MarkerAudience::class)->resync($entity->campaign_id);
         EntityRestored::dispatch($entity, auth()->user());
     }
 }

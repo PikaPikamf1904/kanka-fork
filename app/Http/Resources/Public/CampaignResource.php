@@ -15,7 +15,7 @@ class CampaignResource extends JsonResource
 
         return [
             'id' => $campaign->id,
-            'thumb' => $campaign->image ? $campaign->thumbnail(320, 240) : 'https://th.kanka.io/zzKcBpijSBvm4rPWdzRpI82pTNQ=/320x240/smart/src/app/backgrounds/mountain-background-medium.jpg',
+            'thumb' => $campaign->image ? $campaign->thumbnail(320, 240) : asset('images/chronicle/vale.svg'),
             'name' => $campaign->name,
             'justify' => $campaign->spotlight?->url,
             'link' => route('dashboard', $campaign),

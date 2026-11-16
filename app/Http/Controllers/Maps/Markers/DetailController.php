@@ -17,6 +17,11 @@ class DetailController extends Controller
     public function index(Campaign $campaign, Map $map, MapMarker $mapMarker)
     {
         $this->campaign($campaign)->authEntityView($map->entity);
+        // Chronicle: the marker must belong to this map (not one on a map the viewer can't
+        // open), and must not sit in a hidden group or point at a hidden entity.
+        if ($mapMarker->map_id !== $map->id || ! $mapMarker->visible()) {
+            abort(404);
+        }
         if (! empty($mapMarker->entity_id)) {
             $this->campaign($campaign)->authEntityView($mapMarker->entity);
         }

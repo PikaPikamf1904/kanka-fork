@@ -184,7 +184,7 @@ class TimelineEraController extends Controller
         if (request()->ajax()) {
             return response()->json(['success' => true]);
         }
-        $count = $this->bulkProcess($request, TimelineEra::class);
+        $count = $this->bulkProcess($request, TimelineEra::class, ['timeline_id' => $timeline->id]);
 
         return redirect()
             ->route('timelines.timeline_eras.index', [$campaign, 'timeline' => $timeline])

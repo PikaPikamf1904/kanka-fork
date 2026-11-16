@@ -15,6 +15,8 @@ class AchievementController extends Controller
 
     public function index(Campaign $campaign)
     {
+        $this->authorize('stats', $campaign);
+
         $achievements = $this->service->campaign($campaign)->stats();
 
         return view('campaigns.achievements.index', compact('campaign', 'achievements'));

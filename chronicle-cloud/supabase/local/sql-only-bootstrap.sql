@@ -1,0 +1,22 @@
+-- SQL-only emulation for synthetic tests. This is not Supabase Auth or Storage.
+create role postgres login superuser;
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin bypassrls;
+grant anon, authenticated, service_role to supabase_admin;
+create schema auth;
+create schema storage;
+grant usage on schema auth, storage to anon, authenticated, service_role;
+create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
+create function auth.uid() returns uuid language sql stable as $$ select nullif(auth.jwt()->>'sub', '')::uuid $$;
+create table auth.users (instance_id uuid, id uuid primary key, aud text, role text, email text, created_at timestamptz, updated_at timestamptz);
+create table auth.mfa_factors (id uuid primary key, user_id uuid references auth.users(id), friendly_name text, factor_type text, status text, created_at timestamptz, updated_at timestamptz, secret text);
+create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, unique(bucket_id,name));
+alter table storage.objects enable row level security;
+grant all on all tables in schema storage to anon, authenticated, service_role;
+grant all on all tables in schema auth to postgres;
+grant all on all tables in schema storage to postgres;
+alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public grant all on functions to anon, authenticated, service_role;

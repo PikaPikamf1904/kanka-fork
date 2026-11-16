@@ -292,7 +292,9 @@ const onClickOutside = (event) => {
 }
 const readRelease = (release) => {
     let index = releases.value.releases.findIndex(msg => msg.id === release.id);
-    releases.value.releases.slice(index, 1);
+    if (index !== -1) {
+        releases.value.releases.splice(index, 1);
+    }
     updateUnread();
 }
 const readNotification = (notification) => {
@@ -315,6 +317,12 @@ const updateAlerts = () => {
     let last = localStorage.getItem('last_notification-' + props.user_id);
     let now = new Date().getTime();
     let delay = now - (60 * 5000); // Wait 5 minutes between each request on the db
+
+    // Background tabs don't ask the server; the next check after the tab is shown does
+    if (document.hidden) {
+        queueFetch();
+        return;
+    }
 
     if (!last || last < delay) {
         fetchAlerts();

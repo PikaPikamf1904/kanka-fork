@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "chronicle",
+  "version": "0.2.0",
+  "description": "Read the private Chronicle campaign wiki and prepare DM-approved draft changes through the Chronicle MCP server.",
+  "repository": "https://github.com/PikaPikamf1904/kanka-fork",
+  "keywords": ["dnd", "campaign", "wiki", "mcp"]
+}

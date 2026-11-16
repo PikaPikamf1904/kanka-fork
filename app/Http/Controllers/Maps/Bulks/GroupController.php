@@ -32,7 +32,7 @@ class GroupController extends Controller
         if (request()->ajax()) {
             return response()->json(['success' => true]);
         }
-        $count = $this->bulkProcess($request, MapGroup::class);
+        $count = $this->bulkProcess($request, MapGroup::class, ['map_id' => $map->id]);
 
         return redirect()
             ->route('maps.map_groups.index', [$campaign, 'map' => $map])
