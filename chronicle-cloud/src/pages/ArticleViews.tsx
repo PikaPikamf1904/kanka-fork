@@ -3,6 +3,8 @@
 import { Link } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../components/Badges.tsx';
 import { Crest } from '../components/Crest.tsx';
+import { FamilyTree } from '../components/FamilyTree.tsx';
+import { isFamilyKind } from '../lib/familyTree.ts';
 import { Infobox } from '../components/Infobox.tsx';
 import { LocationChips } from '../components/LocationChips.tsx';
 import { Markdown } from '../components/Markdown.tsx';
@@ -12,7 +14,7 @@ import { articlesBySlugs, listSessions } from '../lib/api.ts';
 import { longDate } from '../lib/dates.ts';
 import { splitTimestamp } from '../lib/journal.ts';
 import { slugify, wikiLinkTargets } from '../lib/slug.ts';
-import { relationLabel, TEMPLATES } from '../lib/templates.ts';
+import { relationKindFrom, relationLabel, TEMPLATES } from '../lib/templates.ts';
 import type { ArticleRef, ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 import type { ViewModel } from './ArticlePage.tsx';
@@ -64,7 +66,10 @@ function Sections({ v, isDm, chapter = false }: { v: ViewModel; isDm: boolean; c
 
 function Connections({ v, isDm }: { v: ViewModel; isDm: boolean }) {
   const byKind = new Map<string, ViewModel['relations']>();
-  for (const r of v.relations) byKind.set(r.kind, [...(byKind.get(r.kind) ?? []), r]);
+  for (const r of v.relations) {
+    const kind = relationKindFrom(r.kind, r.direction);
+    byKind.set(kind, [...(byKind.get(kind) ?? []), r]);
+  }
   if (byKind.size === 0) return null;
   return (
     <section className="article-section">
@@ -245,6 +250,12 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
           {v.summary && <div className="article-lead" id="character-overview"><Markdown text={v.summary} /></div>}
           <Sections v={v} isDm={isDm} />
           <Connections v={v} isDm={isDm} />
+          {!v.previewing && v.relations.some((r) => isFamilyKind(r.kind)) && (
+            <section className="article-section" aria-labelledby="character-family">
+              <h2 id="character-family">Family</h2>
+              <FamilyTree slug={v.slug} compact />
+            </section>
+          )}
           {journals.length > 0 && (
             <section className="article-section character-journals">
               <h2 id="character-journals">In the session journals</h2>

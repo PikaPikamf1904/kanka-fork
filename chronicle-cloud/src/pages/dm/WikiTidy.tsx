@@ -105,7 +105,7 @@ export function WikiTidy() {
   return (
     <div>
       <h1 className="page-title">Tidy up the wiki</h1>
-      <p className="muted">Suggestions only: nothing here is changed for you. News stories are not checked. To keep a to-do for a page, add a private note titled “To do …” in its editor; pages with notes are marked below.</p>
+      <p className="muted">Suggestions only: nothing here is changed for you. News stories are not checked. To keep a to-do for a page, add a private note titled “To do …” in its editor; pages with notes are marked below. To check for hidden names showing through, open <Link to="/dm/visibility">What players can see</Link>.</p>
       <div className="chip-cloud tidy-filters">
         <button type="button" className={playersOnly ? 'chip chip-on tidy-filter' : 'chip tidy-filter'} aria-pressed={playersOnly} onClick={() => update('players', playersOnly ? null : '1')}>
           Only pages players can see

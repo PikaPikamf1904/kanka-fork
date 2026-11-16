@@ -24,7 +24,7 @@ export interface ViewModel {
   sections: { id: string; heading: string; body: string; visibility?: Visibility; status?: ArticleBundle['article']['status'] }[];
   infobox: { label: string; value: string; visibility?: Visibility }[];
   categories: { slug: string; name: string; kind: string; visibility?: Visibility }[];
-  relations: { key: string; kind: string; label: string; other: ArticleRef; visibility?: Visibility }[];
+  relations: { key: string; kind: string; label: string; other: ArticleRef; visibility?: Visibility; direction?: 'out' | 'in' }[];
   backlinks: ArticleRef[];
   /** The DM's "preview as player" view, built from a function rather than the table rows. */
   previewing?: boolean;
@@ -39,7 +39,7 @@ function fromBundle(b: ArticleBundle): ViewModel {
     sections: b.sections,
     infobox: b.infobox,
     categories: b.categories,
-    relations: b.relations.map((r) => ({ key: r.id, kind: r.kind, label: r.label, other: r.other, visibility: r.visibility })),
+    relations: b.relations.map((r) => ({ key: r.id, kind: r.kind, label: r.label, other: r.other, visibility: r.visibility, direction: r.direction })),
     backlinks: b.backlinks,
   };
 }

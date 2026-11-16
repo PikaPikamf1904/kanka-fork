@@ -6,11 +6,13 @@ import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, 
 import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
+import type { AuditData } from './visibilityAudit.ts';
+import { FAMILY_KINDS, MAX_GENERATIONS, MAX_PEOPLE, type FamilyEdge, type FamilyPerson } from './familyTree.ts';
 import { minLengthPattern, STUB_LONG_SECTION, STUB_MEDIUM_SECTION, type TidyArticle, type TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
-  InfoboxField, MapFogArea, MapMarker, Media, Member, Relation, Revision, SearchHit, Section, TimelineEvent, WikiMap,
+  InfoboxField, MapFogArea, MapMarker, Media, Member, PublishStatus, Relation, Revision, SearchHit, Section, TimelineEvent, Visibility, WikiMap,
 } from './types.ts';
 
 function must<T>(result: { data: T | null; error: { message: string } | null }): T {
@@ -194,6 +196,75 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
  * Everything the "Tidy up the wiki" report needs, in a few parallel paged queries. No section text
  * is downloaded: sections with a non-blank body are found by a filter on the server.
  */
+/**
+ * Everything the DM's visibility audit needs, in parallel paged queries. Only the bodies of sections
+ * that are themselves published to players are downloaded (only those can give anything away), and
+ * of the summary only whether it has text is kept. The DM can read all of this already.
+ */
+export async function loadVisibilityAuditData(): Promise<AuditData> {
+  const [articles, sections, bodies, links, redirects, fields, categories, articleCategories] = await Promise.all([
+    fetchAll<{ id: string; slug: string; title: string; type: ArticleType; visibility: Visibility; status: PublishStatus; summary: string }>((from, to) =>
+      supabase.from('articles').select('id, slug, title, type, visibility, status, summary').order('id').range(from, to)),
+    fetchAll<AuditData['sections'][number]>((from, to) =>
+      supabase.from('article_sections').select('id, article_id, heading, visibility, status').order('id').range(from, to)),
+    fetchAll<AuditData['visibleBodies'][number]>((from, to) =>
+      supabase.from('article_sections').select('id, article_id, body').eq('visibility', 'players').eq('status', 'published').order('id').range(from, to)),
+    fetchAll<AuditData['links'][number]>((from, to) =>
+      supabase.from('article_links').select('source_section_id, target_slug').order('source_section_id').order('target_slug').range(from, to)),
+    fetchAll<AuditData['redirects'][number]>((from, to) => supabase.from('redirects').select('from_slug, article_id').order('from_slug').range(from, to)),
+    fetchAll<AuditData['visibleFields'][number] & { id: string }>((from, to) =>
+      supabase.from('infobox_fields').select('id, article_id, label, value').eq('visibility', 'players').order('id').range(from, to)),
+    fetchAll<AuditData['categories'][number]>((from, to) => supabase.from('categories').select('id, name').order('id').range(from, to)),
+    fetchAll<AuditData['articleCategories'][number]>((from, to) =>
+      supabase.from('article_categories').select('article_id, category_id').order('article_id').order('category_id').range(from, to)),
+  ]);
+  return {
+    articles: articles.map(({ summary, ...a }) => ({ ...a, has_summary: summary.trim() !== '' })),
+    sections, visibleBodies: bodies, links, redirects,
+    visibleFields: fields.map(({ article_id, label, value }) => ({ article_id, label, value })),
+    categories, articleCategories,
+  };
+}
+
+/**
+ * A character's family, breadth-first from the character through family connections, a few round
+ * trips at most. Everything is read under the reader's Row Level Security: a hidden person or a
+ * hidden connection never comes back, so it can never be drawn.
+ */
+export async function loadFamily(slug: string): Promise<{ rootId: string; people: FamilyPerson[]; edges: FamilyEdge[] } | null> {
+  type Ref = { id: string; slug: string; title: string; hero_media_id: string | null };
+  const root = must(await supabase.from('articles').select('id, slug, title, hero_media_id').eq('slug', slug).maybeSingle()) as Ref | null;
+  if (!root) return null;
+  const people = new Map<string, FamilyPerson>([[root.id, { id: root.id, slug: root.slug, title: root.title, heroMediaId: root.hero_media_id }]]);
+  const edges = new Map<string, FamilyEdge>();
+  let frontier = [root.id];
+  const asked = new Set<string>();
+  // Each round reaches one more step out; generations up and down plus spouses and siblings.
+  for (let round = 0; round < MAX_GENERATIONS * 2 + 2 && frontier.length && people.size < MAX_PEOPLE; round++) {
+    frontier.forEach((id) => asked.add(id));
+    const list = frontier.join(',');
+    const rows = must(await supabase
+      .from('relations')
+      .select('id, kind, source_article_id, target_article_id, source:articles!relations_source_article_id_fkey(id, slug, title, hero_media_id), target:articles!relations_target_article_id_fkey(id, slug, title, hero_media_id)')
+      .in('kind', [...FAMILY_KINDS])
+      .or(`source_article_id.in.(${list}),target_article_id.in.(${list})`)
+      .limit(500)) as unknown as { id: string; kind: FamilyEdge['kind']; source: Ref | null; target: Ref | null }[];
+    const next: string[] = [];
+    for (const r of rows) {
+      if (!r.source || !r.target) continue;
+      for (const a of [r.source, r.target]) {
+        if (!people.has(a.id) && people.size < MAX_PEOPLE) {
+          people.set(a.id, { id: a.id, slug: a.slug, title: a.title, heroMediaId: a.hero_media_id });
+        }
+        if (people.has(a.id) && !asked.has(a.id) && !next.includes(a.id)) next.push(a.id);
+      }
+      if (people.has(r.source.id) && people.has(r.target.id)) edges.set(r.id, { kind: r.kind, source: r.source.id, target: r.target.id });
+    }
+    frontier = next;
+  }
+  return { rootId: root.id, people: [...people.values()], edges: [...edges.values()] };
+}
+
 export async function loadWikiTidyData(): Promise<TidyData> {
   // Section lengths without downloading bodies: the server filters with a regular expression
   // ("." also matches line breaks in PostgreSQL; one repetition is capped at 255, hence minLengthPattern), so only ids come back. See STUB_* in wikiTidy.ts.

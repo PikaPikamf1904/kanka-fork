@@ -14,6 +14,7 @@ import { WanderPage } from './pages/WanderPage.tsx';
 // Maps (Leaflet) and DM tools load on demand, so players' first page load stays small.
 const MapsPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapsPage })));
 const MapPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapPage })));
+const FamilyPage = lazy(() => import('./pages/FamilyPage.tsx').then((m) => ({ default: m.FamilyPage })));
 const ArticleEditor = lazy(() => import('./pages/dm/ArticleEditor.tsx').then((m) => ({ default: m.ArticleEditor })));
 const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'TimelineEditor' | 'MapEditor') =>
   lazy(() => import('./pages/dm/DmPages.tsx').then((m) => ({ default: m[name] })));
@@ -21,6 +22,7 @@ const DmDesk = dm('DmDesk');
 const ChangeReviewPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.ChangeReviewPage })));
 const OAuthConsentPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.OAuthConsentPage })));
 const WikiTidy = lazy(() => import('./pages/dm/WikiTidy.tsx').then((m) => ({ default: m.WikiTidy })));
+const VisibilityAudit = lazy(() => import('./pages/dm/VisibilityAudit.tsx').then((m) => ({ default: m.VisibilityAudit })));
 const MediaLibrary = lazy(() => import('./pages/dm/MediaLibrary.tsx').then((m) => ({ default: m.MediaLibrary })));
 const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
 const ImportBatchesPage = lazy(() => import('./pages/dm/ImportPages.tsx').then((m) => ({ default: m.ImportBatchesPage })));
@@ -83,6 +85,7 @@ const router = createBrowserRouter([
       { path: '/news/:slug', element: page(<GazetteArticle />) },
       { path: '/maps', element: page(<MapsPage />) },
       { path: '/maps/:slug', element: page(<MapPage />) },
+      { path: '/family/:slug', element: page(<FamilyPage />) },
       {
         path: '/dm',
         element: <DmOnly><Outlet /></DmOnly>,
@@ -99,6 +102,7 @@ const router = createBrowserRouter([
           { path: 'news/new', element: page(<GazetteEditor />) },
           { path: 'news/edit/:slug', element: page(<GazetteEditor />) },
           { path: 'tidy', element: page(<WikiTidy />) },
+          { path: 'visibility', element: page(<VisibilityAudit />) },
           { path: 'media', element: page(<MediaLibrary />) },
           { path: 'notes', element: page(<NotesPage />) },
           { path: 'access', element: page(<AccessAdmin />) },

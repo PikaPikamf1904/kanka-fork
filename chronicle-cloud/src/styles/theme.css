@@ -754,3 +754,37 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .tidy-section { scroll-margin-top: 5rem; }
 .tidy-notes { display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.6rem; border: 1px dashed var(--line); border-radius: 999px; font-family: var(--font-ui); font-size: 0.85rem; text-decoration: none; }
 .tidy-notes-todo { border-style: solid; border-color: var(--crimson); background: var(--crimson-soft); color: var(--text) !important; font-weight: 700; }
+
+/* What players can see (DM visibility audit) */
+.vis-row { display: grid; grid-template-columns: minmax(7rem, 12rem) minmax(6rem, 1fr); gap: 0.25rem 0.75rem; align-items: center; padding: 0.4rem 0; border-top: 1px solid var(--line); }
+.vis-label { font-family: var(--font-ui); font-weight: 600; overflow-wrap: anywhere; }
+.vis-bar { display: flex; height: 0.8rem; border-radius: 999px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); }
+.vis-seg { display: block; height: 100%; }
+.vis-readable { background: #4f7a4a; }
+.vis-draft { background: var(--gold); }
+.vis-dm { background: #8a3b2e; }
+.vis-numbers { grid-column: 2; font-family: var(--font-ui); font-size: 0.85rem; color: var(--muted); }
+.vis-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; }
+.vis-key { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 3px; vertical-align: middle; }
+@media (max-width: 600px) { .vis-row { grid-template-columns: 1fr; } .vis-numbers { grid-column: 1; } }
+
+/* Family tree */
+.family-tree { display: grid; gap: 0.5rem; }
+.family-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.family-controls .button.small { min-width: 44px; min-height: 44px; }
+.family-hint { color: var(--muted); }
+.family-svg { width: 100%; height: min(70vh, 640px); border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); touch-action: none; cursor: grab; user-select: none; }
+.family-tree-compact .family-svg { height: 320px; }
+.family-svg:active { cursor: grabbing; }
+.family-line { fill: none; stroke: var(--muted); stroke-width: 2; }
+.family-spouse_of { stroke: var(--gold); stroke-width: 3; }
+.family-sibling_of { stroke-dasharray: 5 5; }
+.family-node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.family-root rect { stroke: var(--gold); stroke-width: 3; }
+.family-node:hover rect { stroke: var(--gold); }
+.family-node:focus { outline: none; }
+.family-node:focus-visible rect { stroke: var(--accent, var(--gold)); stroke-width: 4; }
+.family-name { font-family: var(--font-ui); font-weight: 700; font-size: 14px; fill: var(--text); }
+.family-rel { font-family: var(--font-ui); font-size: 12px; fill: var(--muted); }
+.family-initials-bg { fill: var(--surface-2); stroke: var(--line); }
+.family-initials { font-family: var(--font-display); font-size: 14px; fill: var(--text); }
