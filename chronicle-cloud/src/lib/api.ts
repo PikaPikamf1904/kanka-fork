@@ -7,6 +7,7 @@ import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, t
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
 import type { AuditData } from './visibilityAudit.ts';
+import type { GraphInput } from './knowledgeGraph.ts';
 import type { RecentPage, RecentSection } from './recentChanges.ts';
 import { FAMILY_KINDS, MAX_GENERATIONS, MAX_PEOPLE, type FamilyEdge, type FamilyPerson } from './familyTree.ts';
 import { minLengthPattern, STUB_LONG_SECTION, STUB_MEDIUM_SECTION, type TidyArticle, type TidyData } from './wikiTidy.ts';
@@ -305,6 +306,44 @@ export async function loadFacts(label: string, value: string): Promise<{ pages: 
     pages: [...pages.values()].sort((a, b) => a.title.localeCompare(b.title)),
     values: (must(values) as { value: string }[]).map((v) => v.value),
   };
+}
+
+/**
+ * Everything the Knowledge Graph draws, in parallel paged queries of ids and short fields only.
+ * Row Level Security decides what comes back; `readerView` narrows the DM's own view to what
+ * players receive ("View as a player").
+ */
+export async function loadGraphData(readerView: boolean): Promise<GraphInput> {
+  const [pages, relations, sections, links, redirects] = await Promise.all([
+    fetchAll<GraphInput['pages'][number]>((from, to) => {
+      let q = supabase.from('articles').select('id, slug, title, type').neq('type', 'news');
+      if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+      return q.order('id').range(from, to);
+    }),
+    fetchAll<GraphInput['relations'][number] & { id: string }>((from, to) => {
+      let q = supabase.from('relations').select('id, source_article_id, target_article_id, kind');
+      if (readerView) q = q.eq('visibility', 'players');
+      return q.order('id').range(from, to);
+    }),
+    fetchAll<GraphInput['sections'][number]>((from, to) => {
+      let q = supabase.from('article_sections').select('id, article_id');
+      if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+      return q.order('id').range(from, to);
+    }),
+    fetchAll<GraphInput['links'][number]>((from, to) =>
+      supabase.from('article_links').select('source_section_id, target_slug').order('source_section_id').order('target_slug').range(from, to)),
+    fetchAll<GraphInput['redirects'][number]>((from, to) => {
+      let q = supabase.from('redirects').select('from_slug, article_id');
+      if (readerView) q = q.eq('visibility', 'players');
+      return q.order('from_slug').range(from, to);
+    }),
+  ]);
+  return { pages, relations: relations.map(({ source_article_id, target_article_id, kind }) => ({ source_article_id, target_article_id, kind })), sections, links, redirects };
+}
+
+/** A page's summary for the graph's preview card (Row Level Security applies). */
+export async function getPagePreview(id: string): Promise<{ summary: string; hero_media_id: string | null } | null> {
+  return must(await supabase.from('articles').select('summary, hero_media_id').eq('id', id).maybeSingle()) as { summary: string; hero_media_id: string | null } | null;
 }
 
 export async function loadWikiTidyData(): Promise<TidyData> {

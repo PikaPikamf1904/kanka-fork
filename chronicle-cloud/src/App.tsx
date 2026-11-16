@@ -15,6 +15,7 @@ import { WanderPage } from './pages/WanderPage.tsx';
 const MapsPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapsPage })));
 const MapPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapPage })));
 const RecentPage = lazy(() => import('./pages/RecentPage.tsx').then((m) => ({ default: m.RecentPage })));
+const GraphPage = lazy(() => import('./pages/GraphPage.tsx').then((m) => ({ default: m.GraphPage })));
 const FactsPage = lazy(() => import('./pages/FactsPage.tsx').then((m) => ({ default: m.FactsPage })));
 const FamilyPage = lazy(() => import('./pages/FamilyPage.tsx').then((m) => ({ default: m.FamilyPage })));
 const ArticleEditor = lazy(() => import('./pages/dm/ArticleEditor.tsx').then((m) => ({ default: m.ArticleEditor })));
@@ -90,6 +91,7 @@ const router = createBrowserRouter([
       { path: '/family/:slug', element: page(<FamilyPage />) },
       { path: '/recent', element: page(<RecentPage />) },
       { path: '/facts', element: page(<FactsPage />) },
+      { path: '/graph', element: page(<GraphPage />) },
       {
         path: '/dm',
         element: <DmOnly><Outlet /></DmOnly>,

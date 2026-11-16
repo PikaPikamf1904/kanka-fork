@@ -76,6 +76,7 @@ function Connections({ v, isDm }: { v: ViewModel; isDm: boolean }) {
   return (
     <section className="article-section">
       <h2 id="connections">Connections</h2>
+      {!v.previewing && <p className="fine-print"><Link to={`/graph?focus=${encodeURIComponent(v.slug)}`}>Show in the knowledge graph</Link></p>}
       <dl className="connections">
         {[...byKind.entries()].map(([kind, rels]) => (
           <div key={kind}>

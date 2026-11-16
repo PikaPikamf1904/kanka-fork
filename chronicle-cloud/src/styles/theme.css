@@ -843,3 +843,23 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .facts-list { list-style: none; margin: 0; padding: 0; }
 .facts-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.75rem; padding: 0.55rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 .facts-summary { flex: 1 1 100%; font-size: 0.9rem; }
+
+/* Knowledge graph */
+.graph-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem 0.75rem; margin-bottom: 0.5rem; }
+.graph-search input { min-height: 44px; min-width: min(18rem, 100%); padding: 0.4rem 0.8rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-family: var(--font-ui); }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; }
+.graph-kind { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 36px; padding: 0.2rem 0.7rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-family: var(--font-ui); font-size: 0.85rem; cursor: pointer; opacity: 0.6; }
+.graph-kind.on { opacity: 1; color: var(--text); }
+.graph-dot { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; flex: none; }
+.graph-wrap { display: grid; gap: 0.5rem; }
+.graph-canvas { width: 100%; height: min(72vh, 720px); border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); touch-action: none; cursor: grab; display: block; }
+.graph-preview { position: relative; margin-top: 0.75rem; }
+.graph-preview-head { display: flex; gap: 0.75rem; align-items: center; }
+.graph-preview-head h2 { margin: 0; }
+.graph-preview-img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
+.graph-list { list-style: none; margin: 0; padding: 0; }
+.graph-list li { padding: 0.55rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.graph-list-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; }
+.graph-list-edges { margin: 0.25rem 0 0 1.4rem; font-size: 0.9rem; color: var(--muted); }
+@media (pointer: coarse) { .graph-kind { min-height: 44px; } }
+@media (max-width: 600px) { .graph-canvas { height: 62vh; } }
