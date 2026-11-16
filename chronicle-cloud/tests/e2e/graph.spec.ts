@@ -56,11 +56,16 @@ test.describe('Knowledge graph', () => {
 
     // Kind filters are kept in the address and remembered after a reload.
     await page.getByRole('button', { name: 'Show as a graph' }).click();
+    // With no filter, "All kinds" is the pressed choice and no single kind claims to be.
+    await expect(page.getByRole('group', { name: 'Kinds of page shown' }).getByRole('button', { name: 'All kinds' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('group', { name: 'Kinds of page shown' }).getByRole('button', { name: 'Characters' })).toHaveAttribute('aria-pressed', 'false');
     await page.getByRole('group', { name: 'Kinds of page shown' }).getByRole('button', { name: 'Characters' }).click();
     await expect(page).toHaveURL(/types=character/);
     await page.goto('/graph');
     await expect(page.getByRole('group', { name: 'Kinds of page shown' }).getByRole('button', { name: 'Characters' })).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('group', { name: 'Kinds of page shown' }).getByRole('button', { name: 'Characters' }).click();
+    await expect(page.getByRole('group', { name: 'Kinds of page shown' }).getByRole('button', { name: 'All kinds' })).toHaveAttribute('aria-pressed', 'false');
+    await page.getByRole('group', { name: 'Kinds of page shown' }).getByRole('button', { name: 'All kinds' }).click();
+    await expect(page).not.toHaveURL(/types=/);
 
     if (process.env.SAVE_DOC_SHOTS === '1') {
       await page.setViewportSize({ width: 1280, height: 860 });

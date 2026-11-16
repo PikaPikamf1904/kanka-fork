@@ -28,7 +28,7 @@ function Unit({ unit, root = false }: { unit: OrgUnit; root?: boolean }) {
           {unit.groups.map((g) => (
             <li key={g.rank} className="org-group">
               <span className="org-rank">{g.rank}</span>
-              <ul className="org-members">
+              <ul className="org-members" aria-label={`${g.rank} of ${unit.faction.title}`}>
                 {g.members.map((m) => <li key={m.id}><Link className="chip" to={`/wiki/${m.slug}`}>{m.title}</Link></li>)}
               </ul>
             </li>

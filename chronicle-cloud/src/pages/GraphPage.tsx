@@ -119,8 +119,11 @@ export function GraphPage() {
         </button>
       </div>
       <div className="graph-legend" role="group" aria-label="Kinds of page shown">
+        <button type="button" className="graph-kind" aria-pressed={p.types.length === 0} onClick={() => p.set({ types: null })}>
+          All kinds
+        </button>
         {TYPE_ORDER.map((t) => (
-          <button key={t} type="button" className={p.types.length === 0 || p.types.includes(t) ? 'graph-kind on' : 'graph-kind'} aria-pressed={p.types.includes(t)} onClick={() => toggleType(t)}>
+          <button key={t} type="button" className={p.types.length > 0 && !p.types.includes(t) ? 'graph-kind off' : 'graph-kind'} aria-pressed={p.types.includes(t)} onClick={() => toggleType(t)}>
             <span className="graph-dot" style={{ background: TYPE_COLOURS[t] }} aria-hidden="true" />
             {TEMPLATES[t].plural}
           </button>

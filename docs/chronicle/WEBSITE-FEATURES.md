@@ -178,6 +178,8 @@ count.
 
 ![Knowledge graph](screenshots/knowledge-graph.png)
 
+The kind filters start on **All kinds**. Choosing kinds narrows the graph; **All kinds** clears the choice. Screen readers hear which choice is on.
+
 ## N. Command palette (everyone)
 Press Ctrl+K (Cmd+K on Mac) or "/" anywhere, or use **Jump to…** at the top of the menu.
 
@@ -187,6 +189,8 @@ Press Ctrl+K (Cmd+K on Mac) or "/" anywhere, or use **Jump to…** at the top of
 - Escape closes it.
 
 DM tools only appear for the DM.
+
+![Command palette](screenshots/command-palette.png)
 
 ## O. Search operators (everyone)
 On the search page:
@@ -211,6 +215,8 @@ faction.
 
 Tip for the DM: put the rank in the label of the connection.
 
+![Faction organisation chart](screenshots/org-chart.png)
+
 ## R. Recently updated, by kind (everyone)
 `/recent` has kind buttons, so you can see only one kind of page (for example only characters).
 
@@ -230,6 +236,8 @@ When maintenance is on, every page shows: "Declan is currently performing mainte
 Some features may be temporarily unavailable or behave unexpectedly. Please save your work before
 refreshing." Set-up and options: see [MAINTENANCE-NOTICE.md](MAINTENANCE-NOTICE.md). Not configured
 on the live site yet.
+
+![Maintenance notice](screenshots/maintenance-notice.png)
 
 ## Waiting for approval (third sprint)
 Bookmarks and reading lists, personal notes, the Investigation Board, the Mystery Studio, the

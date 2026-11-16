@@ -1,8 +1,11 @@
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { enrollAsPlayer, noHorizontalOverflow, signInAsDm } from './support.ts';
 
 // Command palette: keyboard shortcut, page search, commands, DM-only commands hidden from players,
 // Escape returns focus, and a visible "Jump to…" button for people who do not use shortcuts.
+
+const docsShots = path.resolve(import.meta.dirname, '../../../docs/chronicle/screenshots');
 
 test.describe('Command palette', () => {
   test('the DM jumps to pages and DM tools by keyboard', async ({ page }) => {
@@ -16,6 +19,7 @@ test.describe('Command palette', () => {
 
     await box.fill('what players');
     await expect(dialog.getByRole('option', { name: /What players can see/ })).toBeVisible();
+    if (process.env.SAVE_DOC_SHOTS === '1') await page.screenshot({ path: path.join(docsShots, 'command-palette.png') });
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/dm\/visibility$/);
     await expect(dialog).toHaveCount(0);

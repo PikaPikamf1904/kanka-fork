@@ -1,9 +1,12 @@
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { db } from './db.ts';
 import { enrollAsPlayer, noHorizontalOverflow, recordApi, signInAsDm } from './support.ts';
 
 // Faction organisation chart from "Member of" connections, made and removed here: a guild with a
 // leader, a plain member, a sub-faction with a captain, and a DM-only spy and DM-only membership.
+
+const docsShots = path.resolve(import.meta.dirname, '../../../docs/chronicle/screenshots');
 
 const S = { guild: 'zz-org-guild', wing: 'zz-org-wing', lead: 'zz-org-lead', mem: 'zz-org-member', cap: 'zz-org-captain', spy: 'zz-org-spy', mole: 'zz-org-mole' };
 
@@ -40,6 +43,9 @@ test.describe('Faction organisation chart', () => {
     await expect(chart.locator('.org-rank').first()).toHaveText('Guildmaster');
     for (const name of ['Zzorg Leader', 'Zzorg Member', 'Zzorg Captain', 'Zzorg Spy', 'Zzorg Mole']) await expect(chart.getByRole('link', { name })).toBeVisible();
     await expect(chart.getByRole('link', { name: 'Zzorg Night Wing' })).toHaveAttribute('href', `/wiki/${S.wing}`);
+    // Each rank's list is named for screen readers.
+    await expect(chart.getByRole('list', { name: 'Guildmaster of Zzorg Guild' }).getByRole('link', { name: 'Zzorg Leader' })).toBeVisible();
+    if (process.env.SAVE_DOC_SHOTS === '1') await chart.screenshot({ path: path.join(docsShots, 'org-chart.png') });
 
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const bodies = recordApi(context);

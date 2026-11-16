@@ -1,8 +1,11 @@
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { enrollAsPlayer } from './support.ts';
 
 // The maintenance notice: the real /api/status function (no switch set locally, so no notice), its
 // refusal of unauthenticated writes, and the banner when the status says maintenance is on.
+
+const docsShots = path.resolve(import.meta.dirname, '../../../docs/chronicle/screenshots');
 
 test.describe('Maintenance notice', () => {
   test('off by default; writes need the token; the banner shows the exact message when on', async ({ page, request }) => {
@@ -21,6 +24,7 @@ test.describe('Maintenance notice', () => {
     await page.reload();
     await expect(page.getByTestId('maintenance-notice')).toContainText(message);
     await expect(page.getByTestId('maintenance-notice')).toHaveAttribute('role', 'status');
+    if (process.env.SAVE_DOC_SHOTS === '1') await page.screenshot({ path: path.join(docsShots, 'maintenance-notice.png'), clip: { x: 0, y: 0, width: page.viewportSize()!.width, height: 260 } });
 
     // A status outage shows nothing rather than a false alarm.
     await page.route('**/api/status', (route) => route.fulfill({ status: 503, body: 'down' }));
