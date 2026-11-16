@@ -23,7 +23,10 @@ async function page(slug: string, title: string, visibility: 'players' | 'dm', s
   return a!.id;
 }
 
-const clean = () => db('delete from public.articles where slug = any($1)', [SLUGS]);
+const clean = async () => {
+  await db('delete from public.articles where slug = any($1)', [SLUGS]);
+  await db(`delete from public.categories where slug = 'zz-vis-order'`);
+};
 
 test.describe('What players can see', () => {
   test.beforeEach(async () => {
@@ -35,6 +38,9 @@ test.describe('What players can see', () => {
     });
     await page(SLUGS[2]!, 'Blank Shrine Zzvis', 'players', 'published', { body: 'Only the DM knows.', visibility: 'dm' });
     await page(SLUGS[3]!, 'Coming Fair Zzvis', 'players', 'draft');
+    const [cat] = await db<{ id: string }>(`insert into public.categories (slug, name, kind, visibility) values ('zz-vis-order', 'Zzvis Secret Order', 'category', 'players') returning id`);
+    const [regent] = await db<{ id: string }>('select id from public.articles where slug = $1', [SLUGS[1]]);
+    await db('insert into public.article_categories (article_id, category_id) values ($1, $2)', [regent!.id, cat!.id]);
   });
   test.afterEach(clean);
 
@@ -62,6 +68,11 @@ test.describe('What players can see', () => {
     const draft = dm.getByTestId('vis-draft');
     await draft.locator('summary').click();
     await expect(draft.getByRole('listitem').filter({ hasText: 'Coming Fair Zzvis' })).toHaveCount(1);
+
+    // A player-visible category whose only page is hidden is flagged by name.
+    const category = dm.getByTestId('vis-category');
+    await category.locator('summary').click();
+    await expect(category.getByRole('listitem').filter({ hasText: 'Zzvis Secret Order' })).toHaveCount(1);
 
     // Totals are given as text, not only as coloured bars.
     await expect(dm.getByText(/\d+ players can read · \d+ players, draft · \d+ DM only/).first()).toBeVisible();

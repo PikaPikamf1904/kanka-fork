@@ -205,9 +205,9 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
  * of the summary only whether it has text is kept. The DM can read all of this already.
  */
 export async function loadVisibilityAuditData(): Promise<AuditData> {
-  const [articles, sections, bodies, links, redirects, fields, categories, articleCategories] = await Promise.all([
-    fetchAll<{ id: string; slug: string; title: string; type: ArticleType; visibility: Visibility; status: PublishStatus; summary: string }>((from, to) =>
-      supabase.from('articles').select('id, slug, title, type, visibility, status, summary').order('id').range(from, to)),
+  const [articles, sections, bodies, links, redirects, fields, categories, articleCategories, media] = await Promise.all([
+    fetchAll<{ id: string; slug: string; title: string; type: ArticleType; visibility: Visibility; status: PublishStatus; summary: string; subtitle: string }>((from, to) =>
+      supabase.from('articles').select('id, slug, title, type, visibility, status, summary, subtitle').order('id').range(from, to)),
     fetchAll<AuditData['sections'][number]>((from, to) =>
       supabase.from('article_sections').select('id, article_id, heading, visibility, status').order('id').range(from, to)),
     fetchAll<AuditData['visibleBodies'][number]>((from, to) =>
@@ -217,12 +217,19 @@ export async function loadVisibilityAuditData(): Promise<AuditData> {
     fetchAll<AuditData['redirects'][number]>((from, to) => supabase.from('redirects').select('from_slug, article_id').order('from_slug').range(from, to)),
     fetchAll<AuditData['visibleFields'][number] & { id: string }>((from, to) =>
       supabase.from('infobox_fields').select('id, article_id, label, value').eq('visibility', 'players').order('id').range(from, to)),
-    fetchAll<AuditData['categories'][number]>((from, to) => supabase.from('categories').select('id, name').order('id').range(from, to)),
+    fetchAll<AuditData['categories'][number]>((from, to) => supabase.from('categories').select('id, name, visibility').order('id').range(from, to)),
     fetchAll<AuditData['articleCategories'][number]>((from, to) =>
       supabase.from('article_categories').select('article_id, category_id').order('article_id').order('category_id').range(from, to)),
+    fetchAll<{ path: string; visibility: Visibility }>((from, to) => supabase.from('media').select('path, visibility').order('path').range(from, to)),
   ]);
+  const readable = (a: { visibility: Visibility; status: PublishStatus }) => a.visibility === 'players' && a.status === 'published';
   return {
-    articles: articles.map(({ summary, ...a }) => ({ ...a, has_summary: summary.trim() !== '' })),
+    media,
+    articles: articles.map(({ summary, subtitle, ...a }) => ({
+      ...a, has_summary: summary.trim() !== '',
+      // Only text players can read is checked for leaks.
+      summary: readable(a) ? summary : '', subtitle: readable(a) ? subtitle : '',
+    })),
     sections, visibleBodies: bodies, links, redirects,
     visibleFields: fields.map(({ article_id, label, value }) => ({ article_id, label, value })),
     categories, articleCategories,

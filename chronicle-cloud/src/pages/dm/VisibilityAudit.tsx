@@ -10,6 +10,8 @@ import { computeAudit, type Finding, type FindingKind, type Totals } from '../..
 const FINDINGS: { kind: FindingKind; title: string; hint: string }[] = [
   { kind: 'link', title: 'Links to hidden pages', hint: 'Text players can read links to a page they cannot. The link itself shows them the hidden page’s name.' },
   { kind: 'mention', title: 'Hidden names in visible text', hint: 'Text players can read contains the exact name of a page they cannot (whole words, at least five letters). It may be fine, or it may give something away.' },
+  { kind: 'media', title: 'Hidden pictures in visible text', hint: 'Text players can read places a picture that is DM-only. Players see no picture, but its file name arrives with the text.' },
+  { kind: 'category', title: 'Visible categories of hidden pages', hint: 'Players can see this category’s name, but every page in it is hidden from them. The name alone may give something away.' },
   { kind: 'empty', title: 'Published pages that show players nothing', hint: 'Players can open these pages, but every section is DM-only or a draft and there is no summary.' },
   { kind: 'draft', title: 'Meant for players, still drafts', hint: 'Set to “players” but not published, so players cannot see them yet.' },
 ];
@@ -41,6 +43,8 @@ function Row({ f }: { f: Finding }) {
             &nbsp;→&nbsp;<Link to={`/wiki/${f.hidden.slug}`}>{f.hidden.title}</Link>
           </>
         )}
+        {f.kind === 'media' && <>&nbsp;→&nbsp;<code>{f.detail}</code></>}
+        {f.kind === 'category' && <>&nbsp;· category “{f.detail}”</>}
       </span>
       <span className="badges-row">
         {f.hidden ? <VisibilityBadge visibility={f.hidden.visibility} /> : <VisibilityBadge visibility={f.page.visibility} />}

@@ -14,8 +14,11 @@ export interface AuditArticle {
   type: ArticleType;
   visibility: Visibility;
   status: PublishStatus;
-  /** Whether the summary has any text (the summary itself is not needed). */
+  /** Whether the summary has any text. */
   has_summary: boolean;
+  /** Summary and subtitle text, for pages players can read (players see these on cards and pages). */
+  summary?: string;
+  subtitle?: string;
 }
 
 export interface AuditData {
@@ -27,11 +30,13 @@ export interface AuditData {
   redirects: { from_slug: string; article_id: string }[];
   /** Infobox fields marked players (label and value). */
   visibleFields: { article_id: string; label: string; value: string }[];
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; visibility?: Visibility }[];
+  /** Media rows (path and visibility), to check pictures placed in text players can read. */
+  media?: { path: string; visibility: Visibility }[];
   articleCategories: { article_id: string; category_id: string }[];
 }
 
-export type FindingKind = 'link' | 'mention' | 'empty' | 'draft';
+export type FindingKind = 'link' | 'mention' | 'media' | 'category' | 'empty' | 'draft';
 
 export interface Finding {
   kind: FindingKind;
@@ -41,6 +46,8 @@ export interface Finding {
   where: string;
   /** The hidden page that leaks, for links and mentions. */
   hidden?: AuditArticle;
+  /** For "media": the picture's stored path; for "category": the category's name. */
+  detail?: string;
 }
 
 export interface Totals { readable: number; playersDraft: number; dmOnly: number }
@@ -127,10 +134,10 @@ export function computeAudit(d: AuditData): Audit {
   }
 
   // ---- findings ----
-  const findings: Record<FindingKind, Finding[]> = { link: [], mention: [], empty: [], draft: [] };
+  const findings: Record<FindingKind, Finding[]> = { link: [], mention: [], media: [], category: [], empty: [], draft: [] };
   const seen = new Set<string>();
   const add = (f: Finding) => {
-    const key = `${f.kind}|${f.page.id}|${f.where}|${f.hidden?.id ?? ''}`;
+    const key = `${f.kind}|${f.page.id}|${f.where}|${f.hidden?.id ?? ''}|${f.detail ?? ''}`;
     if (seen.has(key)) return;
     seen.add(key);
     findings[f.kind].push(f);
@@ -175,6 +182,34 @@ export function computeAudit(d: AuditData): Audit {
     const page = byId.get(f.article_id);
     if (page && isReadable(page)) mention(page, f.label, f.value);
   }
+  // Summaries and subtitles show on cards, search results and the page itself.
+  for (const a of d.articles) {
+    if (!isReadable(a)) continue;
+    if (a.summary) mention(a, 'Summary', a.summary);
+    if (a.subtitle) mention(a, 'Subtitle', a.subtitle);
+  }
+
+  // Pictures placed in text players can read but kept DM-only: players get no picture, but the
+  // stored file name arrives with the text and may name something.
+  if (d.media) {
+    const hiddenPath = new Set(d.media.filter((m) => m.visibility !== 'players').map((m) => m.path));
+    const pic = /!\[[^\]]*\]\(media:([a-z0-9][a-z0-9/_.-]*)/g;
+    const check = (page: AuditArticle, where: string, text: string) => {
+      for (const m of text.matchAll(pic)) if (hiddenPath.has(m[1]!)) add({ kind: 'media', page, where, detail: m[1]! });
+    };
+    for (const b of d.visibleBodies) {
+      const s = sectionById.get(b.id);
+      if (s && visibleSection(s)) check(byId.get(s.article_id)!, s.heading, b.body);
+    }
+    for (const a of d.articles) if (isReadable(a) && a.summary) check(a, 'Summary', a.summary);
+  }
+
+  // A category players can see whose pages are all hidden: its name alone may give something away.
+  for (const c of d.categories) {
+    if (c.visibility !== 'players') continue;
+    const pages = d.articleCategories.filter((ac) => ac.category_id === c.id).map((ac) => byId.get(ac.article_id)).filter((a): a is AuditArticle => !!a && a.type !== 'news');
+    if (pages.length > 0 && !pages.some(isReadable)) add({ kind: 'category', page: pages.sort((a, b) => a.title.localeCompare(b.title))[0]!, where: '', detail: c.name });
+  }
 
   // Published to players, but players would see an empty page.
   const withVisibleText = new Set(d.visibleBodies.filter((b) => visibleSection(sectionById.get(b.id)) && b.body.trim()).map((b) => b.article_id));
@@ -198,4 +233,4 @@ export function computeAudit(d: AuditData): Audit {
   };
 }
 
-export const leakCount = (a: Audit) => a.findings.link.length + a.findings.mention.length;
+export const leakCount = (a: Audit) => a.findings.link.length + a.findings.mention.length + a.findings.media.length + a.findings.category.length;

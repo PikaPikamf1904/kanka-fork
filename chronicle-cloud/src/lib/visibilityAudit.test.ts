@@ -79,4 +79,20 @@ describe('computeAudit', () => {
     expect(a.findings.empty.map((f) => f.page.id).sort()).toEqual(['b', 'h']);
     expect(a.findings.draft.map((f) => f.page.id)).toEqual(['d']);
   });
+
+  it('checks summaries and subtitles, hidden pictures in visible text, and categories that only hold hidden pages', () => {
+    const shown = art('p', 'Port Town', 'players', 'published', { summary: 'Rumour has it the traitor king lives.', subtitle: 'A quiet harbour' });
+    const a = computeAudit(base({
+      articles: [shown, secret],
+      sections: [sec('v', 'p')],
+      visibleBodies: [{ id: 'v', article_id: 'p', body: 'Look: ![](media:secret/traitor-portrait.jpg) and ![](media:public/harbour.jpg)' }],
+      media: [{ path: 'secret/traitor-portrait.jpg', visibility: 'dm' }, { path: 'public/harbour.jpg', visibility: 'players' }],
+      categories: [{ id: 'c1', name: 'Traitors', visibility: 'players' }, { id: 'c2', name: 'Secret cabal', visibility: 'dm' }, { id: 'c3', name: 'Ports', visibility: 'players' }],
+      articleCategories: [{ article_id: 's', category_id: 'c1' }, { article_id: 's', category_id: 'c2' }, { article_id: 'p', category_id: 'c3' }, { article_id: 's', category_id: 'c3' }],
+    }));
+    expect(a.findings.mention.map((f) => [f.where, f.hidden!.id])).toEqual([['Summary', 's']]);
+    expect(a.findings.media.map((f) => f.detail)).toEqual(['secret/traitor-portrait.jpg']);
+    expect(a.findings.category.map((f) => f.detail)).toEqual(['Traitors']);
+  });
 });
+
