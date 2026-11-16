@@ -156,3 +156,96 @@ Documentation screenshots are written only with `SAVE_DOC_SHOTS=1`, for example
 Bookmarks, reading lists and personal notes need one new table each. The design is in
 [PROPOSAL-MIGRATIONS.md](PROPOSAL-MIGRATIONS.md). Nothing has been written yet.
 
+# Third sprint (2026-11-16, overnight)
+No database migrations. Everything players see still comes only from what Row Level Security lets them read.
+
+## M. Knowledge graph (everyone)
+Open it from **Knowledge graph** in the menu, or with **Show in the knowledge graph** on a page
+that has connections. Every page you can read is a dot: the colour is the kind, the size is the
+number of lines. Connections are solid lines with arrows; wiki links are dashed.
+
+- Drag the background to move, the wheel or pinch to zoom, drag a page to move it.
+- Tap a page for a card: summary, picture, **Open the page**, **Centre the graph here**.
+- Double-click a page to open it. **Reset view** fits everything.
+- **Find a page…** highlights matches. Enter opens the first one.
+- Kind buttons filter the graph. **Include unconnected pages** adds pages with no lines.
+- **Steps out** (1–3) shows connections up to that many steps from the centred page.
+- **Show as a list** gives the same pages and connections as text.
+
+Filters stay in the address and are remembered on this browser. Large wikis (over 600 pages) are
+arranged in the background. A page you cannot read never appears as a dot, a line, a name or a
+count.
+
+![Knowledge graph](screenshots/knowledge-graph.png)
+
+## N. Command palette (everyone)
+Press Ctrl+K (Cmd+K on Mac) or "/" anywhere, or use **Jump to…** at the top of the menu.
+
+- Type part of a page name or a part of the site, such as "Knowledge graph", "A–Z index",
+  "Recently updated" or "Maps".
+- Arrow keys choose, Enter opens. With no match, Enter searches everything.
+- Escape closes it.
+
+DM tools only appear for the DM.
+
+## O. Search operators (everyone)
+On the search page:
+- `"quoted phrase"` finds the exact words.
+- `-word` leaves a word out.
+- `or` between two words finds either one.
+- `type:character` (or `type:locations`, `type:session` and so on) limits results to one kind.
+- `category:"Name"` limits results to one category.
+
+The kind buttons show counts and narrow the results. **Search tips** on the page explains this.
+Filters never show a page you could not already find.
+
+## P. Reading comfort (everyone)
+The **Aa** control next to the theme switch sets the text size: standard, larger text, or larger
+text in a plain font. The choice is remembered on this browser. Article text keeps to a
+comfortable line length on wide screens.
+
+## Q. Faction organisation (everyone)
+Faction pages show who belongs, grouped by the label on their **Member of** connection (for
+example "Captain"). Leaders are listed first and plain members last. Groups appear within the
+faction.
+
+Tip for the DM: put the rank in the label of the connection.
+
+## R. Recently updated, by kind (everyone)
+`/recent` has kind buttons, so you can see only one kind of page (for example only characters).
+
+## S. Status ribbons: Unknown and Inactive (everyone)
+A Status of exactly "Unknown" or "Fate unknown" shows an **Unknown** ribbon. "Inactive" or
+"Dormant" shows an **Inactive** ribbon. Inactive is separate from Retired.
+
+## T. More leak checks (DM, What players can see)
+The **What players can see** page also flags:
+- hidden page names that appear in a visible page's summary or subtitle;
+- DM-only pictures placed in text that players can read. Players see no picture, but the file
+  name reaches them with the text;
+- categories players can see whose pages are all hidden.
+
+## U. Maintenance notice (everyone)
+When maintenance is on, every page shows: "Declan is currently performing maintenance on Chronicle.
+Some features may be temporarily unavailable or behave unexpectedly. Please save your work before
+refreshing." Set-up and options: see [MAINTENANCE-NOTICE.md](MAINTENANCE-NOTICE.md). Not configured
+on the live site yet.
+
+## Waiting for approval (third sprint)
+Bookmarks and reading lists, personal notes, the Investigation Board, the Mystery Studio, the
+Feedback Center, personal invitations and Knowledge Studio collections each need new database
+tables. Their designs are in [PROPOSAL-MIGRATIONS.md](PROPOSAL-MIGRATIONS.md); nothing has been
+written.
+
+## Tests added (third sprint)
+Unit:
+- `knowledgeGraph`, `commands`, `searchQuery`, `orgChart`, `status` (maintenance);
+- additions to `visibilityAudit` and `statusRibbon`.
+
+Browser:
+- `graph` (3, including an 800-page layout);
+- `palette` (2), `search-operators`, `org-chart`, `maintenance`;
+- additions to `navigation` (reading comfort), `recent` (kind filter) and `dm-visibility`
+  (categories).
+
+Every player-facing test checks that hidden pages, fields and connections never reach a player.
