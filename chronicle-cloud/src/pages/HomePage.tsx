@@ -126,7 +126,7 @@ export function HomePage() {
               <div className="company-grid character-grid">
                 {d.party.map((a) => {
                   const f = d.facts.get(a.id);
-                  return <ArticleCard key={a.id} article={a} portrait showState={isDm} meta={[f?.race, f?.class].filter(Boolean).join(' · ')} />;
+                  return <ArticleCard key={a.id} article={a} portrait showState={isDm} meta={[f?.race, f?.class].filter(Boolean).join(' · ')} status={f?.status} />;
                 })}
               </div>
             </section>

@@ -8,6 +8,8 @@ import { isFamilyKind } from '../lib/familyTree.ts';
 import { Infobox } from '../components/Infobox.tsx';
 import { LocationChips } from '../components/LocationChips.tsx';
 import { Markdown } from '../components/Markdown.tsx';
+import { StatusRibbon } from '../components/StatusRibbon.tsx';
+import { ribbonFor, statusFromInfobox } from '../lib/statusRibbon.ts';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { sectionAnchor, Toc } from '../components/Toc.tsx';
 import { articlesBySlugs, listSessions } from '../lib/api.ts';
@@ -160,6 +162,7 @@ export function EncyclopediaPage({ v, isDm, from }: ViewProps) {
         <DmBar v={v} isDm={isDm} />
       </div>
       <h1 className="article-title">{v.title}</h1>
+      {ribbonFor(statusFromInfobox(v.infobox)) && <p className="article-status"><StatusRibbon status={statusFromInfobox(v.infobox)} /></p>}
       {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
       {from && <p className="redirect-note">(Redirected from {from})</p>}
       <div className="article-layout">
@@ -228,7 +231,7 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
           {factLine.length > 0 && <p className="profile-facts">{factLine.join(' · ')}</p>}
           <p className="profile-chips">
             {isParty && <span className="chip chip-party">Of the party</span>}
-            {facts.status && <span className="chip">{facts.status}</span>}
+            {facts.status && (ribbonFor(facts.status) ? <StatusRibbon status={facts.status} /> : <span className="chip">{facts.status}</span>)}
           </p>
           <Places v={v} />
         </div>

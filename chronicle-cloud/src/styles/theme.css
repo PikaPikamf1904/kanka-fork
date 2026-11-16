@@ -788,3 +788,17 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .family-rel { font-family: var(--font-ui); font-size: 12px; fill: var(--muted); }
 .family-initials-bg { fill: var(--surface-2); stroke: var(--line); }
 .family-initials { font-family: var(--font-display); font-size: 14px; fill: var(--text); }
+
+/* Status ribbons (from a page's Status field) */
+.status-ribbon { display: inline-flex; align-items: center; padding: 0.15rem 0.65rem; border-radius: 4px; font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; vertical-align: middle; color: #fff8ec; background: #5b4a35; border: 1px solid rgba(0, 0, 0, 0.2); }
+.status-ribbon-inline { margin-left: 0.4rem; font-size: 0.72rem; }
+.article-status { margin: -0.4rem 0 0.6rem; }
+.article-status .status-ribbon-inline { margin-left: 0; }
+.card-art { position: relative; }
+.status-ribbon-card { position: absolute; top: 0.6rem; left: -0.3rem; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); border-radius: 0 4px 4px 0; }
+.status-deceased { background: #4a2a2a; }
+.status-destroyed { background: #5a3b2a; }
+.status-missing { background: #6d5a1f; }
+.status-captured { background: #3b4a6d; }
+.status-rumoured { background: #5d4a73; }
+.status-retired { background: #52604f; }

@@ -16,8 +16,9 @@ export function BrowsePage() {
   const valid = (TYPE_ORDER as string[]).includes(type);
   const list = useLoad(() => (valid ? listArticles({ type: type as ArticleType, order: type === 'session' ? 'session' : 'title', limit: 500 }) : Promise.resolve([])), [type, isDm]);
   const [filter, setFilter] = useState('');
-  const characterIds = type === 'character' ? (list.data ?? []).map((a) => a.id) : [];
-  const facts = useLoad(() => listCharacterFacts(characterIds), [characterIds.join(',')]);
+  // Race, class and status as the reader may see them: status ribbons on every kind of card.
+  const pageIds = (list.data ?? []).map((a) => a.id);
+  const facts = useLoad(() => listCharacterFacts(pageIds), [pageIds.join(',')]);
   const [characterCategory, setCharacterCategory] = useState<'all' | 'party' | 'others'>('all');
   if (!valid) return <NotFound />;
   const t = TEMPLATES[type as ArticleType];
@@ -83,14 +84,14 @@ export function BrowsePage() {
               <div className="character-grid">
                 {entries.map((a) => {
                   const f = facts.data?.get(a.id);
-                  return <ArticleCard key={a.id} article={a} showState={isDm} portrait meta={[f?.race, f?.class].filter(Boolean).join(' · ')} badge={a.is_party_member ? 'Party' : undefined} />;
+                  return <ArticleCard key={a.id} article={a} showState={isDm} portrait meta={[f?.race, f?.class].filter(Boolean).join(' · ')} badge={a.is_party_member ? 'Party' : undefined} status={f?.status} />;
                 })}
               </div>
             </section>
           ))}
         </div>
       ) : (
-        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} />)}</div>
+        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} status={facts.data?.get(a.id)?.status} />)}</div>
       )}
     </div>
   );
