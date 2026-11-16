@@ -43,6 +43,12 @@ test.describe('Recently updated', () => {
     const today = page.getByRole('region', { name: 'Today' });
     await expect(today.getByTestId('recent-entry').filter({ hasText: 'Zzrecent Harbour Board' })).toContainText('Updated: Posted notices');
     await expect(today.getByTestId('recent-entry').filter({ hasText: 'Zzrecent Quiet Shrine' })).toContainText('Zzrecent secret plans');
+    // Filtering by kind keeps the address and narrows the list.
+    await page.getByRole('group', { name: 'Kind of page' }).getByRole('button', { name: 'Locations' }).click();
+    await expect(page).toHaveURL(/type=location/);
+    await expect(page.getByTestId('recent-entry').filter({ hasText: 'Zzrecent Harbour Board' })).toHaveCount(1);
+    await page.getByRole('group', { name: 'Kind of page' }).getByRole('button', { name: 'Characters' }).click();
+    await expect(page.getByTestId('recent-entry').filter({ hasText: 'Zzrecent Harbour Board' })).toHaveCount(0);
 
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const bodies = recordApi(context);

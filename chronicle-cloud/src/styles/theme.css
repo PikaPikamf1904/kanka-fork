@@ -899,3 +899,5 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 [data-reading='plain'] { --font-body: Verdana, Tahoma, 'Segoe UI', system-ui, sans-serif; }
 [data-reading='plain'] .prose { letter-spacing: 0.01em; word-spacing: 0.08em; }
 [data-reading='plain'] .prose em { font-style: normal; font-weight: 600; }
+.status-inactive { background: #5a5a52; }
+.status-unknown { background: #44465a; }

@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { loadRecentChanges } from '../lib/api.ts';
 import { longDate } from '../lib/dates.ts';
 import { groupByDay, recentChanges } from '../lib/recentChanges.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
-import { TEMPLATES } from '../lib/templates.ts';
+import { TEMPLATES, TYPE_ORDER } from '../lib/templates.ts';
+import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 
 /** "Recently updated": pages whose readable text changed or that were published lately. */
@@ -12,9 +13,14 @@ export function RecentPage() {
   const { playerPreview } = useSession();
   const isDm = useIsDm();
   const data = useLoad(() => loadRecentChanges(playerPreview), [playerPreview, isDm]);
+  const [params, setParams] = useSearchParams();
+  const asked = params.get('type');
+  const type = (TYPE_ORDER as string[]).includes(asked ?? '') ? (asked as ArticleType) : null;
+  const entries = useMemo(() => (data.data ? recentChanges(data.data.pages, data.data.sections, 200) : []), [data.data]);
+  const kinds = useMemo(() => TYPE_ORDER.filter((t) => entries.some((e) => e.page.type === t)), [entries]);
   const days = useMemo(
-    () => (data.data ? groupByDay(recentChanges(data.data.pages, data.data.sections), new Date(), (d) => longDate(d.toISOString())) : []),
-    [data.data],
+    () => groupByDay(entries.filter((e) => !type || e.page.type === type).slice(0, 50), new Date(), (d) => longDate(d.toISOString())),
+    [entries, type],
   );
   return (
     <div className="recent-page">
@@ -31,7 +37,17 @@ export function RecentPage() {
           <button type="button" className="button secondary small" onClick={data.reload}>Try again</button>
         </div>
       )}
-      {data.data && days.length === 0 && <p className="panel">Nothing has changed recently.</p>}
+      {kinds.length > 1 && (
+        <p className="chip-cloud" role="group" aria-label="Kind of page">
+          <button type="button" className={type ? 'chip' : 'chip chip-on'} aria-pressed={!type} onClick={() => setParams({}, { replace: true })}>All</button>
+          {kinds.map((t) => (
+            <button key={t} type="button" className={type === t ? 'chip chip-on' : 'chip'} aria-pressed={type === t} onClick={() => setParams({ type: t }, { replace: true })}>
+              {TEMPLATES[t].plural}
+            </button>
+          ))}
+        </p>
+      )}
+      {data.data && days.length === 0 && <p className="panel">Nothing has changed recently{type ? ' in this kind of page' : ''}.</p>}
       {days.map((d) => (
         <section key={d.day} className="recent-day" aria-labelledby={`recent-${d.day.replace(/\W+/g, '-')}`}>
           <h2 id={`recent-${d.day.replace(/\W+/g, '-')}`}>{d.day}</h2>

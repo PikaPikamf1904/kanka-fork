@@ -11,7 +11,12 @@ describe('ribbonFor', () => {
     expect(ribbonFor('Rumored')?.kind).toBe('rumoured');
   });
   it('shows nothing for empty, living or unrecognised statuses', () => {
-    for (const s of ['', '   ', 'Alive', 'Active', 'Unknown', 'Mayor of the port', null, undefined]) expect(ribbonFor(s)).toBeNull();
+    for (const s of ['', '   ', 'Alive', 'Active', 'Mayor of the port', 'Unknown origin', null, undefined]) expect(ribbonFor(s)).toBeNull();
+    expect(ribbonFor('Unknown')?.label).toBe('Unknown');
+    expect(ribbonFor('Fate unknown')?.kind).toBe('unknown');
+    expect(ribbonFor('Inactive')?.label).toBe('Inactive');
+    expect(ribbonFor('Dormant volcano')?.kind).toBe('inactive');
+    expect(ribbonFor('Retired adventurer')?.kind).toBe('retired');
   });
   it('still marks "no longer active" style statuses', () => {
     expect(ribbonFor('No longer active, disbanded')?.kind).toBe('destroyed');
