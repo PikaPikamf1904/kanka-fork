@@ -8,6 +8,7 @@ import { BrowsePage, CategoriesPage, CategoryPage, ConnectionsPage, SearchPage, 
 import { HomePage } from './pages/HomePage.tsx';
 import { NotFound } from './pages/NotFound.tsx';
 import { SignInPage } from './pages/SignInPage.tsx';
+import { WanderPage } from './pages/WanderPage.tsx';
 
 // Maps (Leaflet) and DM tools load on demand, so players' first page load stays small.
 const MapsPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapsPage })));
@@ -69,6 +70,7 @@ const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/wiki/:slug', element: <ArticlePage /> },
       { path: '/browse/:type', element: <BrowsePage /> },
+      { path: '/wander', element: <WanderPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/categories', element: <CategoriesPage /> },
       { path: '/category/:slug', element: <CategoryPage /> },

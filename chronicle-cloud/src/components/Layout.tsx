@@ -108,6 +108,7 @@ export function Layout() {
           </div>
           <div className="nav-group">
             <NavLink to="/news" className={({ isActive }) => (isActive ? 'nav-gazette active' : 'nav-gazette')}><span className="nav-glyph" aria-hidden="true">✒</span>The Goblin Gazette</NavLink>
+            <NavLink to="/wander"><span className="nav-glyph" aria-hidden="true">⚐</span>Wander</NavLink>
             <NavLink to="/maps"><span className="nav-glyph" aria-hidden="true">⌘</span>Maps</NavLink>
             <NavLink to="/timeline"><span className="nav-glyph" aria-hidden="true">⧗</span>Timeline</NavLink>
             <NavLink to="/connections"><span className="nav-glyph" aria-hidden="true">⚭</span>Connections</NavLink>

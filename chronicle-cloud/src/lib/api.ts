@@ -4,6 +4,7 @@ import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
 import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, type WikiIndex } from './loreImport.ts';
 import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
+import { pickWander } from './wander.ts';
 import type { TidyArticle, TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
@@ -373,6 +374,34 @@ export async function getPlaceChips(articleId: string, title: string): Promise<{
     places,
     maps: mapChips(articleId, title, places, must(markers) as unknown as PlaceMarkerRow[], must(maps) as PlaceMapRow[]),
   };
+}
+
+/**
+ * One random page the reader may read, for "Wander". Never downloads the wiki: an exact count
+ * (HEAD request) under Row Level Security, then single rows by offset in a stable (slug) order.
+ * News stories are left out (they live under /news). `readerView` narrows the DM's own view to
+ * what players receive. Returns null when there is nothing to wander to.
+ */
+export async function wanderToSlug(opts: { type?: ArticleType; readerView: boolean; recent: string[] }): Promise<string | null> {
+  const base = () => {
+    let q = supabase.from('articles').select('slug').neq('type', 'news');
+    if (opts.type) q = q.eq('type', opts.type);
+    if (opts.readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+    return q;
+  };
+  let counter = supabase.from('articles').select('id', { count: 'exact', head: true }).neq('type', 'news');
+  if (opts.type) counter = counter.eq('type', opts.type);
+  if (opts.readerView) counter = counter.eq('visibility', 'players').eq('status', 'published');
+  const { count, error } = await counter;
+  if (error) throw new Error(error.message);
+  return pickWander({
+    count: count ?? 0,
+    recent: opts.recent,
+    at: async (n) => {
+      const rows = must(await base().order('slug').range(n, n)) as { slug: string }[];
+      return rows[0]?.slug ?? null;
+    },
+  });
 }
 
 export async function listRelations(): Promise<(Relation & { source: ArticleRef; target: ArticleRef })[]> {
