@@ -6,7 +6,7 @@ import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, 
 import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
-import type { TidyArticle, TidyData } from './wikiTidy.ts';
+import { minLengthPattern, STUB_LONG_SECTION, STUB_MEDIUM_SECTION, type TidyArticle, type TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
@@ -195,7 +195,9 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
  * is downloaded: sections with a non-blank body are found by a filter on the server.
  */
 export async function loadWikiTidyData(): Promise<TidyData> {
-  const [articles, sections, withText, links, redirects, relations] = await Promise.all([
+  // Section lengths without downloading bodies: the server filters with a regular expression
+  // ("." also matches line breaks in PostgreSQL; one repetition is capped at 255, hence minLengthPattern), so only ids come back. See STUB_* in wikiTidy.ts.
+  const [articles, sections, withText, links, redirects, relations, long, medium, notes] = await Promise.all([
     fetchAll<TidyArticle>((from, to) =>
       supabase.from('articles').select('id, slug, title, type, summary, hero_media_id, visibility, status').order('id').range(from, to)),
     fetchAll<{ id: string; article_id: string }>((from, to) => supabase.from('article_sections').select('id, article_id').order('id').range(from, to)),
@@ -206,8 +208,20 @@ export async function loadWikiTidyData(): Promise<TidyData> {
     fetchAll<{ from_slug: string; article_id: string }>((from, to) => supabase.from('redirects').select('from_slug, article_id').order('from_slug').range(from, to)),
     fetchAll<{ id: string; source_article_id: string; target_article_id: string }>((from, to) =>
       supabase.from('relations').select('id, source_article_id, target_article_id').order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) =>
+      supabase.from('article_sections').select('id, article_id').filter('body', 'match', minLengthPattern(STUB_LONG_SECTION)).order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) =>
+      supabase.from('article_sections').select('id, article_id').filter('body', 'match', minLengthPattern(STUB_MEDIUM_SECTION)).order('id').range(from, to)),
+    // DM notes attached to a page: only the title is read, never the body.
+    fetchAll<{ id: string; article_id: string; title: string }>((from, to) =>
+      supabase.from('dm_notes').select('id, article_id, title').not('article_id', 'is', null).order('id').range(from, to)),
   ]);
-  return { articles, sections, articlesWithText: [...new Set(withText.map((s) => s.article_id))], links, redirects, relations };
+  return {
+    articles, sections, articlesWithText: [...new Set(withText.map((s) => s.article_id))], links, redirects, relations,
+    longTextArticles: [...new Set(long.map((s) => s.article_id))],
+    mediumSections: medium.map((s) => ({ article_id: s.article_id })),
+    notes: notes.map((n) => ({ article_id: n.article_id, title: n.title })),
+  };
 }
 
 /** Race, class and status of the given characters, as far as the reader may see them (one request). */

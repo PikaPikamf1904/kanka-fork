@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeWikiTidy, onlyPlayerVisible, titleFromSlug, type TidyArticle, type TidyData } from './wikiTidy.ts';
+import { computeWikiTidy, isTodoNote, minLengthPattern, onlyPlayerVisible, onlyType, sortPages, tidyTotal, titleFromSlug, type TidyArticle, type TidyData } from './wikiTidy.ts';
 
 const art = (slug: string, over: Partial<TidyArticle> = {}): TidyArticle => ({
   id: `id-${slug}`, slug, title: slug.replace(/-/g, ' '), type: 'lore', summary: 'A summary', hero_media_id: null,
@@ -12,6 +12,8 @@ function data(articles: TidyArticle[], extra: Partial<TidyData> = {}): TidyData 
     sections: articles.map((a) => ({ id: `s-${a.slug}`, article_id: a.id })),
     articlesWithText: articles.map((a) => a.id),
     links: [], redirects: [], relations: [],
+    // Every page counts as having a long section unless a test says otherwise, so none is a stub.
+    longTextArticles: articles.map((a) => a.id), mediumSections: [], notes: [],
     ...extra,
   };
 }
@@ -104,4 +106,81 @@ describe('player filter and helpers', () => {
   });
 
   it('makes a title from a slug', () => expect(titleFromSlug('north-gate')).toBe('North Gate'));
+});
+
+describe('stubs', () => {
+  const arts = [art('long'), art('short'), art('spread'), art('almost'), art('blank')];
+  const base = (): TidyData => ({
+    ...data(arts),
+    articlesWithText: ['id-long', 'id-short', 'id-spread', 'id-almost'],
+    longTextArticles: ['id-long'],
+    mediumSections: [
+      ...['id-spread', 'id-spread', 'id-spread'].map((article_id) => ({ article_id })),
+      ...['id-almost', 'id-almost'].map((article_id) => ({ article_id })),
+    ],
+  });
+  it('flags pages with some text but no long section and fewer than three medium ones', () => {
+    const r = computeWikiTidy(base());
+    expect(r.stubs.map((p) => p.slug)).toEqual(['almost', 'short']);
+  });
+  it('leaves empty pages to the empty-pages section and skips news', () => {
+    const r = computeWikiTidy(base());
+    expect(r.emptyPages.map((p) => p.slug)).toEqual(['blank']);
+    expect(r.stubs.map((p) => p.slug)).not.toContain('blank');
+    const news = art('story', { type: 'news' });
+    expect(computeWikiTidy({ ...data([news]), longTextArticles: [] }).stubs).toEqual([]);
+  });
+  it('counts toward the total and follows the player filter', () => {
+    const d = base();
+    d.articles[1] = { ...d.articles[1]!, visibility: 'dm' };
+    const full = computeWikiTidy(d);
+    expect(onlyPlayerVisible(full).stubs.map((p) => p.slug)).toEqual(['almost']);
+    expect(tidyTotal(full)).toBeGreaterThanOrEqual(full.stubs.length);
+  });
+});
+
+describe('type filter and sorting', () => {
+  const arts = [art('b-item', { type: 'item', summary: '' }), art('a-char', { type: 'character', summary: '' }), art('c-loc', { type: 'location', summary: '', visibility: 'dm', status: 'draft' }), art('d-loc', { type: 'location', summary: '' })];
+  const r = computeWikiTidy(data(arts));
+  it('narrows every section to one type', () => {
+    const only = onlyType(computeWikiTidy(data(arts, { links: [{ source_section_id: 's-c-loc', target_slug: 'gone' }, { source_section_id: 's-a-char', target_slug: 'gone' }] })), 'location');
+    expect(only.missingSummary.map((p) => p.slug)).toEqual(['c-loc', 'd-loc']);
+    expect(only.brokenLinks.map((b) => b.page.slug)).toEqual(['c-loc']);
+    expect(onlyType(r, null)).toBe(r);
+  });
+  it('sorts by title, by type order, and by attention (DM-only and drafts first)', () => {
+    expect(sortPages(r.missingSummary, 'title').map((p) => p.slug)).toEqual(['a-char', 'b-item', 'c-loc', 'd-loc']);
+    expect(sortPages(r.missingSummary, 'type').map((p) => p.slug)).toEqual(['a-char', 'c-loc', 'd-loc', 'b-item']);
+    expect(sortPages(r.missingSummary, 'visibility').map((p) => p.slug)).toEqual(['c-loc', 'a-char', 'b-item', 'd-loc']);
+  });
+  it('sorts broken links by their page and does not change the input', () => {
+    const rows = [{ page: r.missingSummary[2]!, target: 'x' }, { page: r.missingSummary[0]!, target: 'y' }];
+    expect(sortPages(rows, 'title').map((b) => b.target)).toEqual(['y', 'x']);
+    expect(rows[0]!.target).toBe('x');
+  });
+});
+
+describe('DM notes', () => {
+  it('counts notes per page and flags "To do" titles', () => {
+    const r = computeWikiTidy(data([art('a', { summary: '' }), art('b', { summary: '' }), art('c', { summary: '' })], {
+      notes: [{ article_id: 'id-a', title: 'To do: add a map' }, { article_id: 'id-a', title: 'Ideas' }, { article_id: 'id-b', title: 'Backstory' }],
+    }));
+    const by = Object.fromEntries(r.missingSummary.map((p) => [p.slug, p.notes]));
+    expect(by).toEqual({ a: { count: 2, todo: true }, b: { count: 1, todo: false }, c: { count: 0, todo: false } });
+  });
+  it('recognises to-do titles', () => {
+    for (const t of ['To do', 'TODO: x', 'to-do list', '  Todo']) expect(isTodoNote(t)).toBe(true);
+    for (const t of ['Todos later', 'Tomato', 'Things to do']) expect(isTodoNote(t)).toBe(false);
+  });
+});
+
+describe('minLengthPattern', () => {
+  it('keeps each repetition within the 255 limit and means "at least n characters"', () => {
+    expect(minLengthPattern(100)).toBe('.{100}');
+    expect(minLengthPattern(300)).toBe('(.{100}){3}');
+    expect(minLengthPattern(350)).toBe('(.{100}){3}.{50}');
+    const re = new RegExp(`^${minLengthPattern(350)}`, 's');
+    expect(re.test('x'.repeat(349))).toBe(false);
+    expect(re.test(`${'x\n'.repeat(175)}`)).toBe(true);
+  });
 });

@@ -552,7 +552,7 @@ function NotesEditor({ articleId, notes, onChange }: { articleId: string; notes:
   const [body, setBody] = useState('');
   const [error, attempt] = useAttempt();
   return (
-    <section className="panel dm-panel">
+    <section className="panel dm-panel" id="dm-notes">
       <h2>Private DM notes <VisibilityBadge visibility="dm" /></h2>
       {notes.map((n) => (
         <details key={n.id} className="note">
