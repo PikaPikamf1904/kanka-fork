@@ -70,7 +70,14 @@ export function ArticleEditor() {
   const categories = useLoad(listCategories, []);
   const allArticles = useLoad(listAllArticleRefs, []);
 
-  const [draft, setDraft] = useState<ArticleDraft>(() => blankDraft(initialType));
+  const [draft, setDraft] = useState<ArticleDraft>(() => {
+    const draft = blankDraft(initialType);
+    // "Create this page" on the tidy report passes the missing address and a title made from it.
+    const title = (params.get('title') ?? '').slice(0, 200);
+    const wanted = slugify(params.get('slug') ?? title);
+    if (!slug && (title || wanted)) draft.article = { ...draft.article, title: title || wanted, slug: wanted };
+    return draft;
+  });
   const [dirty, setDirty] = useState(false);
   const saveInFlight = useRef(false);
   const [slugTouched, setSlugTouched] = useState(Boolean(slug));

@@ -692,3 +692,15 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .import-relation { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; overflow-wrap: anywhere; }
 .import-batch-list { padding-left: 1.2rem; }
 .import-batch-list li { margin: 0.35rem 0; overflow-wrap: anywhere; }
+
+/* ---------- Tidy up the wiki ---------- */
+.button-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.tidy-filter { min-height: 44px; }
+.tidy-section > summary { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; cursor: pointer; font-family: var(--font-display); font-size: 1.1rem; }
+.tidy-count { margin-left: 0; }
+.tidy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.tidy-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; min-height: 44px; padding: 0.25rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.tidy-list li > a:not(.button), .tidy-main { display: inline-flex; align-items: center; min-height: 44px; }
+.tidy-list li .button { margin-left: auto; }
+.tidy-list li .button + .button { margin-left: 0; }
+.tidy-list .button.small { min-height: 44px; }

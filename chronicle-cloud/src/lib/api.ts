@@ -3,6 +3,7 @@
 import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
 import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, type WikiIndex } from './loreImport.ts';
+import type { TidyArticle, TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
@@ -184,6 +185,26 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
   return fetchAll((from, to) =>
     supabase.from('articles').select('id, slug, title, type, visibility, status').order('title').order('id').range(from, to),
   );
+}
+
+/**
+ * Everything the "Tidy up the wiki" report needs, in a few parallel paged queries. No section text
+ * is downloaded: sections with a non-blank body are found by a filter on the server.
+ */
+export async function loadWikiTidyData(): Promise<TidyData> {
+  const [articles, sections, withText, links, redirects, relations] = await Promise.all([
+    fetchAll<TidyArticle>((from, to) =>
+      supabase.from('articles').select('id, slug, title, type, summary, hero_media_id, visibility, status').order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) => supabase.from('article_sections').select('id, article_id').order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) =>
+      supabase.from('article_sections').select('id, article_id').filter('body', 'match', '\\S').order('id').range(from, to)),
+    fetchAll<{ source_section_id: string; target_slug: string }>((from, to) =>
+      supabase.from('article_links').select('source_section_id, target_slug').order('source_section_id').order('target_slug').range(from, to)),
+    fetchAll<{ from_slug: string; article_id: string }>((from, to) => supabase.from('redirects').select('from_slug, article_id').order('from_slug').range(from, to)),
+    fetchAll<{ id: string; source_article_id: string; target_article_id: string }>((from, to) =>
+      supabase.from('relations').select('id, source_article_id, target_article_id').order('id').range(from, to)),
+  ]);
+  return { articles, sections, articlesWithText: [...new Set(withText.map((s) => s.article_id))], links, redirects, relations };
 }
 
 /** Race, class and status of the given characters, as far as the reader may see them (one request). */
