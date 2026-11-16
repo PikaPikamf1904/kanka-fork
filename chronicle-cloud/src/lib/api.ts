@@ -6,6 +6,7 @@ import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, 
 import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
+import { slugify } from './slug.ts';
 import type { AuditData } from './visibilityAudit.ts';
 import type { GraphInput } from './knowledgeGraph.ts';
 import type { RecentPage, RecentSection } from './recentChanges.ts';
@@ -453,6 +454,34 @@ export async function previewAsPlayer(slug: string): Promise<PlayerPreview> {
 
 export async function search(q: string): Promise<SearchHit[]> {
   return must(await supabase.rpc('search_wiki', { q, max_results: 25 })) as SearchHit[];
+}
+
+/**
+ * Search with operators (see searchQuery.ts): the remaining text goes to the database's search,
+ * and kind and category filters are applied to results that already passed Row Level Security.
+ * With only filters and no text, it lists the matching pages by title.
+ */
+export async function searchWithOperators(p: { text: string; types: ArticleType[]; categories: string[] }): Promise<SearchHit[]> {
+  let hits: SearchHit[];
+  if (p.text) {
+    hits = must(await supabase.rpc('search_wiki', { q: p.text, max_results: 50 })) as SearchHit[];
+  } else {
+    let q = supabase.from('articles').select('id, slug, title, type, summary').neq('type', 'news').order('title').limit(100);
+    if (p.types.length) q = q.in('type', p.types);
+    hits = (must(await q) as { id: string; slug: string; title: string; type: ArticleType; summary: string }[])
+      .map((a) => ({ article_id: a.id, slug: a.slug, title: a.title, type: a.type, summary: a.summary, snippet: null, rank: 0 }) as SearchHit);
+  }
+  if (p.types.length) hits = hits.filter((h) => p.types.includes(h.type));
+  if (p.categories.length) {
+    // Match by address or by name ("Silver Quill" and silver-quill both work).
+    const all = must(await supabase.from('categories').select('id, slug, name').limit(2000)) as { id: string; slug: string; name: string }[];
+    const cats = all.filter((c) => p.categories.includes(c.slug) || p.categories.includes(slugify(c.name)));
+    const inCats = cats.length
+      ? new Set((must(await supabase.from('article_categories').select('article_id').in('category_id', cats.map((c) => c.id)).limit(5000)) as { article_id: string }[]).map((r) => r.article_id))
+      : new Set<string>();
+    hits = hits.filter((h) => inCats.has(h.article_id));
+  }
+  return hits;
 }
 
 export async function suggest(prefix: string): Promise<ArticleRef[]> {

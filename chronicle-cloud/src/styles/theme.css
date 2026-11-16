@@ -883,3 +883,9 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .palette-empty { padding: 0.75rem; color: var(--muted); font-family: var(--font-ui); }
 .palette-keys { margin: 0; padding: 0.4rem 1rem 0.6rem; border-top: 1px solid var(--line); }
 @media (max-width: 600px) { .palette { margin-top: 1rem; } .palette-keys { display: none; } }
+
+/* Search page: form, tips, operators */
+.search-form { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.search-form input { flex: 1; min-width: 0; min-height: 44px; padding: 0.4rem 0.8rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-family: var(--font-ui); }
+.search-tips { margin-bottom: 0.75rem; font-family: var(--font-ui); font-size: 0.9rem; }
+.search-tips summary { cursor: pointer; min-height: 32px; color: var(--link); }

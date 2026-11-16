@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
-import { categoryCounts, getCategory, listArticles, listCharacterFacts, listRelations, search, timeline } from '../lib/api.ts';
+import { categoryCounts, getCategory, listArticles, listCharacterFacts, listRelations, searchWithOperators, timeline } from '../lib/api.ts';
+import { parseSearch } from '../lib/searchQuery.ts';
 import { useIsDm } from '../lib/session.tsx';
 import { relationLabel, TEMPLATES, TYPE_ORDER } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
@@ -98,15 +99,62 @@ export function BrowsePage() {
 }
 
 export function SearchPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
-  const results = useLoad(() => (q.trim() ? search(q) : Promise.resolve([])), [q]);
+  const parsed = useMemo(() => parseSearch(q), [q]);
+  const [draft, setDraft] = useState(q);
+  // A new search from the header box replaces what is in this page's box.
+  const [shownQ, setShownQ] = useState(q);
+  if (q !== shownQ) {
+    setShownQ(q);
+    setDraft(q);
+  }
+  const results = useLoad(
+    () => (parsed.text || parsed.types.length || parsed.categories.length ? searchWithOperators(parsed) : Promise.resolve([])),
+    [parsed.text, parsed.types.join(','), parsed.categories.join(',')],
+  );
+  const byType = useMemo(() => {
+    const m = new Map<ArticleType, number>();
+    for (const h of results.data ?? []) m.set(h.type, (m.get(h.type) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [results.data]);
+  const submit = (next: string) => setParams(next.trim() ? { q: next.trim() } : {});
+  const withType = (t: ArticleType) => `${q.replace(/(^|\s)(type|kind):\S+/gi, '').trim()} type:${t}`.trim();
   return (
     <div>
       <h1 className="page-title">Search</h1>
-      <p className="muted">Results for “{q}”</p>
-      {results.error && <p className="form-error">{results.error}</p>}
-      {results.data?.length === 0 && <p>No pages match. Try fewer or different words.</p>}
+      <form className="search-form" role="search" onSubmit={(e) => { e.preventDefault(); submit(draft); }}>
+        <label className="visually-hidden" htmlFor="search-page-q">Search the wiki</label>
+        <input id="search-page-q" type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder='e.g. "red hand" -dragon type:character' />
+        <button type="submit" className="button small">Search</button>
+      </form>
+      <details className="search-tips">
+        <summary>Search tips</summary>
+        <ul>
+          <li><code>"silver quill"</code> finds the exact phrase.</li>
+          <li><code>-dragon</code> leaves out pages with that word; <code>harbour or port</code> finds either.</li>
+          <li><code>type:character</code> (or <code>type:locations</code>, <code>type:session</code>…) shows one kind of page.</li>
+          <li><code>category:"Silver Quill"</code> shows pages in a category.</li>
+        </ul>
+      </details>
+      {q && (
+        <p className="muted" data-testid="search-summary">
+          {parsed.text ? <>Results for “{parsed.text}”</> : 'All pages'}
+          {parsed.types.length > 0 && <> · {parsed.types.map((t) => TEMPLATES[t].plural).join(', ')}</>}
+          {parsed.categories.length > 0 && <> · in {parsed.categories.join(', ')}</>}
+        </p>
+      )}
+      {parsed.unknown.length > 0 && <p className="notice">Not understood: {parsed.unknown.join(', ')}. Kinds are {TYPE_ORDER.map((t) => t).join(', ')}.</p>}
+      {results.loading && <p className="muted" role="status">Searching…</p>}
+      {results.error && <p className="form-error" role="alert">{results.error}</p>}
+      {byType.length > 1 && parsed.types.length === 0 && (
+        <p className="chip-cloud" aria-label="Narrow by kind">
+          {byType.map(([t, n]) => (
+            <Link key={t} className="chip" to={`/search?q=${encodeURIComponent(withType(t))}`}>{TEMPLATES[t].plural} <span className="muted">({n})</span></Link>
+          ))}
+        </p>
+      )}
+      {q && results.data?.length === 0 && <p>No pages match. Try fewer or different words.</p>}
       <ol className="search-results">
         {results.data?.map((hit) => (
           <li key={hit.article_id}>
