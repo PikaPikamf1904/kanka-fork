@@ -1,5 +1,32 @@
 # Chronicle implementation status
 
+## 2026-11-16 — overnight sprint (branch `claude/chronicle-website-features`, draft PR #31)
+
+Local, committed and pushed only. Nothing deployed, merged or applied to the hosted project; no
+migration files written. Started at `3f69e5925`.
+
+Built (unit and browser tests for each; player tests check hidden pages never arrive):
+- Knowledge graph (`/graph`): global and local views, zoom, pan, pinch, drag, search, kind filters,
+  preview card, accessible list view, filters kept in the address and per browser. d3-force and
+  d3-quadtree (pinned); layout in a Web Worker above 600 pages. Built only from pages the reader
+  received, so hidden pages and links to them never appear.
+- Maintenance notice (`/api/status`): the exact agreed visitor text; turned on by an environment
+  switch, a token-protected deploy flag in KV, or (opt-in) a development heartbeat. Off by default.
+- Command palette (Ctrl/⌘+K or "/"): pages and parts of the site; DM entries hidden from players.
+- Search operators: `type:`, `category:`, `"exact phrase"`, `-exclude`.
+- Reading comfort: larger text, or larger text with a plain font, remembered per browser.
+- Leak checks extended: summaries, subtitles, DM-only pictures placed in visible text, categories
+  players can see that only hold hidden pages.
+- "Recently updated" kind filter; Unknown and Inactive status ribbons.
+- Faction organisation charts from "Member of" connections.
+
+Waiting for owner approval (migration design only, in
+[PROPOSAL-MIGRATIONS.md](PROPOSAL-MIGRATIONS.md)): bookmarks, reading lists, personal notes,
+Investigation Board, Mystery Studio, Feedback Center, player invitations, Knowledge Studio.
+
+Verified at `6fa3282db` (local, PostgreSQL 17): lint 0, typecheck 0 (site and MCP worker), unit
+199/199, database 311/311, browser 91/91, production build OK. `235681f32` adds documentation only.
+
 ## 2026-11-16 — second website sprint (branch `claude/chronicle-website-features`, draft PR #31)
 
 Local, committed and pushed only. Nothing deployed, no production change, no migrations. Stacked
