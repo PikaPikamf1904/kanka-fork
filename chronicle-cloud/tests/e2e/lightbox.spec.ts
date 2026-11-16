@@ -1,9 +1,45 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import pg from 'pg';
+import { assertDisposableDatabase, readLocalEnv } from '../../scripts/local-targets.mjs';
 import { enrollAsPlayer, noHorizontalOverflow, screenshot, signInAsDm } from './support.ts';
 
-// The picture viewer on an article, with synthetic pictures drawn in the browser. The DM adds
-// three pictures a player may see (one single, two in a gallery) and one DM-only picture.
+// The picture viewer on an article, with synthetic pictures drawn in the browser. The test makes
+// its OWN synthetic article (so it never shares pictures with other specs), the DM adds three
+// pictures a player may see (one single, two in a gallery) and one DM-only picture, and the
+// article is removed afterwards.
+
+const TITLE = 'Lightbox Probe Captain';
+const tag = Date.now().toString(36);
+const SLUG = `zz-lightbox-${tag}`;
+
+async function db<T extends pg.QueryResultRow>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const url = readLocalEnv().DATABASE_URL!;
+  await assertDisposableDatabase(url);
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    return (await client.query<T>(sql, params)).rows;
+  } finally {
+    await client.end();
+  }
+}
+
+// Sections go with the article (cascade); media rows the DM adds are left to the reseed.
+const removeProbe = () => db('delete from public.articles where slug = $1', [SLUG]);
+
+async function addProbe() {
+  const [a] = await db<{ id: string }>(
+    `insert into public.articles (slug, type, title, summary, visibility, status) values ($1, 'character', $2, 'A synthetic captain for the picture viewer.', 'players', 'published') returning id`,
+    [SLUG, TITLE],
+  );
+  await db(
+    `insert into public.article_sections (article_id, position, heading, body, visibility, status) values
+       ($1, 1, 'Known history', 'Pictures of the harbour.', 'players', 'published'),
+       ($1, 2, 'Secrets', 'Notes for the DM only.', 'dm', 'published')`,
+    [a!.id],
+  );
+}
 
 const docsShots = path.resolve(import.meta.dirname, '../../../docs/chronicle/screenshots');
 
@@ -44,12 +80,17 @@ async function swipe(page: Page, from: { x: number; y: number }, to: { x: number
 }
 
 test.describe('Picture viewer', () => {
+  test.beforeEach(async () => {
+    await removeProbe();
+    await addProbe();
+  });
+  test.afterEach(removeProbe);
+
   test('opens from an article picture and steps through every picture the reader can see', async ({ page, browser }) => {
     test.setTimeout(180_000);
-    const tag = Date.now().toString(36);
     await signInAsDm(page);
-    await page.goto('/dm/edit/captain-merrin-vael');
-    await expect(page.getByLabel('Title', { exact: true }).first()).toHaveValue('Captain Merrin Vael');
+    await page.goto(`/dm/edit/${SLUG}`);
+    await expect(page.getByLabel('Title', { exact: true }).first()).toHaveValue(TITLE);
 
     // One captioned picture and a gallery of two in "Known history", one picture in the DM-only "Secrets".
     const history = page.getByRole('toolbar', { name: 'Known history text: pictures' });
@@ -79,7 +120,7 @@ test.describe('Picture viewer', () => {
     await expect(page.getByText('Saved.')).toBeVisible();
 
     // The DM sees four pictures in the viewer, including the DM-only one.
-    await page.goto('/wiki/captain-merrin-vael');
+    await page.goto(`/wiki/${SLUG}`);
     await expect(openers(page)).toHaveCount(4);
     await expect(page.getByText(`Secret plan ${tag}`)).toBeVisible();
     await openers(page).first().click();
@@ -90,7 +131,7 @@ test.describe('Picture viewer', () => {
     // ---- A player on a desktop screen: only the three pictures they may see. ----
     const desktop = await (await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 })).newPage();
     await enrollAsPlayer(desktop, 'Picture Viewer');
-    await desktop.goto('/wiki/captain-merrin-vael');
+    await desktop.goto(`/wiki/${SLUG}`);
     await expect(desktop.getByText(`The ledger ${tag}`)).toBeVisible();
     await expect(openers(desktop)).toHaveCount(3);
     await expect(openers(desktop).nth(0)).toHaveAccessibleName('View picture: Smoke over a harbour');
@@ -150,7 +191,7 @@ test.describe('Picture viewer', () => {
     // ---- A player on a phone: no sideways scrolling; swipe and Next both work. ----
     const phone = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
     await enrollAsPlayer(phone, 'Phone Viewer');
-    await phone.goto('/wiki/captain-merrin-vael');
+    await phone.goto(`/wiki/${SLUG}`);
     await expect(openers(phone)).toHaveCount(3);
     await openers(phone).first().scrollIntoViewIfNeeded();
     await openers(phone).first().tap();
