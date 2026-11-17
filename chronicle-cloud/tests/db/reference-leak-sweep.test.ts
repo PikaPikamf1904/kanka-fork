@@ -17,6 +17,14 @@ const ALLOWED: Record<string, string> = {
   'bookmarks.article_id': 'own bookmark: only the id of a page the owner could once read',
   'scratchpad_notes.article_id': 'own scratchpad note: only the id of a page the owner could once read',
   'journal_entry_links.article_id': 'own journal link: only the id of a page the owner could once read',
+  // Mystery Studio (20261117000200): a released clue names its mystery's id. Mysteries are DM-only by
+  // design; players get only the spoiler-safe name through public.mystery_index(), and only for
+  // mysteries with a clue they can already see. The id itself reveals nothing.
+  // Knowledge Studio (20261117000600): a source added while its page was readable, page hidden since. Only
+  // players can share collections, and a player can add only pages every player can read, so the id
+  // was readable by the whole party when it was added; no title is stored.
+  'research_sources.article_id': 'source in a (shared) collection: only the id of a page the party could once read',
+  'clues.mystery_id': 'released clue: the id of its (DM-only) mystery; the safe name comes from mystery_index()',
 };
 
 let probes: { fk: string; sql: string }[] = [];
@@ -30,6 +38,18 @@ beforeAll(async () => {
   await admin(`insert into public.scratchpad_notes (user_id, article_id, body) values ($1, $2, 'Zz sweep')`, [ids.player, SECRET]);
   const entry = await admin<{ id: string }>(`insert into public.journal_entries (user_id, title) values ($1, 'Zz sweep') returning id`, [ids.player]);
   await admin(`insert into public.journal_entry_links (entry_id, article_id) values ($1, $2)`, [entry.rows[0]!.id, SECRET]);
+  // A released clue, plus one released clue that requires another, and a board pin and link.
+  const mystery = await admin<{ id: string }>(`insert into public.mysteries (title, status) values ('Zz sweep', 'active') returning id`);
+  const first = await admin<{ id: string }>(`insert into public.clues (mystery_id, title, released_at) values ($1, 'Zz first', now()) returning id`, [mystery.rows[0]!.id]);
+  await admin(`insert into public.clue_discoveries (clue_id, user_id) values ($1, $2)`, [first.rows[0]!.id, ids.player]);
+  await admin(`insert into public.clues (mystery_id, title, released_at, requires_clue_id) values ($1, 'Zz second', now(), $2)`, [mystery.rows[0]!.id, first.rows[0]!.id]);
+  await admin(`insert into public.clue_hints (clue_id, body, released_at) values ($1, 'Zz hint', now())`, [first.rows[0]!.id]);
+  const research = await admin<{ id: string }>(`insert into public.research_collections (user_id, title, shared) values ($1, 'Zz sweep', true) returning id`, [ids.player]);
+  await admin(`insert into public.research_sources (collection_id, article_id) values ($1, $2)`, [research.rows[0]!.id, SECRET]);
+  const group = await admin<{ id: string }>(`insert into public.board_groups (title) values ('Zz sweep') returning id`);
+  const card = await admin<{ id: string }>(`insert into public.board_items (kind, title, group_id) values ('note', 'Zz sweep', $1) returning id`, [group.rows[0]!.id]);
+  const card2 = await admin<{ id: string }>(`insert into public.board_items (kind, title) values ('note', 'Zz sweep 2') returning id`);
+  await admin(`insert into public.board_links (from_item, to_item) values ($1, $2)`, [card.rows[0]!.id, card2.rows[0]!.id]);
   probes = (
     await admin<{ fk: string; sql: string }>(`
       select c.conrelid::regclass::text || '.' || a.attname as fk,
@@ -47,6 +67,10 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await admin(`update public.campaign_settings set current_location_id = null`);
+  await admin(`delete from public.board_items where title like 'Zz sweep%'`);
+  await admin(`delete from public.board_groups where title = 'Zz sweep'`);
+  await admin(`delete from public.mysteries where title = 'Zz sweep'`);
+  await admin(`delete from public.research_collections where title = 'Zz sweep'`);
   await admin(`delete from public.bookmarks`);
   await admin(`delete from public.scratchpad_notes`);
   await admin(`delete from public.journal_entries`);
