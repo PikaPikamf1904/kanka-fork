@@ -88,7 +88,8 @@ test.describe('Staged lore import', () => {
     await player.goto(`/search?q=ZZSECRET${run}`);
     // The heading repeats the reader's own query; the results must be empty.
     await expect(player.getByText('No pages match.')).toBeVisible();
-    await expect(player.getByRole('link', { name: new RegExp(run) })).toHaveCount(0);
+    // Only the results list is checked: the player's own recent-searches list shows their query, which contains the run id.
+    await expect(player.locator('ol.search-results').getByRole('link', { name: new RegExp(run) })).toHaveCount(0);
   });
 
   test('works on a phone without sideways scrolling', async ({ browser }) => {
