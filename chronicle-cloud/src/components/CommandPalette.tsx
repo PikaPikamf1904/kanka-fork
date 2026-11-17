@@ -22,6 +22,7 @@ const COMMANDS: PaletteCommand[] = [
   { id: 'scratchpad', label: 'My scratchpad', to: '/scratchpad', keywords: 'note jot' },
   { id: 'maps', label: 'Maps', to: '/maps' },
   { id: 'timeline', label: 'Timeline', to: '/timeline', keywords: 'history dates' },
+  { id: 'feedback', label: 'Feedback for the DM', to: '/feedback', keywords: 'suggestion bug idea boundaries comfort anonymous' },
   { id: 'search', label: 'Search everything', to: '/search', keywords: 'find full text' },
   { id: 'dm', label: 'DM desk', to: '/dm', dmOnly: true },
   { id: 'new', label: 'New article', to: '/dm/new', keywords: 'create page write', dmOnly: true },
@@ -30,6 +31,7 @@ const COMMANDS: PaletteCommand[] = [
   { id: 'tidy', label: 'Tidy up the wiki', to: '/dm/tidy', keywords: 'broken links stubs', dmOnly: true },
   { id: 'visibility', label: 'What players can see', to: '/dm/visibility', keywords: 'leaks hidden secrets', dmOnly: true },
   { id: 'journals', label: 'Player journals', to: '/dm/journals', keywords: 'players character diary theories', dmOnly: true },
+  { id: 'feedbackinbox', label: 'Player feedback', to: '/dm/feedback', keywords: 'inbox suggestions bugs boundaries', dmOnly: true },
   { id: 'access', label: 'Player access', to: '/dm/access', keywords: 'codes members', dmOnly: true },
   { id: 'settings', label: 'Wiki settings', to: '/dm/settings', dmOnly: true },
 ];

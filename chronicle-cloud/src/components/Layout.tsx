@@ -248,10 +248,12 @@ export function Layout() {
               <NavLink to="/dm/notes">Private notes</NavLink>
               <NavLink to="/dm/journals">Player journals</NavLink>
               <NavLink to="/dm/access">Player access</NavLink>
+              <NavLink to="/dm/feedback">Player feedback</NavLink>
               <NavLink to="/dm/settings">Wiki settings</NavLink>
             </div>
           )}
           <div className="nav-group nav-account">
+            <NavLink to="/feedback">Feedback for the DM</NavLink>
             {state.kind === 'member' && <div className="signed-in">Signed in as {state.displayName}</div>}
             {state.kind === 'member' && <AccountSwitcher currentUserId={state.userId} onDone={() => setMenuOpen(false)} />}
             {realDm && !playerPreview && (

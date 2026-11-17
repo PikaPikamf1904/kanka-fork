@@ -962,3 +962,16 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
   .check-row { min-height: 44px; }
   .check-row input { min-width: 44px; }
 }
+
+/* Feedback Center */
+.feedback-form { display: grid; gap: 0.75rem; }
+.feedback-form label { display: grid; gap: 0.3rem; font-family: var(--font-ui); font-weight: 700; }
+.feedback-form select, .feedback-form textarea, .feedback-item textarea { font: inherit; padding: 0.5rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); min-height: 44px; }
+.feedback-mode { border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.75rem; display: grid; gap: 0.4rem; }
+.feedback-mode .radio { display: flex; gap: 0.5rem; align-items: flex-start; font-weight: 400; min-height: 44px; }
+.feedback-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.feedback-list > li { border-top: 1px solid var(--line); padding-top: 0.6rem; }
+.feedback-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-reply { border-left: 3px solid var(--gold); padding-left: 0.6rem; }
+.feedback-controls, .feedback-filters { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: end; }
+.feedback-item details label { display: grid; gap: 0.25rem; margin: 0.5rem 0; }

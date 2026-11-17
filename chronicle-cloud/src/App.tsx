@@ -16,6 +16,8 @@ import { WanderPage } from './pages/WanderPage.tsx';
 const MapsPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapsPage })));
 const MapPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default: m.MapPage })));
 const RecentPage = lazy(() => import('./pages/RecentPage.tsx').then((m) => ({ default: m.RecentPage })));
+const FeedbackPage = lazy(() => import('./pages/FeedbackPage.tsx').then((m) => ({ default: m.FeedbackPage })));
+const FeedbackInbox = lazy(() => import('./pages/dm/FeedbackInbox.tsx').then((m) => ({ default: m.FeedbackInbox })));
 const GraphPage = lazy(() => import('./pages/GraphPage.tsx').then((m) => ({ default: m.GraphPage })));
 const FactsPage = lazy(() => import('./pages/FactsPage.tsx').then((m) => ({ default: m.FactsPage })));
 const SavedPage = lazy(() => import('./pages/SavedPage.tsx').then((m) => ({ default: m.SavedPage })));
@@ -98,6 +100,7 @@ const router = createBrowserRouter([
       { path: '/recent', element: page(<RecentPage />) },
       { path: '/facts', element: page(<FactsPage />) },
       { path: '/graph', element: page(<GraphPage />) },
+      { path: '/feedback', element: page(<FeedbackPage />) },
       { path: '/saved', element: page(<SavedPage />) },
       { path: '/scratchpad', element: page(<ScratchpadPage />) },
       { path: '/journal', element: page(<JournalPage />) },
@@ -122,6 +125,7 @@ const router = createBrowserRouter([
           { path: 'notes', element: page(<NotesPage />) },
           { path: 'journals', element: page(<PlayerJournals />) },
           { path: 'access', element: page(<AccessAdmin />) },
+          { path: 'feedback', element: page(<FeedbackInbox />) },
           { path: 'settings', element: page(<SettingsPage />) },
           { path: 'timeline', element: page(<TimelineEditor />) },
           { path: 'maps/new', element: page(<MapEditor />) },
