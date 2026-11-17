@@ -1,5 +1,22 @@
 # Chronicle website roadmap: 50 feature ideas and a design review (2026-11-16)
 
+## Status after 2026-11-17
+
+Status: development branch only; **nothing here is deployed**. The full feature list is in [FEATURE-INVENTORY.md](FEATURE-INVENTORY.md). Of the 50 ideas below, these have code on the development branch, matched to the table's numbers:
+
+- #4 Infobox field browse: `/facts`.
+- #5 Status ribbons: built from the existing Status field.
+- #8 Recently updated feed: `/recent`, built from section-level timestamps.
+- #14 Secret-leak linter (partial): leak detection on `/dm/visibility`; not a linter for player-visible text.
+- #32 Personal notes (partial): per-page private scratchpad; no reactions or sharing.
+- #33 Clue tracker (partial): Mystery Studio discoveries; not a general known-facts list.
+- #40 Accessibility reader mode (partial): reading comfort settings in the header.
+- #42 Full-text search operators: `type:`, `category:`, quoted phrases and exclusions on `/search`.
+- #45 Stable permalinks and redirects on rename: an old address keeps working after a rename.
+
+For the other ideas in this list (for example #1 to #3, #6, #7, #9 to #13, #15 to #31, #34 to #39, #41, #43, #44, #46 to #50) I found no code on this branch; this is a search result, not a full audit. Ideas that are built beyond this list (player invitations, the Investigation Board, Mystery Studio, Feedback Center, Knowledge Studio, the maintenance switch) are not in the 50 and are described in the inventory.
+
+
 Boundary: website only; no AI generation/automation/decisions, no live-session control.
 
 These ideas are in addition to the 30 from the first sprint and the features already built (see [WEBSITE-FEATURES.md](WEBSITE-FEATURES.md)). Ideas only: nothing here is implemented unless the implementation status says so. Scores = Value/Feasibility/Visual/Efficiency (1–10).

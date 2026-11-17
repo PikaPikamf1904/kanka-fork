@@ -1,8 +1,14 @@
-# Proposal: the migrations behind the next Chronicle features (needs approval)
+# Proposal: the migrations behind the next Chronicle features
 
-**Status: designed, not written.** These features store new kinds of data. Under the standing rule,
-a migration file may only be written after the owner approves it. Nothing below exists in the
-repository yet.
+**Status (2026-11-17): written and tested locally on the development branch, after the owner's
+sprint brief authorised local migrations for these designs. Not applied to any hosted database.**
+The files, hashes and test status are in [MIGRATIONS-2026-11-17.md](MIGRATIONS-2026-11-17.md).
+The design below is the original proposal; where the brief changed it, the files win:
+- the DM can read Character Journals (read-only); private scratchpads stay owner-only;
+- one campaign-wide Investigation Board with mystery sections;
+- research collections are private by default and players may share them with the party;
+- invitations create one account per player, used on all of that player's devices;
+- an extra small migration, 20261117000700, adds the DM's website maintenance switch.
 
 Approving a numbered migration means that file may be:
 1. written,
