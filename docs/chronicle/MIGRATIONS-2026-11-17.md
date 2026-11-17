@@ -1,6 +1,9 @@
-# Migrations written on 2026-11-17 (development branch, not applied to any hosted database)
+# Migrations written on 2026-11-17 and 2026-11-18 (development branch)
 
-All seven are additive: new tables, functions, policies and one new column. No existing row is
+The release bundle is the 22 files after production's last migration (`20261112001300`) plus the eighth
+file below (`20261118000100_dm_gate.sql`): 23 in all.
+
+All eight are additive: new tables, functions, policies and one new column. No existing row is
 changed and no existing table is dropped. Each file is idempotent (it can be applied twice) and
 ends with `notify pgrst, 'reload schema'`. Each header comment has a local rollback note.
 
@@ -13,6 +16,7 @@ ends with `notify pgrst, 'reload schema'`. Each header comment has a local rollb
 | `20261117000500_player_invitations.sql` | Personal invitations, one account per player, per-device revocation (changes `private.is_member()`) | `48613aa2a3569c3aa5fef1f71bb60bc096acb246e3ed1aedbb3311b07e5db4bc` |
 | `20261117000600_research.sql` | Knowledge Studio research collections | `971869ae1be7aab22a39b57d5a3116f25617ca6dbd6c0d96dece75b7c086dfa9` |
 | `20261117000700_maintenance_switch.sql` | The DM's website maintenance switch; a trigger stops direct API writes to `maintenance_until`, so the 8-hour cap cannot be skipped | `05829d0edb7aff011b00018324b88c0c7afb8495769859717805025d6d60ddc6` |
+| `20261118000100_dm_gate.sql` | Attempt log and limits (5 per address per 15 min, 100 per hour) for the DM screen passcode; server key only | `aed05958554e217b3090dc4399e884651eb0f84cec80e8fc143e450951b96d9a` |
 
 ## What was tested, locally only
 

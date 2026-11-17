@@ -6,7 +6,8 @@ production needs the owner's explicit approval of this exact release.
 ## State on 2026-11-17 (verified read-only)
 
 - Hosted project's last applied migration: `20261112001300` (13 applied).
-- Pending: 22 files, `20261112001400_article_images.sql` through `20261117000700_maintenance_switch.sql`.
+- Pending: 23 files, `20261112001400_article_images.sql` through `20261118000100_dm_gate.sql`
+  (22 written by 2026-11-17, plus the DM screen's attempt log).
 - Hosted data: 52 articles, 143 sections, 54 DM notes, 20 relations, 313 provenance rows,
   2 members (DM active; the one player row is revoked), 0 media rows, 0 Storage objects.
 - The live site (`chronicle-wiki-preview.pages.dev`, production deployment) is the Gazette build
@@ -41,14 +42,19 @@ fingerprint unchanged, DM reads 52 pages, outsider 0, anonymous refused.
 1. Fresh backup (step 1) taken minutes before, checksums kept.
 2. Optional: switch the maintenance notice on (`MAINTENANCE_MODE=on` in Pages, or the DM switch
    once `…0700` exists).
-3. Apply the 22 files in filename order, each in its own transaction, through the SQL Editor or
+3. Apply the 23 files in filename order, each in its own transaction, through the SQL Editor or
    `supabase db push`. Stop at the first error; nothing after it is applied.
 4. Read-only checks: `select max(version) from supabase_migrations.schema_migrations` equals
-   `20261117000700`; article/section/relation counts equal the backup's; as the DM the site
+   `20261118000100`; article/section/relation counts equal the backup's; as the DM the site
    lists every page; signed out, `/rest/v1/articles` returns nothing.
-5. Deploy the approved commit to the Pages production branch and set the Pages secrets
-   `SUPABASE_SECRET_KEY` and `IP_HASH_SECRET` for Production (and Preview, if previews should
-   enrol or invite players).
+5. Pages Production variables (verified present on 2026-11-17: `SUPABASE_URL`,
+   `SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, secrets
+   `SUPABASE_SECRET_KEY` and `IP_HASH_SECRET`). Add the secret `DM_SCREEN_PASSCODE`. Previews carry no
+   server secrets, so on a preview the DM sign-in says the DM screen is not set up.
+   Deploy: switch the Pages project's production branch to the approved branch, create a deployment on
+   it (Dashboard "Retry"/"Create deployment", or `POST .../pages/projects/<name>/deployments` with
+   `branch=<approved branch>`), wait for it to finish, then confirm that
+   `canonical_deployment.deployment_trigger.metadata.commit_hash` is the approved commit.
 6. Walk the DM and player journeys on the live URL; invite one test player and check they see
    only published player pages.
 
