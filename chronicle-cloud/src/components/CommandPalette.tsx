@@ -22,6 +22,7 @@ const COMMANDS: PaletteCommand[] = [
   { id: 'scratchpad', label: 'My scratchpad', to: '/scratchpad', keywords: 'note jot' },
   { id: 'maps', label: 'Maps', to: '/maps' },
   { id: 'timeline', label: 'Timeline', to: '/timeline', keywords: 'history dates' },
+  { id: 'studio', label: 'Knowledge Studio', to: '/studio', keywords: 'research collections sources notes summaries' },
   { id: 'feedback', label: 'Feedback for the DM', to: '/feedback', keywords: 'suggestion bug idea boundaries comfort anonymous' },
   { id: 'search', label: 'Search everything', to: '/search', keywords: 'find full text' },
   { id: 'dm', label: 'DM desk', to: '/dm', dmOnly: true },

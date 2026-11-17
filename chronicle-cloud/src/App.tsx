@@ -18,6 +18,8 @@ const MapPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default
 const RecentPage = lazy(() => import('./pages/RecentPage.tsx').then((m) => ({ default: m.RecentPage })));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage.tsx').then((m) => ({ default: m.FeedbackPage })));
 const FeedbackInbox = lazy(() => import('./pages/dm/FeedbackInbox.tsx').then((m) => ({ default: m.FeedbackInbox })));
+const StudioIndex = lazy(() => import('./pages/StudioPages.tsx').then((m) => ({ default: m.StudioIndex })));
+const StudioCollection = lazy(() => import('./pages/StudioPages.tsx').then((m) => ({ default: m.StudioCollection })));
 const GraphPage = lazy(() => import('./pages/GraphPage.tsx').then((m) => ({ default: m.GraphPage })));
 const FactsPage = lazy(() => import('./pages/FactsPage.tsx').then((m) => ({ default: m.FactsPage })));
 const SavedPage = lazy(() => import('./pages/SavedPage.tsx').then((m) => ({ default: m.SavedPage })));
@@ -101,6 +103,8 @@ const router = createBrowserRouter([
       { path: '/facts', element: page(<FactsPage />) },
       { path: '/graph', element: page(<GraphPage />) },
       { path: '/feedback', element: page(<FeedbackPage />) },
+      { path: '/studio', element: page(<StudioIndex />) },
+      { path: '/studio/:id', element: page(<StudioCollection />) },
       { path: '/saved', element: page(<SavedPage />) },
       { path: '/scratchpad', element: page(<ScratchpadPage />) },
       { path: '/journal', element: page(<JournalPage />) },

@@ -6,8 +6,9 @@
 --   reply.
 -- * Anonymous: submitted only through submit_anonymous_feedback(). The row stores no user id, no
 --   name, no time of day (only the date) and no address or device. A daily per-person limit is
---   counted under a keyed hash with a salt that is replaced every day, and the old salt and counts
---   are deleted, so the database cannot later link a submission to anyone.
+--   counted under a keyed hash with a per-day random salt. Earlier days' salts and counts are
+--   deleted at the next anonymous submission (there is no timer); once a day's salt is gone its
+--   keys cannot be linked to anyone, and the keys never name the submission they counted.
 --   Honest limit (stated on the form): writing style and details can identify someone, and the
 --   hosting providers keep normal request logs.
 --

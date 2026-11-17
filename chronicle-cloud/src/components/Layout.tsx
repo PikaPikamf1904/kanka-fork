@@ -229,6 +229,7 @@ export function Layout() {
             <NavLink to="/wander"><span className="nav-glyph" aria-hidden="true">⚐</span>Wander</NavLink>
             <NavLink to="/maps"><span className="nav-glyph" aria-hidden="true">⌘</span>Maps</NavLink>
             <NavLink to="/timeline"><span className="nav-glyph" aria-hidden="true">⧗</span>Timeline</NavLink>
+            <NavLink to="/studio"><span className="nav-glyph" aria-hidden="true">✎</span>Knowledge Studio</NavLink>
             <NavLink to="/graph"><span className="nav-glyph" aria-hidden="true">✺</span>Knowledge graph</NavLink>
             <NavLink to="/connections"><span className="nav-glyph" aria-hidden="true">⚭</span>Connections</NavLink>
             <NavLink to="/categories"><span className="nav-glyph" aria-hidden="true">❖</span>Categories</NavLink>

@@ -975,3 +975,17 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .feedback-reply { border-left: 3px solid var(--gold); padding-left: 0.6rem; }
 .feedback-controls, .feedback-filters { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: end; }
 .feedback-item details label { display: grid; gap: 0.25rem; margin: 0.5rem 0; }
+
+/* Knowledge Studio */
+.studio-new, .studio-tools { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: end; margin: 0.75rem 0; }
+.studio-new label, .studio-tools label, .studio-add label { display: grid; gap: 0.25rem; font-family: var(--font-ui); font-weight: 700; flex: 1 1 14rem; }
+.studio-new input, .studio-tools input, .studio-add input { min-height: 44px; padding: 0.4rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.studio-list { list-style: none; padding: 0; display: grid; gap: 0.6rem; }
+.studio-hits { list-style: none; padding: 0; margin: 0.25rem 0 0.75rem; }
+.studio-hits .link-button { min-height: 44px; text-align: left; }
+.studio-sources { list-style: none; padding: 0; display: grid; gap: 0.6rem; }
+.studio-source-title { margin: 0; overflow-wrap: anywhere; }
+.studio-excerpt { margin: 0.5rem 0; padding: 0.4rem 0.8rem; border-left: 3px solid var(--gold); font-style: italic; overflow-wrap: anywhere; }
+.studio-excerpt footer { font-style: normal; font-size: 0.85rem; color: var(--muted); }
+.studio-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+.studio-summary label { display: grid; gap: 0.25rem; margin-bottom: 0.5rem; }
