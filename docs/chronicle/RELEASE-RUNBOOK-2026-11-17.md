@@ -35,15 +35,22 @@ node scripts/restore-logical-backup.mjs <dir>        # must print RESTORE OK
 Then apply each pending file in order, one transaction each
 (`psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -1 -f <file>`) and compare
 the data fingerprint before and after. Result on 2026-11-17: restore OK on every table, 22 applied,
-fingerprint unchanged, DM reads 52 pages, outsider 0, anonymous refused.
+fingerprint unchanged, DM reads 52 pages, outsider 0, anonymous refused. Repeated with all 23
+files on the same data: identical result.
 
 ## 3. Apply to production (needs approval)
 
 1. Fresh backup (step 1) taken minutes before, checksums kept.
 2. Optional: switch the maintenance notice on (`MAINTENANCE_MODE=on` in Pages, or the DM switch
    once `…0700` exists).
-3. Apply the 23 files in filename order, each in its own transaction, through the SQL Editor or
-   `supabase db push`. Stop at the first error; nothing after it is applied.
+3. Apply the 23 files in filename order, each in its own transaction, and record each in
+   `supabase_migrations.schema_migrations`. Stop at the first error; nothing after it is applied.
+   Dry run first (read-only, lists files and SHA-256), then apply:
+   ```
+   export NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=<ca bundle>   # only when behind a proxy
+   SUPABASE_PROJECT_REF=<ref> node chronicle-cloud/scripts/apply-hosted-migrations.mjs --expect 23
+   SUPABASE_PROJECT_REF=<ref> node chronicle-cloud/scripts/apply-hosted-migrations.mjs --expect 23 --apply
+   ```
 4. Read-only checks: `select max(version) from supabase_migrations.schema_migrations` equals
    `20261118000100`; article/section/relation counts equal the backup's; as the DM the site
    lists every page; signed out, `/rest/v1/articles` returns nothing.
