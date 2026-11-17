@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { getSettings } from '../lib/api.ts';
 import { savedAccounts } from '../lib/accounts.ts';
+import { lockDmGate } from '../lib/dmGate.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
 import { TEMPLATES } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
@@ -262,8 +263,12 @@ export function Layout() {
             <NavLink to="/feedback">Feedback for the DM</NavLink>
             {state.kind === 'member' && <div className="signed-in">Signed in as {state.displayName}</div>}
             {state.kind === 'member' && <AccountSwitcher currentUserId={state.userId} onDone={() => setMenuOpen(false)} />}
+            <NavLink to="/table">Who’s at the table?</NavLink>
             {realDm && !playerPreview && (
               <button type="button" className="link-button" onClick={() => setPlayerPreview(true)}>View as a player</button>
+            )}
+            {realDm && (
+              <button type="button" className="link-button" onClick={() => void lockDmGate().then(() => window.location.reload())}>Lock the DM screen</button>
             )}
             <button
               type="button"

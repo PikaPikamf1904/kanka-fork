@@ -19,6 +19,8 @@ SUPABASE_URL=$SUPABASE_URL
 SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SECRET_KEY=$SUPABASE_SECRET_KEY
 IP_HASH_SECRET=$(openssl rand -hex 16)
+# A synthetic DM screen passcode for the local tests only (the real one is a Cloudflare secret).
+DM_SCREEN_PASSCODE=24680
 EOF
 chmod 600 .dev.vars
 

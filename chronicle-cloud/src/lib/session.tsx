@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session } from '@supabase/supabase-js';
 import { forgetAccount, rememberAccount, savedAccounts } from './accounts.ts';
 import { clearMediaUrlCache } from './api.ts';
+import { lockDmGate } from './dmGate.ts';
 import { deviceStatus } from './invitations.ts';
 import { clearWanderHistory } from './wander.ts';
 import { supabase } from './supabase.ts';
@@ -105,6 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const isPlayer = state.kind !== 'member' || state.role === 'player';
     // A player leaves only this device; their other devices stay signed in.
     await supabase.auth.signOut({ scope: isPlayer ? 'local' : 'global' });
+    if (!isPlayer) await lockDmGate();
     if (current) forgetAccount(current.user.id);
     setPlayerPreview(false);
     await refresh();
@@ -112,6 +114,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const switchAccount = useCallback(async (userId: string) => {
     const target = savedAccounts().find((a) => a.userId === userId);
+    // Handing the device to a player closes the DM screen on it.
+    if (state.kind === 'member' && state.role === 'dm') await lockDmGate();
     if (!target) throw new Error('That player is not signed in on this device.');
     const { data, error } = await supabase.auth.refreshSession({ refresh_token: target.refreshToken });
     // Never show one player's name over another player's session.
@@ -130,7 +134,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     clearWanderHistory();
     setPlayerPreview(false);
     await refresh();
-  }, [refresh]);
+  }, [refresh, state]);
 
   const value = useMemo(
     () => ({ state, session, playerPreview, setPlayerPreview, refresh, signOut, switchAccount }),

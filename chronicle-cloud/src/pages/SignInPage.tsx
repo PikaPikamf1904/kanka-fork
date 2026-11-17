@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { DmPasscode } from '../components/DmPasscode.tsx';
+import { useDmGate } from '../lib/dmGate.ts';
 import { supabase } from '../lib/supabase.ts';
 import { useSession } from '../lib/session.tsx';
 
@@ -8,9 +10,13 @@ export function safeNext(next: string | null): string {
   return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') && !next.startsWith('/sign-in') ? next : '/';
 }
 
-/** Email and password sign-in for named accounts (the DM), with a TOTP step when MFA is enrolled. */
+/**
+ * Sign-in for the DM: the DM screen passcode (checked on the server), then email and password,
+ * then a TOTP step when MFA is enrolled. The passcode is an extra lock; the account is the real gate.
+ */
 export function SignInPage() {
   const { state, refresh } = useSession();
+  const gate = useDmGate();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -24,7 +30,8 @@ export function SignInPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (state.kind === 'member' && location.pathname === '/sign-in') navigate(next, { replace: true });
+    // Only a signed-in DM is sent on; a player who opens the DM screen is shown its sign-in.
+    if (state.kind === 'member' && state.role === 'dm' && location.pathname === '/sign-in') navigate(next, { replace: true });
   }, [state, navigate, next, location.pathname]);
 
   async function signIn(e: FormEvent) {
@@ -60,8 +67,10 @@ export function SignInPage() {
   return (
     <div className="access-page">
       <div className="access-card">
-        <h1>Sign in</h1>
-        {state.kind === 'needs-mfa' ? (
+        <h1>Dungeon Master</h1>
+        {gate.status !== 'open' ? (
+          <DmPasscode status={gate.status} onOpen={gate.check} />
+        ) : state.kind === 'needs-mfa' ? (
           <form onSubmit={verify} className="access-form">
             <label>
               Code from your authenticator app
@@ -84,7 +93,7 @@ export function SignInPage() {
             <button type="submit" className="button" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           </form>
         )}
-        <p className="account-link"><Link to="/">Use an access code instead</Link></p>
+        <p className="account-link"><Link to="/table">Back to who’s at the table</Link></p>
       </div>
     </div>
   );

@@ -2,7 +2,9 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router';
 import { Layout } from './components/Layout.tsx';
 import { SessionProvider, useIsDm, useSession } from './lib/session.tsx';
-import { AccessPage } from './pages/AccessPage.tsx';
+import { DmPasscode } from './components/DmPasscode.tsx';
+import { useDmGate } from './lib/dmGate.ts';
+import { TablePage } from './pages/AccessPage.tsx';
 import { ArticlePage } from './pages/ArticlePage.tsx';
 import { BrowsePage, CategoriesPage, CategoryPage, ConnectionsPage, SearchPage, TimelinePage } from './pages/BrowsePages.tsx';
 import { HomePage } from './pages/HomePage.tsx';
@@ -71,8 +73,27 @@ function Gate() {
     );
   }
   if (state.kind === 'needs-mfa') return <SignInPage />;
-  if (state.kind !== 'member') return <AccessPage />;
+  if (state.kind !== 'member') return <TablePage />;
+  // A DM session also needs this browser to have passed the DM screen (UI lock; the database
+  // still refuses DM data to anyone but the DM regardless).
+  if (state.role === 'dm') return <DmScreen />;
   return <Layout />;
+}
+
+function DmScreen() {
+  const { signOut } = useSession();
+  const gate = useDmGate();
+  if (gate.status === 'open') return <Layout />;
+  return (
+    <div className="access-page">
+      <main className="access-card">
+        <div className="brand-mark big" aria-hidden="true">✶</div>
+        <h1>Dungeon Master</h1>
+        <DmPasscode status={gate.status} onOpen={gate.check} />
+        <p className="account-link"><button type="button" className="link-button" onClick={() => void signOut()}>Sign out</button></p>
+      </main>
+    </div>
+  );
 }
 
 /** UI guard only; the database refuses DM operations for everyone else regardless. */
@@ -85,6 +106,7 @@ const page = (el: ReactNode) => <Suspense fallback={<p className="muted">Loading
 const router = createBrowserRouter([
   { path: '/sign-in', element: <SignInPage /> },
   { path: '/join', element: <JoinPage /> },
+  { path: '/table', element: <TablePage /> },
   {
     element: <Gate />,
     children: [

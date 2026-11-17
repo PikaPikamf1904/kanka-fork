@@ -1086,3 +1086,28 @@ fieldset { min-width: 0; }
 .article-breadcrumbs [aria-current] { font-weight: 700; }
 .search-results mark { background: var(--gold); color: #20180a; border-radius: 2px; }
 @media (pointer: coarse) { .search-save input, .search-saved .link-button { min-height: 44px; } }
+
+/* ---------- Who's at the table ---------- */
+.table-card-wrap { width: min(640px, 100%); }
+.table-title { text-transform: uppercase; letter-spacing: 0.06em; font-size: clamp(1.5rem, 6vw, 2rem); }
+.table-seats { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
+.table-seat {
+  width: 100%; min-height: 7.5rem; display: grid; align-content: center; justify-items: center; gap: 0.15rem;
+  padding: 0.9rem 0.75rem; text-align: center; cursor: pointer; font-family: var(--font-ui);
+  background: var(--surface-2); color: var(--text); border: 2px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow); transition: border-color 0.12s, transform 0.12s;
+}
+.table-seat:hover:not(:disabled), .table-seat[aria-pressed='true'] { border-color: var(--gold); }
+.table-seat:active:not(:disabled) { transform: scale(0.98); }
+.table-seat:disabled { opacity: 0.6; cursor: progress; }
+.table-seat:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.table-seat.current { border-color: var(--sea); }
+.table-seat.dm { background: var(--night-1); color: #f6efdc; border-color: var(--gold); }
+.seat-name { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; overflow-wrap: anywhere; }
+.seat-character { font-size: 1.05rem; font-weight: 700; color: var(--crimson); }
+.table-seat.dm .seat-character { color: var(--gold-light); }
+.seat-note { font-size: 0.85rem; color: var(--muted); }
+.table-seat.dm .seat-note { color: #cfc6ae; }
+.table-join { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.table-join h2 { margin: 0; font-size: 1.2rem; }
+@media (prefers-reduced-motion: reduce) { .table-seat { transition: none; } }
