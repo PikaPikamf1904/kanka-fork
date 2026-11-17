@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import { MysteriesPanel } from './MysteryStudio.tsx';
 import { InvitationsPanel } from './Invitations.tsx';
+import { MaintenanceSwitch } from '../../components/MaintenanceSwitch.tsx';
+import { DmOverview } from '../../components/DmOverview.tsx';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArticleCard } from '../../components/ArticleCard.tsx';
 import { StatusBadge, VisibilityBadge } from '../../components/Badges.tsx';
@@ -30,6 +33,8 @@ export function DmDesk() {
   return (
     <div>
       <h1 className="page-title">DM desk</h1>
+      <MysteriesPanel />
+      <DmOverview />
       <section className="panel">
         <h2>Create</h2>
         <p className="button-row"><Link className="button secondary small" to="/dm/import">Import a lore package</Link> <Link className="button secondary small" to="/dm/tidy">Tidy up the wiki</Link> <Link className="button secondary small" to="/dm/visibility">What players can see</Link></p>
@@ -408,6 +413,7 @@ export function SettingsPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
       {dirty && <p className="fine-print"><span className="badge badge-draft">Unsaved changes</span></p>}
     </form>
+    <MaintenanceSwitch />
     <TwoStepPanel />
     </>
   );

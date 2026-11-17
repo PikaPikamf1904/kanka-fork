@@ -1,3 +1,4 @@
+import { ClueFinds } from '../components/Clues.tsx';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import L from 'leaflet';
@@ -433,6 +434,7 @@ export function MapPage() {
           )}
         </aside>
       </div>
+      {d && <ClueFinds attach="map" id={d.map.id} />}
 
       {isDm && fogEditing && (
         <dialog open className="dialog" aria-label="Fog area">

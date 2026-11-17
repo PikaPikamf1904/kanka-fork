@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { enrollAsPlayer } from './support.ts';
+import { db } from './db.ts';
+import { enrollAsPlayer, signInAsDm } from './support.ts';
 
 // The maintenance notice: the real /api/status function (no switch set locally, so no notice), its
 // refusal of unauthenticated writes, and the banner when the status says maintenance is on.
@@ -31,5 +32,30 @@ test.describe('Maintenance notice', () => {
     await page.reload();
     await expect(page.locator('main#main')).toBeVisible();
     await expect(page.getByTestId('maintenance-notice')).toHaveCount(0);
+  });
+
+  test('the DM switches the notice on from Wiki settings; it shows to players and turns off again', async ({ page, browser }) => {
+    await db('update public.campaign_settings set maintenance_until = null');
+    await signInAsDm(page);
+    await page.goto('/dm/settings');
+    const panel = page.getByTestId('maintenance-switch');
+    await expect(panel.getByRole('status')).toHaveText('Off.');
+    await panel.getByRole('button', { name: 'Show for 30 minutes' }).click();
+    await expect(panel.getByRole('status')).toContainText('On until');
+
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const player = await ctx.newPage();
+    await enrollAsPlayer(player, 'Switch Probe');
+    await expect(player.getByTestId('maintenance-notice')).toContainText('Declan is currently performing maintenance on Chronicle.');
+    // The notice does not block the menu on a phone.
+    await player.getByRole('button', { name: 'Menu', exact: true }).click();
+    await expect(player.getByRole('link', { name: 'Main page' })).toBeVisible();
+
+    await panel.getByRole('button', { name: 'Turn off now' }).click();
+    await expect(panel.getByRole('status')).toHaveText('Off.');
+    await player.reload();
+    await expect(player.locator('main#main')).toBeVisible();
+    await expect(player.getByTestId('maintenance-notice')).toHaveCount(0);
+    await ctx.close();
   });
 });

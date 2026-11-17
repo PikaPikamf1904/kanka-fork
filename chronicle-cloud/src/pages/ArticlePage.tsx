@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { ClueFinds } from '../components/Clues.tsx';
 import { ScratchpadPanel } from '../components/Scratchpad.tsx';
 import { recordRecentView } from '../lib/recentViews.ts';
 import { LightboxProvider } from '../components/Lightbox.tsx';
@@ -107,6 +108,7 @@ export function ArticlePage() {
       {v.type === 'character' ? <CharacterProfile v={v} isDm={isDm} from={from} />
         : v.type === 'session' ? <SessionJournal v={v} isDm={isDm} from={from} />
         : <EncyclopediaPage v={v} isDm={isDm} from={from} />}
+      {v.type !== 'news' && <ClueFinds attach="article" id={v.id} />}
       {!playerPreview && v.type !== 'news' && <ScratchpadPanel key={v.id} articleId={v.id} />}
     </LightboxProvider>
   );

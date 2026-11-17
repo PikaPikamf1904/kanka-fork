@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { bookmarksForPage, loadSaved, noteErrorMessage, removeBookmark, savePage } from '../lib/readerNotes.ts';
+import { PinButton } from './Clues.tsx';
 import { useLoad } from '../lib/useLoad.ts';
 
 /**
@@ -78,6 +79,7 @@ export function SaveButton({ articleId }: { articleId: string }) {
           {unsorted && <p className="fine-print">Also kept in your unsorted saved pages.</p>}
         </div>
       </details>
+      <PinButton refType="article" refId={articleId} />
       {error && <p className="form-error" role="alert">{error}</p>}
     </div>
   );

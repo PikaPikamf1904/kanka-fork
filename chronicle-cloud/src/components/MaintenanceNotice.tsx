@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
+import { MAINTENANCE_NOTICE, maintenanceUntil } from '../lib/maintenance.ts';
 
-/** Shows the maintenance notice while /api/status says so. Silent when the status cannot be read. */
+/**
+ * Shows the maintenance notice while /api/status says so (Pages switch, deploys) or the DM's own
+ * website switch is on. Silent when neither can be read.
+ */
 export function MaintenanceNotice() {
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     const check = () => {
-      fetch('/api/status', { cache: 'no-store' })
+      const server = fetch('/api/status', { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
-        .then((s: { notice?: boolean; message?: string | null } | null) => {
-          if (live) setMessage(s?.notice && s.message ? s.message : null);
-        })
-        .catch(() => undefined);
+        .then((s: { notice?: boolean; message?: string | null } | null) => (s?.notice && s.message ? s.message : null))
+        .catch(() => null);
+      const dmSwitch = maintenanceUntil().then((until) => (until ? MAINTENANCE_NOTICE : null)).catch(() => null);
+      void Promise.all([server, dmSwitch]).then(([a, b]) => {
+        if (live) setMessage(a ?? b);
+      });
     };
     check();
     const timer = window.setInterval(check, 120_000);

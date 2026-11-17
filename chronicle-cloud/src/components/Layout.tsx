@@ -223,6 +223,8 @@ export function Layout() {
             <NavLink to="/news" className={({ isActive }) => (isActive ? 'nav-gazette active' : 'nav-gazette')}><span className="nav-glyph" aria-hidden="true">✒</span>The Goblin Gazette</NavLink>
             <NavLink to="/a-z"><span className="nav-glyph" aria-hidden="true">≡</span>A–Z index</NavLink>
             <NavLink to="/recent"><span className="nav-glyph" aria-hidden="true">↻</span>Recently updated</NavLink>
+            <NavLink to="/board"><span className="nav-glyph" aria-hidden="true">⌖</span>Investigation board</NavLink>
+            <NavLink to="/mysteries"><span className="nav-glyph" aria-hidden="true">✦</span>Mysteries</NavLink>
             <NavLink to="/saved"><span className="nav-glyph" aria-hidden="true">★</span>Saved pages</NavLink>
             <NavLink to="/journal"><span className="nav-glyph" aria-hidden="true">✎</span>Journal</NavLink>
             <NavLink to="/scratchpad"><span className="nav-glyph" aria-hidden="true">✐</span>My scratchpad</NavLink>
@@ -248,8 +250,11 @@ export function Layout() {
               <NavLink to="/browse/dossier">Dossiers</NavLink>
               <NavLink to="/dm/notes">Private notes</NavLink>
               <NavLink to="/dm/journals">Player journals</NavLink>
+              <NavLink to="/dm/mysteries">Mystery Studio</NavLink>
+              <NavLink to="/dm/theories">Party theories</NavLink>
               <NavLink to="/dm/access">Player access</NavLink>
               <NavLink to="/dm/feedback">Player feedback</NavLink>
+              <NavLink to="/dm/insights">Player insights</NavLink>
               <NavLink to="/dm/settings">Wiki settings</NavLink>
             </div>
           )}

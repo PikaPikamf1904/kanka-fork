@@ -66,6 +66,16 @@ Full details: `FEEDBACK-PRIVACY.md`.
 | `player_invitations` | DM only, and only the columns granted. The stored token hash is not selectable by any browser role. | No direct writes. The DM uses `create_`, `regenerate_` and `revoke_player_invitation`. The server (service role) uses `begin_`, `release_` and `finish_player_invitation`. | Single use, expiring, role fixed to `player`. An invitation cannot create or reach a DM. Only a SHA-256 of the token is stored. |
 | `member_devices` | DM reads every device. A player reads their own devices. | No direct writes. The DM revokes any device (`revoke_member_device`). A player revokes their own. `touch_device` updates last-seen for the caller's session. | Each device is keyed by its Auth session id. Revocation takes effect at once through `is_member()`. |
 
+## Maintenance switch (migration `20261117000700`)
+
+| Object | Who can read | Who can write | Key rule |
+|---|---|---|---|
+| `campaign_settings.maintenance_until` | Not readable through the API. The column is in no column-level `select` grant, so `authenticated` cannot select it directly. | Through `set_maintenance()` only, on the website. See the caveat below. | The column holds the end time of the notice. |
+| `maintenance_switch()` | Any active member. It returns only the end time, and only while that time is in the future. Otherwise it returns null. | Not applicable (read-only function). | Refused for OAuth requests, because it depends on `private.is_member()`. |
+| `set_maintenance(minutes)` | Not applicable (write function). | DM only (`private.is_dm()`, and not an OAuth request). `0` turns the switch off. `1` to `480` minutes sets an end time that many minutes from now. Any other value is refused. | Always expires. The notice cannot stay on for more than 8 hours from the last change. |
+
+Caveat: the function refuses values outside 0 to 480, but the migration header says the DM picks "15 minutes to 8 hours". The code accepts 1 to 480. Also, `set_maintenance()` is the intended route, but the DM's existing `settings_dm` update policy on `campaign_settings` may allow a direct update of the new column if a table-level update privilege still applies to `authenticated`. This page does not verify that grant; see the migration and the grants on `campaign_settings`.
+
 ## Device revocation
 
 - `private.is_member()` returns false when the current session's id matches a `member_devices` row with `revoked_at` set. Every policy that uses `is_member()` therefore refuses a revoked device immediately, with no need to wait for the session to expire.

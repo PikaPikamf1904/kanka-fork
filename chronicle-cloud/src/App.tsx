@@ -20,12 +20,17 @@ const FeedbackPage = lazy(() => import('./pages/FeedbackPage.tsx').then((m) => (
 const FeedbackInbox = lazy(() => import('./pages/dm/FeedbackInbox.tsx').then((m) => ({ default: m.FeedbackInbox })));
 const StudioIndex = lazy(() => import('./pages/StudioPages.tsx').then((m) => ({ default: m.StudioIndex })));
 const StudioCollection = lazy(() => import('./pages/StudioPages.tsx').then((m) => ({ default: m.StudioCollection })));
+const PlayerInsights = lazy(() => import('./pages/dm/PlayerInsights.tsx').then((m) => ({ default: m.PlayerInsights })));
 const GraphPage = lazy(() => import('./pages/GraphPage.tsx').then((m) => ({ default: m.GraphPage })));
 const FactsPage = lazy(() => import('./pages/FactsPage.tsx').then((m) => ({ default: m.FactsPage })));
 const SavedPage = lazy(() => import('./pages/SavedPage.tsx').then((m) => ({ default: m.SavedPage })));
 const ScratchpadPage = lazy(() => import('./pages/ScratchpadPage.tsx').then((m) => ({ default: m.ScratchpadPage })));
 const JournalPage = lazy(() => import('./pages/JournalPage.tsx').then((m) => ({ default: m.JournalPage })));
 const PlayerJournals = lazy(() => import('./pages/dm/PlayerJournals.tsx').then((m) => ({ default: m.PlayerJournals })));
+const BoardPage = lazy(() => import('./pages/BoardPage.tsx').then((m) => ({ default: m.BoardPage })));
+const MysteriesPage = lazy(() => import('./pages/MysteriesPage.tsx').then((m) => ({ default: m.MysteriesPage })));
+const Theories = lazy(() => import('./pages/dm/Theories.tsx').then((m) => ({ default: m.Theories })));
+const MysteryStudio = lazy(() => import('./pages/dm/MysteryStudio.tsx').then((m) => ({ default: m.MysteryStudio })));
 const FamilyPage = lazy(() => import('./pages/FamilyPage.tsx').then((m) => ({ default: m.FamilyPage })));
 const ArticleEditor = lazy(() => import('./pages/dm/ArticleEditor.tsx').then((m) => ({ default: m.ArticleEditor })));
 const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'TimelineEditor' | 'MapEditor') =>
@@ -105,6 +110,8 @@ const router = createBrowserRouter([
       { path: '/feedback', element: page(<FeedbackPage />) },
       { path: '/studio', element: page(<StudioIndex />) },
       { path: '/studio/:id', element: page(<StudioCollection />) },
+      { path: '/board', element: page(<BoardPage />) },
+      { path: '/mysteries', element: page(<MysteriesPage />) },
       { path: '/saved', element: page(<SavedPage />) },
       { path: '/scratchpad', element: page(<ScratchpadPage />) },
       { path: '/journal', element: page(<JournalPage />) },
@@ -127,9 +134,12 @@ const router = createBrowserRouter([
           { path: 'visibility', element: page(<VisibilityAudit />) },
           { path: 'media', element: page(<MediaLibrary />) },
           { path: 'notes', element: page(<NotesPage />) },
+          { path: 'theories', element: page(<Theories />) },
+          { path: 'mysteries', element: page(<MysteryStudio />) },
           { path: 'journals', element: page(<PlayerJournals />) },
           { path: 'access', element: page(<AccessAdmin />) },
           { path: 'feedback', element: page(<FeedbackInbox />) },
+          { path: 'insights', element: page(<PlayerInsights />) },
           { path: 'settings', element: page(<SettingsPage />) },
           { path: 'timeline', element: page(<TimelineEditor />) },
           { path: 'maps/new', element: page(<MapEditor />) },
