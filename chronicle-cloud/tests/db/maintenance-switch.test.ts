@@ -32,4 +32,13 @@ describe('maintenance switch', () => {
     // The column itself is not readable through the API.
     expect((await as('player', 'select maintenance_until from public.campaign_settings')).error?.code).toBe('42501');
   });
+
+  it('the DM cannot write the column directly to skip the eight-hour limit', async () => {
+    const r = await as('dm', `update public.campaign_settings set maintenance_until = now() + interval '30 days'`);
+    expect(r.error?.code).toBe('42501');
+    expect((await as('player', `update public.campaign_settings set maintenance_until = now() + interval '1 hour'`)).rows ?? []).toHaveLength(0);
+    expect((await admin('select maintenance_until from public.campaign_settings')).rows[0]!.maintenance_until).toBeNull();
+    // Ordinary settings edits by the DM still work.
+    expect((await as('dm', `update public.campaign_settings set tagline = tagline`)).error).toBeUndefined();
+  });
 });
