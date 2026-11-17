@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { ScratchpadPanel } from '../components/Scratchpad.tsx';
+import { recordRecentView } from '../lib/recentViews.ts';
 import { LightboxProvider } from '../components/Lightbox.tsx';
 import { CharacterProfile, EncyclopediaPage, SessionJournal } from './ArticleViews.tsx';
 import { getArticle, previewAsPlayer, resolveSlug, type ArticleBundle } from '../lib/api.ts';
@@ -49,7 +51,8 @@ export function ArticlePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const isDm = useIsDm();
-  const { playerPreview } = useSession();
+  const { playerPreview, state } = useSession();
+  const userId = state.kind === 'member' ? state.userId : '';
 
   const page = useLoad(async (): Promise<ViewModel | null | { redirect: string }> => {
     if (playerPreview) {
@@ -84,6 +87,12 @@ export function ArticlePage() {
     if (data && !('redirect' in data)) document.title = `${data.title} · Chronicle`;
   }, [data]);
 
+  const viewed = data && !('redirect' in data) ? data : null;
+  useEffect(() => {
+    // Recently viewed lives in this browser only, per signed-in user (see lib/recentViews.ts).
+    if (viewed && userId && !playerPreview && viewed.type !== 'news') recordRecentView(userId, { id: viewed.id, slug: viewed.slug, title: viewed.title });
+  }, [viewed?.id, viewed?.slug, viewed?.title, viewed?.type, userId, playerPreview]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (page.error) return <p className="form-error">{page.error}</p>;
   if (page.loading && !data) return <p className="muted">Loading…</p>;
   if (!data) return <NotFound what="article" />;
@@ -98,6 +107,7 @@ export function ArticlePage() {
       {v.type === 'character' ? <CharacterProfile v={v} isDm={isDm} from={from} />
         : v.type === 'session' ? <SessionJournal v={v} isDm={isDm} from={from} />
         : <EncyclopediaPage v={v} isDm={isDm} from={from} />}
+      {!playerPreview && v.type !== 'news' && <ScratchpadPanel key={v.id} articleId={v.id} />}
     </LightboxProvider>
   );
 }

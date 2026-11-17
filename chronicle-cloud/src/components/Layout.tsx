@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { getSettings } from '../lib/api.ts';
+import { savedAccounts } from '../lib/accounts.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
 import { TEMPLATES } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
@@ -222,6 +223,9 @@ export function Layout() {
             <NavLink to="/news" className={({ isActive }) => (isActive ? 'nav-gazette active' : 'nav-gazette')}><span className="nav-glyph" aria-hidden="true">✒</span>The Goblin Gazette</NavLink>
             <NavLink to="/a-z"><span className="nav-glyph" aria-hidden="true">≡</span>A–Z index</NavLink>
             <NavLink to="/recent"><span className="nav-glyph" aria-hidden="true">↻</span>Recently updated</NavLink>
+            <NavLink to="/saved"><span className="nav-glyph" aria-hidden="true">★</span>Saved pages</NavLink>
+            <NavLink to="/journal"><span className="nav-glyph" aria-hidden="true">✎</span>Journal</NavLink>
+            <NavLink to="/scratchpad"><span className="nav-glyph" aria-hidden="true">✐</span>My scratchpad</NavLink>
             <NavLink to="/wander"><span className="nav-glyph" aria-hidden="true">⚐</span>Wander</NavLink>
             <NavLink to="/maps"><span className="nav-glyph" aria-hidden="true">⌘</span>Maps</NavLink>
             <NavLink to="/timeline"><span className="nav-glyph" aria-hidden="true">⧗</span>Timeline</NavLink>
@@ -242,12 +246,14 @@ export function Layout() {
               <NavLink to="/dm/import">Import lore</NavLink>
               <NavLink to="/browse/dossier">Dossiers</NavLink>
               <NavLink to="/dm/notes">Private notes</NavLink>
+              <NavLink to="/dm/journals">Player journals</NavLink>
               <NavLink to="/dm/access">Player access</NavLink>
               <NavLink to="/dm/settings">Wiki settings</NavLink>
             </div>
           )}
           <div className="nav-group nav-account">
             {state.kind === 'member' && <div className="signed-in">Signed in as {state.displayName}</div>}
+            {state.kind === 'member' && <AccountSwitcher currentUserId={state.userId} onDone={() => setMenuOpen(false)} />}
             {realDm && !playerPreview && (
               <button type="button" className="link-button" onClick={() => setPlayerPreview(true)}>View as a player</button>
             )}
@@ -255,7 +261,7 @@ export function Layout() {
               type="button"
               className="link-button"
               onClick={() => {
-                if (window.confirm(realDm ? 'Sign out?' : 'Leave Chronicle on this device? You will need the access code to come back.')) {
+                if (window.confirm(realDm ? 'Sign out?' : 'Leave Chronicle on this device? Your other devices stay signed in. To come back here you will need a new invitation link.')) {
                   void signOut();
                 }
               }}
@@ -278,6 +284,42 @@ export function Layout() {
       <footer className="site-footer">
         {title} · a private campaign wiki · unofficial fan content for a home game
       </footer>
+    </div>
+  );
+}
+
+/** Other players who joined on this shared device; switching needs no code, only their own earlier sign-in here. */
+function AccountSwitcher({ currentUserId, onDone }: { currentUserId: string; onDone: () => void }) {
+  const { switchAccount } = useSession();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const others = savedAccounts().filter((a) => a.userId !== currentUserId);
+  if (others.length === 0 && !error) return null;
+  return (
+    <div className="account-switch" role="group" aria-label="Switch player on this device">
+      {others.map((a) => (
+        <button
+          key={a.userId}
+          type="button"
+          className="link-button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              await switchAccount(a.userId);
+              onDone();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Could not switch.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Switch to {a.name}
+        </button>
+      ))}
+      {error && <p className="form-error" role="alert">{error}</p>}
     </div>
   );
 }

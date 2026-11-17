@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { InvitationsPanel } from './Invitations.tsx';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArticleCard } from '../../components/ArticleCard.tsx';
 import { StatusBadge, VisibilityBadge } from '../../components/Badges.tsx';
@@ -186,6 +187,7 @@ export function AccessAdmin() {
     <div>
       <h1 className="page-title">Player access</h1>
       {failed && <p className="form-error" role="alert">{failed}</p>}
+      <InvitationsPanel />
       <section className="panel">
         <h2>Access codes</h2>
         <p className="fine-print">
@@ -216,7 +218,8 @@ export function AccessAdmin() {
         </table>
       </section>
       <section className="panel">
-        <h2>Devices and members</h2>
+        <h2>All members</h2>
+        <p className="fine-print">Everyone with access. Players who joined with an access code have one device each; invited players are managed above.</p>
         <table className="table">
           <thead><tr><th>Name</th><th>Role</th><th>Joined</th><th>Last seen</th><th>Status</th><th /></tr></thead>
           <tbody>

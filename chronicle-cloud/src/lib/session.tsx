@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { forgetAccount, rememberAccount, savedAccounts } from './accounts.ts';
 import { clearMediaUrlCache } from './api.ts';
+import { deviceStatus } from './invitations.ts';
 import { clearWanderHistory } from './wander.ts';
 import { supabase } from './supabase.ts';
 
@@ -23,6 +25,8 @@ interface SessionContextValue {
   setPlayerPreview(value: boolean): void;
   refresh(): Promise<void>;
   signOut(): Promise<void>;
+  /** Switch to another player who joined on this device. Throws if that sign-in has ended. */
+  switchAccount(userId: string): Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -38,6 +42,8 @@ async function loadAccess(session: Session | null): Promise<AccessState> {
   if (error) throw new Error(error.message);
   if (!data) return { kind: 'no-access', reason: 'not-member' };
   if (data.revoked_at) return { kind: 'no-access', reason: 'revoked' };
+  // A device the DM signed out keeps a valid Auth session, but the database refuses it everything.
+  if (data.role === 'player' && (await deviceStatus()) === 'revoked') return { kind: 'no-access', reason: 'revoked' };
   if (data.role === 'dm') {
     const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal.data && aal.data.nextLevel === 'aal2' && aal.data.currentLevel !== 'aal2') return { kind: 'needs-mfa' };
@@ -68,7 +74,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // external system (auth events), which is what effects are for.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      // Keep this player's saved sign-in current, so switching back later still works.
+      if (next && savedAccounts().some((a) => a.userId === next.user.id)) {
+        const known = savedAccounts().find((a) => a.userId === next.user.id)!;
+        rememberAccount({ userId: next.user.id, name: known.name, refreshToken: next.refresh_token });
+      }
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'MFA_CHALLENGE_VERIFIED' || event === 'USER_UPDATED') {
         // Signed media URLs belong to the previous identity; never reuse them.
         clearMediaUrlCache();
@@ -80,15 +91,50 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, [refresh]);
 
+  // Players who joined on this device are remembered, so a shared device can switch between them.
+  useEffect(() => {
+    // session and state update in two steps; only pair a name with a token when both are the same user.
+    if (state.kind === 'member' && state.role === 'player' && session && session.user.id === state.userId) {
+      rememberAccount({ userId: state.userId, name: state.displayName, refreshToken: session.refresh_token });
+    }
+    if (state.kind === 'no-access' && state.reason === 'revoked' && session) forgetAccount(session.user.id);
+  }, [state, session]);
+
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    const current = (await supabase.auth.getSession()).data.session;
+    const isPlayer = state.kind !== 'member' || state.role === 'player';
+    // A player leaves only this device; their other devices stay signed in.
+    await supabase.auth.signOut({ scope: isPlayer ? 'local' : 'global' });
+    if (current) forgetAccount(current.user.id);
+    setPlayerPreview(false);
+    await refresh();
+  }, [refresh, state]);
+
+  const switchAccount = useCallback(async (userId: string) => {
+    const target = savedAccounts().find((a) => a.userId === userId);
+    if (!target) throw new Error('That player is not signed in on this device.');
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: target.refreshToken });
+    // Never show one player's name over another player's session.
+    if (!error && data.session && data.session.user.id !== userId) {
+      forgetAccount(userId);
+      await refresh();
+      throw new Error('That saved sign-in was not valid and has been removed.');
+    }
+    if (error || !data.session) {
+      forgetAccount(userId);
+      await refresh();
+      throw new Error(`${target.name} is no longer signed in on this device. Use their invitation link again.`);
+    }
+    rememberAccount({ userId, name: target.name, refreshToken: data.session.refresh_token });
+    clearMediaUrlCache();
+    clearWanderHistory();
     setPlayerPreview(false);
     await refresh();
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ state, session, playerPreview, setPlayerPreview, refresh, signOut }),
-    [state, session, playerPreview, refresh, signOut],
+    () => ({ state, session, playerPreview, setPlayerPreview, refresh, signOut, switchAccount }),
+    [state, session, playerPreview, refresh, signOut, switchAccount],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

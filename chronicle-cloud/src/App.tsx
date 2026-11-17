@@ -7,6 +7,7 @@ import { ArticlePage } from './pages/ArticlePage.tsx';
 import { BrowsePage, CategoriesPage, CategoryPage, ConnectionsPage, SearchPage, TimelinePage } from './pages/BrowsePages.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 import { IndexPage } from './pages/IndexPage.tsx';
+import { JoinPage } from './pages/JoinPage.tsx';
 import { NotFound } from './pages/NotFound.tsx';
 import { SignInPage } from './pages/SignInPage.tsx';
 import { WanderPage } from './pages/WanderPage.tsx';
@@ -17,6 +18,10 @@ const MapPage = lazy(() => import('./pages/MapPages.tsx').then((m) => ({ default
 const RecentPage = lazy(() => import('./pages/RecentPage.tsx').then((m) => ({ default: m.RecentPage })));
 const GraphPage = lazy(() => import('./pages/GraphPage.tsx').then((m) => ({ default: m.GraphPage })));
 const FactsPage = lazy(() => import('./pages/FactsPage.tsx').then((m) => ({ default: m.FactsPage })));
+const SavedPage = lazy(() => import('./pages/SavedPage.tsx').then((m) => ({ default: m.SavedPage })));
+const ScratchpadPage = lazy(() => import('./pages/ScratchpadPage.tsx').then((m) => ({ default: m.ScratchpadPage })));
+const JournalPage = lazy(() => import('./pages/JournalPage.tsx').then((m) => ({ default: m.JournalPage })));
+const PlayerJournals = lazy(() => import('./pages/dm/PlayerJournals.tsx').then((m) => ({ default: m.PlayerJournals })));
 const FamilyPage = lazy(() => import('./pages/FamilyPage.tsx').then((m) => ({ default: m.FamilyPage })));
 const ArticleEditor = lazy(() => import('./pages/dm/ArticleEditor.tsx').then((m) => ({ default: m.ArticleEditor })));
 const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'TimelineEditor' | 'MapEditor') =>
@@ -70,6 +75,7 @@ const page = (el: ReactNode) => <Suspense fallback={<p className="muted">Loading
 
 const router = createBrowserRouter([
   { path: '/sign-in', element: <SignInPage /> },
+  { path: '/join', element: <JoinPage /> },
   {
     element: <Gate />,
     children: [
@@ -92,6 +98,9 @@ const router = createBrowserRouter([
       { path: '/recent', element: page(<RecentPage />) },
       { path: '/facts', element: page(<FactsPage />) },
       { path: '/graph', element: page(<GraphPage />) },
+      { path: '/saved', element: page(<SavedPage />) },
+      { path: '/scratchpad', element: page(<ScratchpadPage />) },
+      { path: '/journal', element: page(<JournalPage />) },
       {
         path: '/dm',
         element: <DmOnly><Outlet /></DmOnly>,
@@ -111,6 +120,7 @@ const router = createBrowserRouter([
           { path: 'visibility', element: page(<VisibilityAudit />) },
           { path: 'media', element: page(<MediaLibrary />) },
           { path: 'notes', element: page(<NotesPage />) },
+          { path: 'journals', element: page(<PlayerJournals />) },
           { path: 'access', element: page(<AccessAdmin />) },
           { path: 'settings', element: page(<SettingsPage />) },
           { path: 'timeline', element: page(<TimelineEditor />) },

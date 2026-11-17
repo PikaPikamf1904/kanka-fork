@@ -17,6 +17,9 @@ const COMMANDS: PaletteCommand[] = [
   { id: 'az', label: 'A–Z index', to: '/a-z', keywords: 'alphabet directory all pages' },
   { id: 'recent', label: 'Recently updated', to: '/recent', keywords: 'changes new' },
   { id: 'wander', label: 'Wander to a random page', to: '/wander', keywords: 'random surprise' },
+  { id: 'saved', label: 'Saved pages', to: '/saved', keywords: 'bookmarks reading lists favourites recently viewed' },
+  { id: 'journal', label: 'Your journal', to: '/journal', keywords: 'character theories goals diary notes' },
+  { id: 'scratchpad', label: 'My scratchpad', to: '/scratchpad', keywords: 'note jot' },
   { id: 'maps', label: 'Maps', to: '/maps' },
   { id: 'timeline', label: 'Timeline', to: '/timeline', keywords: 'history dates' },
   { id: 'search', label: 'Search everything', to: '/search', keywords: 'find full text' },
@@ -26,6 +29,7 @@ const COMMANDS: PaletteCommand[] = [
   { id: 'media', label: 'Media library', to: '/dm/media', keywords: 'pictures photos images', dmOnly: true },
   { id: 'tidy', label: 'Tidy up the wiki', to: '/dm/tidy', keywords: 'broken links stubs', dmOnly: true },
   { id: 'visibility', label: 'What players can see', to: '/dm/visibility', keywords: 'leaks hidden secrets', dmOnly: true },
+  { id: 'journals', label: 'Player journals', to: '/dm/journals', keywords: 'players character diary theories', dmOnly: true },
   { id: 'access', label: 'Player access', to: '/dm/access', keywords: 'codes members', dmOnly: true },
   { id: 'settings', label: 'Wiki settings', to: '/dm/settings', dmOnly: true },
 ];

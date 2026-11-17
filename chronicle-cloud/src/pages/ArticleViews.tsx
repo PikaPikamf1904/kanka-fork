@@ -9,6 +9,7 @@ import { isFamilyKind } from '../lib/familyTree.ts';
 import { Infobox } from '../components/Infobox.tsx';
 import { LocationChips } from '../components/LocationChips.tsx';
 import { Markdown } from '../components/Markdown.tsx';
+import { SaveButton } from '../components/SaveButton.tsx';
 import { StatusRibbon } from '../components/StatusRibbon.tsx';
 import { ribbonFor, statusFromInfobox } from '../lib/statusRibbon.ts';
 import { MediaImage } from '../components/MediaImage.tsx';
@@ -164,6 +165,7 @@ export function EncyclopediaPage({ v, isDm, from }: ViewProps) {
         <DmBar v={v} isDm={isDm} />
       </div>
       <h1 className="article-title">{v.title}</h1>
+      {!v.previewing && <SaveButton articleId={v.id} />}
       {ribbonFor(statusFromInfobox(v.infobox)) && <p className="article-status"><StatusRibbon status={statusFromInfobox(v.infobox)} /></p>}
       {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
       {from && <p className="redirect-note">(Redirected from {from})</p>}
@@ -229,6 +231,8 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
         </div>
         <div className="profile-heading">
           <h1 className="article-title">{v.title}</h1>
+        {!v.previewing && <SaveButton articleId={v.id} />}
+          {!v.previewing && <SaveButton articleId={v.id} />}
           {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
           {from && <p className="redirect-note">(Redirected from {from})</p>}
           {factLine.length > 0 && <p className="profile-facts">{factLine.join(' · ')}</p>}

@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { BannerArt } from '../components/Banner.tsx';
+import { savedAccounts } from '../lib/accounts.ts';
 import { enrollWithCode, useSession } from '../lib/session.tsx';
 
 export function AccessPage() {
-  const { state, refresh, signOut } = useSession();
+  const { state, refresh, signOut, switchAccount } = useSession();
+  const accounts = state.kind === 'signed-out' ? savedAccounts() : [];
   const location = useLocation();
   const here = location.pathname + location.search;
   const [code, setCode] = useState('');
@@ -35,11 +37,28 @@ export function AccessPage() {
       <div className="access-card">
         <div className="brand-mark big" aria-hidden="true">✶</div>
         <h1>Chronicle</h1>
-        <p className="access-lede">A private campaign wiki. Enter the access code your Dungeon Master gave you.</p>
+        <p className="access-lede">A private campaign wiki. Open the invitation link your Dungeon Master sent you, or enter an access code.</p>
+        {accounts.length > 0 && (
+          <div className="account-switch" role="group" aria-label="Players on this device">
+            {accounts.map((a) => (
+              <button key={a.userId} type="button" className="button secondary" disabled={busy} onClick={async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  await switchAccount(a.userId);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Could not continue.');
+                } finally {
+                  setBusy(false);
+                }
+              }}>Continue as {a.name}</button>
+            ))}
+          </div>
+        )}
         {revoked ? (
           <div className="notice" role="alert">
             {state.reason === 'revoked'
-              ? 'This device no longer has access. Ask your DM for the current code.'
+              ? 'This device no longer has access. Ask your DM for a new invitation link.'
               : 'This account does not have access to the wiki.'}
             <button type="button" className="button secondary" onClick={() => void signOut()}>Use a code instead</button>
           </div>
