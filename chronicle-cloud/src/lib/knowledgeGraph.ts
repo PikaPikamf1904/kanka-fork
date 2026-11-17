@@ -97,3 +97,109 @@ export const TYPE_COLOURS: Record<ArticleType, string> = {
   character: '#c0643c', location: '#4f7a4a', faction: '#8a3b2e', item: '#b08a2e', quest: '#3b6a8a',
   session: '#6d5a8a', event: '#a0522d', lore: '#5b6b3a', dossier: '#555555', news: '#777777',
 };
+
+// ---------- reading the graph: legend, summaries, clusters ----------
+
+export interface LegendEntry { label: string; kind: EdgeKind; count: number }
+
+/** The kinds of line actually on the graph: each connection label, then plain wiki links. */
+export function legendEntries(g: Graph): LegendEntry[] {
+  const m = new Map<string, LegendEntry>();
+  for (const e of g.edges) {
+    const key = `${e.kind}|${e.kind === 'link' ? 'mentions' : e.label}`;
+    const cur = m.get(key);
+    if (cur) cur.count++;
+    else m.set(key, { label: e.kind === 'link' ? 'Wiki link (mentions)' : e.label, kind: e.kind, count: 1 });
+  }
+  return [...m.values()].sort((a, b) => (a.kind === b.kind ? a.label.localeCompare(b.label) : a.kind === 'relation' ? -1 : 1));
+}
+
+/** The page itself and every page one line away: what "Highlight connected" keeps bright. */
+export function connectedCluster(g: Graph, id: string): Set<string> {
+  const keep = new Set<string>([id]);
+  for (const e of g.edges) {
+    if (e.source === id) keep.add(e.target);
+    if (e.target === id) keep.add(e.source);
+  }
+  return keep;
+}
+
+export interface SummaryItem { lead: string; other: GraphNode | null; tail: string }
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "Ally of X, Member of Y, links to 3 pages", from the received graph only. */
+export function relationshipSummary(g: Graph, id: string, maxRelations = 6): SummaryItem[] {
+  const byId = new Map(g.nodes.map((n) => [n.id, n]));
+  const rel: SummaryItem[] = [];
+  let linksOut = 0;
+  let linksIn = 0;
+  for (const e of g.edges) {
+    if (e.kind === 'link') {
+      if (e.source === id) linksOut++;
+      else if (e.target === id) linksIn++;
+    } else if (e.source === id) {
+      const o = byId.get(e.target);
+      if (o) rel.push({ lead: `${e.label} `, other: o, tail: '' });
+    } else if (e.target === id) {
+      const o = byId.get(e.source);
+      if (o) rel.push({ lead: '', other: o, tail: ` (${e.label.toLowerCase()} this)` });
+    }
+  }
+  const out = rel.slice(0, maxRelations);
+  if (rel.length > maxRelations) out.push({ lead: `and ${rel.length - maxRelations} more`, other: null, tail: '' });
+  if (linksOut) out.push({ lead: `links to ${plural(linksOut, 'page', 'pages')}`, other: null, tail: '' });
+  if (linksIn) out.push({ lead: `mentioned by ${plural(linksIn, 'page', 'pages')}`, other: null, tail: '' });
+  return out;
+}
+export const summaryText = (items: SummaryItem[]) => items.map((i) => `${i.lead}${i.other?.title ?? ''}${i.tail}`).join(', ');
+
+// ---------- layout and movement ----------
+
+/** Points on concentric rings at least `inner` from the centre, `gap` apart, for pages with no connections. */
+export function ringPositions(count: number, inner: number, gap = 34): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (let ring = 0; out.length < count; ring++) {
+    const r = inner + ring * gap;
+    const fit = Math.max(1, Math.floor((2 * Math.PI * r) / gap));
+    const n = Math.min(fit, count - out.length);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + ring * 0.5;
+      out.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+    }
+  }
+  return out;
+}
+
+export type Direction = 'left' | 'right' | 'up' | 'down';
+
+/** The page nearest in a direction, for arrow-key movement. Null when nothing lies that way. */
+export function nearestInDirection(nodes: { id: string; x: number; y: number }[], from: string | null, dir: Direction): string | null {
+  if (nodes.length === 0) return null;
+  const cur = from ? nodes.find((n) => n.id === from) : undefined;
+  if (!cur) {
+    // Nothing focused yet: start at the page nearest the middle.
+    return [...nodes].sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y) || a.id.localeCompare(b.id))[0]!.id;
+  }
+  const v = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[dir];
+  let best: { id: string; score: number } | null = null;
+  for (const n of nodes) {
+    if (n.id === cur.id) continue;
+    const dx = n.x - cur.x;
+    const dy = n.y - cur.y;
+    const along = dx * v[0]! + dy * v[1]!;
+    if (along <= 0) continue;
+    const across = Math.abs(dx * v[1]! - dy * v[0]!);
+    if (across > along * 1.75) continue; // outside a wide cone around the direction
+    const score = along + across * 2;
+    if (!best || score < best.score || (score === best.score && n.id < best.id)) best = { id: n.id, score };
+  }
+  return best?.id ?? null;
+}
+
+export interface ViewState { k: number; x: number; y: number }
+const ease = (t: number) => 1 - (1 - t) ** 3;
+/** A view part-way (0 to 1) between two, easing out. Used for the short focus animation. */
+export function easeView(from: ViewState, to: ViewState, t: number): ViewState {
+  const e = ease(Math.min(1, Math.max(0, t)));
+  return { k: from.k + (to.k - from.k) * e, x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e };
+}

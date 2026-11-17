@@ -9,6 +9,8 @@ import { isFamilyKind } from '../lib/familyTree.ts';
 import { Infobox } from '../components/Infobox.tsx';
 import { LocationChips } from '../components/LocationChips.tsx';
 import { Markdown } from '../components/Markdown.tsx';
+import { Breadcrumbs } from '../components/Breadcrumbs.tsx';
+import { breadcrumbTrail } from '../lib/breadcrumbs.ts';
 import { SaveButton } from '../components/SaveButton.tsx';
 import { StatusRibbon } from '../components/StatusRibbon.tsx';
 import { ribbonFor, statusFromInfobox } from '../lib/statusRibbon.ts';
@@ -26,6 +28,10 @@ import type { ViewModel } from './ArticlePage.tsx';
 interface ViewProps { v: ViewModel; isDm: boolean; from: string | null }
 
 // ---------- shared pieces ----------
+
+function Trail({ v, isDm }: { v: ViewModel; isDm: boolean }) {
+  return <Breadcrumbs trail={breadcrumbTrail(v, isDm)} />;
+}
 
 function DmBar({ v, isDm }: { v: ViewModel; isDm: boolean }) {
   if (!isDm) return null;
@@ -160,6 +166,7 @@ function Backlinks({ items, title = 'What links here', id = 'what-links-here' }:
 export function EncyclopediaPage({ v, isDm, from }: ViewProps) {
   return (
     <article className={`article article-type-${v.type}`}>
+      <Trail v={v} isDm={isDm} />
       <div className="article-meta-top">
         <Link to={`/browse/${v.type}`} className="article-kind"><span aria-hidden="true">{TEMPLATES[v.type].glyph} </span>{TEMPLATES[v.type].plural}</Link>
         <DmBar v={v} isDm={isDm} />
@@ -216,6 +223,7 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
   const factLine = [facts.species, facts.class, facts.level].filter(Boolean);
   return (
     <article className="article article-character">
+      <Trail v={v} isDm={isDm} />
       <div className="article-meta-top">
         <Link to="/browse/character" className="article-kind"><span aria-hidden="true">{TEMPLATES.character.glyph} </span>Characters</Link>
         <DmBar v={v} isDm={isDm} />
@@ -308,6 +316,7 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
   const things = linked.of('item', 'quest', 'event', 'faction');
   return (
     <article className="article article-journal">
+      <Trail v={v} isDm={isDm} />
       <div className="article-meta-top">
         <Link to="/browse/session" className="article-kind"><span aria-hidden="true">{TEMPLATES.session.glyph} </span>Session journals</Link>
         <DmBar v={v} isDm={isDm} />

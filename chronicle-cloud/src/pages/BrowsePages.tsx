@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
 import { categoryCounts, getCategory, listArticles, listCharacterFacts, listRelations, searchWithOperators, timeline } from '../lib/api.ts';
 import { parseSearch } from '../lib/searchQuery.ts';
-import { useIsDm } from '../lib/session.tsx';
+import { useIsDm, useSession } from '../lib/session.tsx';
+import { addSaved, clearHistory, excerpt, highlightSegments, loadHistory, loadSaved, queryTerms, recordSearch, removeSaved, storeSaved, type SavedSearch } from '../lib/searchHistory.ts';
+import { StatusRibbon } from '../components/StatusRibbon.tsx';
 import { relationLabel, TEMPLATES, TYPE_ORDER } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -119,6 +121,19 @@ export function SearchPage() {
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [results.data]);
   const submit = (next: string) => setParams(next.trim() ? { q: next.trim() } : {});
+  // History and saved searches stay in this browser, under this person's id (see lib/searchHistory.ts).
+  const { state } = useSession();
+  const userId = state.kind === 'member' ? state.userId : '';
+  const [history, setHistory] = useState(() => loadHistory(userId));
+  const [saved, setSaved] = useState<SavedSearch[]>(() => loadSaved(userId));
+  const [saveName, setSaveName] = useState('');
+  useEffect(() => {
+    // Recording a search is a sync with browser storage, which is what effects are for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (q.trim() && userId) setHistory(recordSearch(userId, q));
+  }, [q, userId]);
+  const terms = useMemo(() => queryTerms(parsed.text), [parsed.text]);
+  const facts = useLoad(() => listCharacterFacts((results.data ?? []).map((h) => h.article_id)), [(results.data ?? []).map((h) => h.article_id).join(',')]);
   const withType = (t: ArticleType) => `${q.replace(/(^|\s)(type|kind):\S+/gi, '').trim()} type:${t}`.trim();
   return (
     <div>
@@ -137,6 +152,45 @@ export function SearchPage() {
           <li><code>category:"Silver Quill"</code> shows pages in a category.</li>
         </ul>
       </details>
+      {q && (
+        <form
+          className="search-save"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const next = addSaved(saved, saveName, q);
+            setSaved(next);
+            storeSaved(userId, next);
+            setSaveName('');
+          }}
+        >
+          <label className="visually-hidden" htmlFor="save-search-name">Name for this search</label>
+          <input id="save-search-name" value={saveName} maxLength={60} placeholder="Name this search to save it" onChange={(e) => setSaveName(e.target.value)} />
+          <button type="submit" className="button secondary small">Save this search</button>
+        </form>
+      )}
+      {saved.length > 0 && (
+        <section className="search-saved" aria-label="Saved searches">
+          <h2>Saved searches</h2>
+          <ul className="plain-list">
+            {saved.map((s) => (
+              <li key={s.name}>
+                <Link to={`/search?q=${encodeURIComponent(s.query)}`}>{s.name}</Link> <span className="muted">· {s.query}</span>{' '}
+                <button type="button" className="link-button" aria-label={`Remove the saved search ${s.name}`} onClick={() => { const next = removeSaved(saved, s.name); setSaved(next); storeSaved(userId, next); }}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {history.length > 0 && (
+        <section className="search-history" aria-label="Recent searches">
+          <h2>Recent searches</h2>
+          <p className="chip-cloud">
+            {history.map((h) => <Link key={h} className="chip" to={`/search?q=${encodeURIComponent(h)}`}>{h}</Link>)}
+          </p>
+          <button type="button" className="button secondary small" onClick={() => { clearHistory(userId); setHistory([]); }}>Clear recent searches</button>
+        </section>
+      )}
+      {(saved.length > 0 || history.length > 0) && <p className="fine-print">Recent and saved searches are kept in this browser only, on this device. They are not sent to the server.</p>}
       {q && (
         <p className="muted" data-testid="search-summary">
           {parsed.text ? <>Results for “{parsed.text}”</> : 'All pages'}
@@ -158,14 +212,20 @@ export function SearchPage() {
       <ol className="search-results">
         {results.data?.map((hit) => (
           <li key={hit.article_id}>
-            <Link to={`/wiki/${hit.slug}`} className="search-title">{hit.title}</Link>
+            <Link to={`/wiki/${hit.slug}`} className="search-title"><Terms text={hit.title} terms={terms} /></Link>
             <span className="muted"> · {TEMPLATES[hit.type].label}</span>
-            {hit.snippet ? <p className="snippet"><Highlighted text={hit.snippet} /></p> : hit.summary && <p className="snippet">{hit.summary}</p>}
+            <StatusRibbon status={facts.data?.get(hit.article_id)?.status} />
+            {hit.snippet ? <p className="snippet"><Highlighted text={hit.snippet} /></p> : hit.summary && <p className="snippet"><Terms text={excerpt(hit.summary, terms)} terms={terms} /></p>}
           </li>
         ))}
       </ol>
     </div>
   );
+}
+
+/** Plain text with the searched words marked. Text is only split, never changed or parsed as HTML. */
+function Terms({ text, terms }: { text: string; terms: string[] }) {
+  return <>{highlightSegments(text, terms).map((p, i) => (p.hit ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))}</>;
 }
 
 /** ts_headline marks matches with ⟦ ⟧; render them as <mark> without any HTML parsing. */

@@ -8,7 +8,7 @@ import { enrollAsPlayer, noHorizontalOverflow, recordApi, signInAsDm } from './s
 // the first. The DM sees four pages; a player three, and never the hidden page's name.
 
 const docsShots = path.resolve(import.meta.dirname, '../../../docs/chronicle/screenshots');
-const S = { a: 'zz-graph-alder', b: 'zz-graph-birch', c: 'zz-graph-cedar', h: 'zz-graph-hidden-vault' };
+const S = { a: 'zz-graph-alder', b: 'zz-graph-birch', c: 'zz-graph-cedar', h: 'zz-graph-hidden-vault', l: 'zz-graph-loner' };
 
 async function pageRow(slug: string, title: string, type: string, visibility: 'players' | 'dm', body = '') {
   const [r] = await db<{ id: string }>(
@@ -47,12 +47,38 @@ test.describe('Knowledge graph', () => {
     await expect(preview.getByRole('heading', { name: 'Zzgraph Birch' })).toBeVisible();
     await expect(preview).toContainText('A synthetic page for the graph.');
     await expect(preview.getByRole('link', { name: 'Open the page' })).toHaveAttribute('href', `/wiki/${S.b}`);
+    // The relationship summary is built from the received graph.
+    await expect(preview.getByTestId('graph-summary')).toContainText('Zzgraph Alder (resides in this)');
+    await expect(page.getByTestId('graph-key')).toContainText('Resides in');
+    await expect(page.getByTestId('graph-key')).toContainText('Wiki link (mentions)');
+    const highlight = page.getByRole('button', { name: 'Highlight connected' });
+    await highlight.click();
+    await expect(highlight).toHaveAttribute('aria-pressed', 'true');
+    await highlight.click();
+    await expect(highlight).toHaveAttribute('aria-pressed', 'false');
+
+    // Keyboard: Tab into the canvas, arrow keys move between pages, Enter opens the preview.
+    await preview.getByRole('button', { name: 'Close' }).click();
+    await expect(preview).toHaveCount(0);
+    const canvas = page.getByTestId('graph-canvas');
+    await canvas.focus();
+    const status = page.getByRole('status').filter({ hasText: 'Press Enter for details' });
+    for (const key of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'ArrowRight']) {
+      await page.keyboard.press(key);
+      if (await status.count()) break;
+    }
+    await expect(status).toContainText('connection');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('graph-preview')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('graph-preview')).toHaveCount(0);
 
     // The list view is the text version of the same graph.
     await page.getByRole('button', { name: 'Show as a list' }).click();
     const list = page.getByTestId('graph-list');
     await expect(list.locator('.graph-list-head').getByRole('link', { name: 'Zzgraph Hidden Vault' })).toBeVisible();
     await expect(list).toContainText('Resides in');
+    await expect(list.locator('.graph-list-summary').first()).toContainText(/Resides in|resides in this|knows|links to|mentioned by/i);
 
     // Kind filters are kept in the address and remembered after a reload.
     await page.getByRole('button', { name: 'Show as a graph' }).click();
@@ -75,6 +101,27 @@ test.describe('Knowledge graph', () => {
     }
   });
 
+  test('unconnected pages sit in a ring when included, and are left out otherwise', async ({ page }) => {
+    await pageRow(S.l, 'Zzgraph Loner', 'item', 'players');
+    await signInAsDm(page);
+    await page.goto('/graph');
+    // Other specs may leave synthetic pages behind, so compare with the count we start from.
+    const count = page.getByTestId('graph-count');
+    await expect(count).toContainText('lines shown');
+    await page.waitForLoadState('networkidle');
+    const before = Number((await count.textContent())!.match(/^(\d+) pages/)![1]);
+    await page.getByRole('button', { name: 'Include unconnected pages' }).click();
+    // Including unconnected pages adds at least this test's own page (leftover fixtures may add more).
+    await expect.poll(async () => Number((await count.textContent())!.match(/^(\d+) pages/)![1])).toBeGreaterThan(before);
+    await expect(count).toContainText(`lines`);
+    await expect(page.getByTestId('graph-canvas')).toBeVisible();
+    await page.getByRole('button', { name: 'Show as a list' }).click();
+    await expect(page.getByTestId('graph-list').getByText('Zzgraph Loner')).toBeVisible();
+    await page.goto('/graph'); // the choice is remembered; put it back for other tests
+    await page.getByRole('button', { name: 'Include unconnected pages' }).click();
+    await expect(count).toContainText(`${before} pages`);
+  });
+
   test('a player never receives the hidden page, its connection or its name', async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
     const bodies = recordApi(context);
@@ -88,6 +135,10 @@ test.describe('Knowledge graph', () => {
     await expect(player.getByTestId('graph-count')).toHaveText('3 pages, 2 lines shown.');
     await player.getByRole('button', { name: 'Show as a graph' }).click();
     await expect(player.getByTestId('graph-canvas')).toBeVisible();
+    await player.getByPlaceholder('Find a page…').fill('alder');
+    await player.getByPlaceholder('Find a page…').press('Enter');
+    await expect(player.getByTestId('graph-summary')).toContainText('Zzgraph Birch');
+    await expect(player.getByTestId('graph-summary')).not.toContainText('Hidden');
     await noHorizontalOverflow(player);
     for (const b of bodies) expect(b.body, b.url).not.toContain('Zzgraph Hidden Vault');
   });

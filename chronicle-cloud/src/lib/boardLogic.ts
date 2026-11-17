@@ -3,7 +3,7 @@
 
 export const CARD_W = 200;
 export const CARD_H = 96;
-export const MIN_ZOOM = 0.3;
+export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 2;
 export const NUDGE = 20;
 export const WORLD_LIMIT = 20000;

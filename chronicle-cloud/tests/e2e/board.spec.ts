@@ -43,6 +43,20 @@ async function addTheory(page: Page, title: string) {
   await expect(card(page, title)).toBeVisible();
 }
 
+/** Every card lies fully inside the board area (nothing clipped at an edge). */
+async function expectAllCardsInside(page: Page) {
+  const area = (await page.locator('.board-surface').boundingBox())!;
+  const cards = await page.getByTestId('board-card').all();
+  expect(cards.length).toBeGreaterThan(0);
+  for (const c of cards) {
+    const b = (await c.boundingBox())!;
+    expect(b.x, 'left').toBeGreaterThanOrEqual(area.x - 0.5);
+    expect(b.y, 'top').toBeGreaterThanOrEqual(area.y - 0.5);
+    expect(b.x + b.width, 'right').toBeLessThanOrEqual(area.x + area.width + 0.5);
+    expect(b.y + b.height, 'bottom').toBeLessThanOrEqual(area.y + area.height + 0.5);
+  }
+}
+
 test.describe('investigation board', () => {
   test('pin, note, theory, connect, move, status, activity; second player and DM', async ({ page, browser }: { page: Page; browser: Browser }) => {
     const api = recordApi(page.context());
@@ -83,6 +97,7 @@ test.describe('investigation board', () => {
     expect(Math.abs(moved - before)).toBeGreaterThan(20);
     await page.reload();
     await expect(card(page, 'Zz Note one')).toBeVisible();
+    await expectAllCardsInside(page);
     expect((await db<{ x: number }>(`select x from public.board_items where title = 'Zz Note one'`))[0]!.x).toBe(moved);
 
     // Keyboard move: arrow keys shift a focused card by 20 board pixels.
@@ -169,6 +184,7 @@ test.describe('investigation board', () => {
 
     await page.getByRole('button', { name: 'Zoom in' }).click();
     await page.getByRole('button', { name: 'Reset view' }).click();
+    await expectAllCardsInside(page);
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save as image' }).click()]);
     expect(download.suggestedFilename()).toMatch(/^investigation-board\.(png|svg)$/);
   });

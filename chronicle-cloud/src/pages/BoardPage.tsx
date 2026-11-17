@@ -53,7 +53,6 @@ export function BoardPage() {
   const viewport = useRef<HTMLDivElement>(null);
   const boardRef = useRef<Board | null>(null);
   const busyDrag = useRef(false);
-  const fitted = useRef(false);
   const loadSeq = useRef(0);
   const timers = useRef(new Map<string, number>());
 
@@ -88,13 +87,28 @@ export function BoardPage() {
   const shownIds = useMemo(() => new Set(shown.map((i) => i.id)), [shown]);
   const rect = useCallback((i: BoardItem) => ({ x: pos(i).x, y: pos(i).y, w: CARD_W, h: CARD_H }), [pos]);
 
-  // Fit the board into view once, the first time it has cards.
+  // Keep every card in view: fit when the board first has cards, when cards are added or removed, when the
+  // board area changes size, and on "Reset view". Once the reader pans or zooms, their own view is kept.
+  const userMoved = useRef(false);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const surfaceOn = !!board && !list && items.length > 0;
   useEffect(() => {
-    if (fitted.current || !viewport.current || items.length === 0) return;
-    fitted.current = true;
-    const r = viewport.current.getBoundingClientRect();
-    setView(fitView(items.map((i) => ({ x: i.x, y: i.y, w: CARD_W, h: CARD_H })), r.width, r.height));
-  }, [items, list]);
+    const el = viewport.current;
+    if (!el || !surfaceOn) return;
+    const measure = () => { const r = el.getBoundingClientRect(); setSize((s) => (s.w === r.width && s.h === r.height ? s : { w: r.width, h: r.height })); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [surfaceOn]);
+  const fitKey = shown.map((i) => i.id).join(',');
+  useEffect(() => {
+    if (userMoved.current || size.w === 0 || shown.length === 0) return;
+    const sh = boardRef.current?.items.filter((i) => fitKey.split(',').includes(i.id)) ?? [];
+    setView(fitView(sh.map((i) => ({ x: i.x, y: i.y, w: CARD_W, h: CARD_H })), size.w, size.h));
+    // Only the set of cards and the size of the area decide when to fit, not where cards sit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey, size.w, size.h]);
 
   const titleOf = useCallback((i: BoardItem) => (i.kind === 'pin' ? targets.get(i.ref_id ?? '')?.title ?? UNAVAILABLE : i.title), [targets]);
 
@@ -176,6 +190,7 @@ export function BoardPage() {
     if (pinch.current && pointers.current.size >= 2) {
       const [a, b] = [...pointers.current.values()];
       const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+      userMoved.current = true;
       setView(zoomAt(pinch.current.v, d / pinch.current.d, pinch.current.cx, pinch.current.cy));
       return;
     }
@@ -183,7 +198,7 @@ export function BoardPage() {
     if (!g) return;
     const dx = e.clientX - g.sx;
     const dy = e.clientY - g.sy;
-    if (g.type === 'pan') setView({ ...g.v, x: g.v.x + dx, y: g.v.y + dy });
+    if (g.type === 'pan') { if (Math.hypot(dx, dy) > 3) userMoved.current = true; setView({ ...g.v, x: g.v.x + dx, y: g.v.y + dy }); }
     else {
       if (!g.moved && Math.hypot(dx, dy) < 4) return;
       g.moved = true;
@@ -228,6 +243,7 @@ export function BoardPage() {
     if (!el || !surfaceReady) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      userMoved.current = true;
       const r = el.getBoundingClientRect();
       setView((v) => zoomAt(v, Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top));
     };
@@ -245,10 +261,12 @@ export function BoardPage() {
   };
 
   const resetView = () => {
+    userMoved.current = false;
     const r = viewport.current?.getBoundingClientRect();
     setView(r && shown.length ? fitView(shown.map((i) => rect(i)), r.width, r.height) : { ...HOME_VIEW });
   };
   const zoomBy = (f: number) => {
+    userMoved.current = true;
     const r = viewport.current?.getBoundingClientRect();
     setView((v) => zoomAt(v, f, (r?.width ?? 600) / 2, (r?.height ?? 400) / 2));
   };

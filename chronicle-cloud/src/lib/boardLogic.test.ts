@@ -6,7 +6,7 @@ import {
 describe('view maths', () => {
   it('clamps zoom', () => {
     expect(clampZoom(10)).toBe(2);
-    expect(clampZoom(0.01)).toBe(0.3);
+    expect(clampZoom(0.01)).toBe(0.1);
   });
   it('keeps the point under the cursor fixed when zooming', () => {
     const v = { x: 30, y: -10, k: 1 };
@@ -23,6 +23,11 @@ describe('view maths', () => {
     expect(v.k).toBe(1);
     const big = fitView([{ x: 0, y: 0, w: 4000, h: 100 }, { x: 0, y: 0, w: 10, h: 10 }], 800, 600);
     expect(big.k).toBeLessThan(0.25 + 0.06);
+    // Everything fits: the fitted view keeps every rectangle inside the viewport.
+    for (const r of [{ x: 0, y: 0, w: 4000, h: 100 }, { x: 0, y: 0, w: 10, h: 10 }]) {
+      expect(big.x + r.x * big.k).toBeGreaterThanOrEqual(0);
+      expect(big.x + (r.x + r.w) * big.k).toBeLessThanOrEqual(800);
+    }
     expect(fitView([], 800, 600)).toEqual({ x: 40, y: 40, k: 1 });
   });
   it('nudges inside the board', () => {

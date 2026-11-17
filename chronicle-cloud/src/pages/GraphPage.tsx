@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEven
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { getPagePreview, loadGraphData } from '../lib/api.ts';
-import { buildGraph, neighbourhood, onlyTypes, searchNodes, TYPE_COLOURS, withoutLoners, type Graph, type GraphNode } from '../lib/knowledgeGraph.ts';
+import {
+  buildGraph, connectedCluster, easeView, legendEntries, nearestInDirection, neighbourhood, onlyTypes, relationshipSummary, ringPositions, searchNodes,
+  summaryText, TYPE_COLOURS, withoutLoners, type Direction, type Graph, type GraphNode, type SummaryItem,
+} from '../lib/knowledgeGraph.ts';
 import { useSession } from '../lib/session.tsx';
 import { TEMPLATES, TYPE_ORDER } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
@@ -72,6 +75,7 @@ export function GraphPage() {
   }, [full, p.types, p.loners, p.depth, centre]);
   const matches = useMemo(() => (shown ? searchNodes(shown, p.q) : new Set<string>()), [shown, p.q]);
   const [selected, setSelected] = useState<GraphNode | null>(null);
+  const [cluster, setCluster] = useState(false);
   const toggleType = (t: ArticleType) => {
     const next = p.types.includes(t) ? p.types.filter((x) => x !== t) : [...p.types, t];
     p.set({ types: next.join(',') || null });
@@ -117,6 +121,11 @@ export function GraphPage() {
         <button type="button" className="button secondary small" onClick={() => p.set({ view: p.view === 'list' ? null : 'list' })}>
           {p.view === 'list' ? 'Show as a graph' : 'Show as a list'}
         </button>
+        {p.view !== 'list' && (
+          <button type="button" className={cluster ? 'chip chip-on' : 'chip'} aria-pressed={cluster} onClick={() => setCluster(!cluster)} title="Dim everything except the selected page and the pages it is connected to">
+            Highlight connected
+          </button>
+        )}
       </div>
       <div className="graph-legend" role="group" aria-label="Kinds of page shown">
         <button type="button" className="graph-kind" aria-pressed={p.types.length === 0} onClick={() => p.set({ types: null })}>
@@ -129,6 +138,7 @@ export function GraphPage() {
           </button>
         ))}
       </div>
+      {shown && shown.edges.length > 0 && <GraphKey graph={shown} />}
       {data.loading && <p className="muted" role="status">Gathering the pages…</p>}
       {data.error && (
         <div className="notice" role="alert">
@@ -141,17 +151,45 @@ export function GraphPage() {
       {shown && shown.nodes.length > 0 && (
         p.view === 'list'
           ? <GraphList graph={shown} centre={centre} onFocus={(slug) => p.set({ focus: slug, view: null })} />
-          : <GraphCanvas graph={shown} centre={centre} matches={matches} selected={selected} onSelect={setSelected} />
+          : <GraphCanvas graph={shown} centre={centre} matches={matches} selected={selected} onSelect={setSelected} cluster={cluster} />
       )}
       {selected && shown?.nodes.some((n) => n.id === selected.id) && (
-        <Preview node={selected} onClose={() => setSelected(null)} onFocus={() => { p.set({ focus: selected.slug }); setSelected(null); }} />
+        <Preview node={selected} summary={summaryText(relationshipSummary(shown, selected.id))} onClose={() => setSelected(null)} onFocus={() => { p.set({ focus: selected.slug }); setSelected(null); }} />
       )}
       {shown && <p className="fine-print" data-testid="graph-count">{shown.nodes.length} {shown.nodes.length === 1 ? 'page' : 'pages'}, {shown.edges.length} {shown.edges.length === 1 ? 'line' : 'lines'} shown.</p>}
     </div>
   );
 }
 
-function Preview({ node, onClose, onFocus }: { node: GraphNode; onClose: () => void; onFocus: () => void }) {
+/** What the lines mean: solid with an arrow is a connection (named), dashed is a wiki link. */
+function GraphKey({ graph }: { graph: Graph }) {
+  const entries = legendEntries(graph);
+  return (
+    <section className="graph-key" aria-label="What the lines mean" data-testid="graph-key">
+      <ul>
+        {entries.map((e) => (
+          <li key={`${e.kind}-${e.label}`}>
+            <svg width="34" height="10" aria-hidden="true"><line x1="1" y1="5" x2={e.kind === 'relation' ? 26 : 33} y2="5" stroke="currentColor" strokeWidth="2" strokeDasharray={e.kind === 'link' ? '4 3' : undefined} />{e.kind === 'relation' && <path d="M24 1 L33 5 L24 9 Z" fill="currentColor" />}</svg>
+            {e.label} <span className="muted">({e.count})</span>
+          </li>
+        ))}
+      </ul>
+      <p className="fine-print">Solid line with an arrow: a connection. Dashed line: one page mentions the other.</p>
+    </section>
+  );
+}
+
+function SummaryLine({ items }: { items: SummaryItem[] }) {
+  return (
+    <>
+      {items.map((it, i) => (
+        <span key={i}>{it.lead}{it.other && <Link to={`/wiki/${it.other.slug}`}>{it.other.title}</Link>}{it.tail}{i < items.length - 1 ? ', ' : ''}</span>
+      ))}
+    </>
+  );
+}
+
+function Preview({ node, summary, onClose, onFocus }: { node: GraphNode; summary: string; onClose: () => void; onFocus: () => void }) {
   const info = useLoad(() => getPagePreview(node.id), [node.id]);
   return (
     <aside className="panel graph-preview" aria-label={`About ${node.title}`} data-testid="graph-preview">
@@ -162,6 +200,7 @@ function Preview({ node, onClose, onFocus }: { node: GraphNode; onClose: () => v
           <h2>{node.title}</h2>
         </div>
       </div>
+      <p className="graph-summary" data-testid="graph-summary">{summary || 'Not connected to any other page.'}</p>
       {info.data?.summary && <p>{info.data.summary.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1').slice(0, 280)}</p>}
       <p className="button-row">
         <Link className="button small" to={`/wiki/${node.slug}`}>Open the page</Link>
@@ -173,13 +212,11 @@ function Preview({ node, onClose, onFocus }: { node: GraphNode; onClose: () => v
 }
 
 function GraphList({ graph, centre, onFocus }: { graph: Graph; centre: GraphNode | null; onFocus: (slug: string) => void }) {
-  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   const nodes = [...graph.nodes].sort((a, b) => (centre && a.id === centre.id ? -1 : centre && b.id === centre.id ? 1 : a.title.localeCompare(b.title)));
   return (
     <ul className="graph-list" data-testid="graph-list">
       {nodes.map((n) => {
-        const out = graph.edges.filter((e) => e.source === n.id).map((e) => ({ e, other: byId.get(e.target)! }));
-        const inn = graph.edges.filter((e) => e.target === n.id).map((e) => ({ e, other: byId.get(e.source)! }));
+        const summary = relationshipSummary(graph, n.id);
         return (
           <li key={n.id}>
             <div className="graph-list-head">
@@ -188,12 +225,7 @@ function GraphList({ graph, centre, onFocus }: { graph: Graph; centre: GraphNode
               <span className="muted">{TEMPLATES[n.type].label}</span>
               <button type="button" className="link-button" onClick={() => onFocus(n.slug)} aria-label={`Centre the graph on ${n.title}`}>Centre here</button>
             </div>
-            {(out.length > 0 || inn.length > 0) && (
-              <p className="graph-list-edges">
-                {out.map(({ e, other }, i) => <span key={`o${i}`}>{e.label} <Link to={`/wiki/${other.slug}`}>{other.title}</Link>{i < out.length - 1 || inn.length ? ' · ' : ''}</span>)}
-                {inn.map(({ e, other }, i) => <span key={`i${i}`}><Link to={`/wiki/${other.slug}`}>{other.title}</Link> {e.kind === 'link' ? 'mentions this' : `(${e.label.toLowerCase()} this)`}{i < inn.length - 1 ? ' · ' : ''}</span>)}
-              </p>
-            )}
+            {summary.length > 0 && <p className="graph-list-edges graph-list-summary"><SummaryLine items={summary} /></p>}
           </li>
         );
       })}
@@ -201,8 +233,8 @@ function GraphList({ graph, centre, onFocus }: { graph: Graph; centre: GraphNode
   );
 }
 
-function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
-  graph: Graph; centre: GraphNode | null; matches: Set<string>; selected: GraphNode | null; onSelect: (n: GraphNode | null) => void;
+function GraphCanvas({ graph, centre, matches, selected, onSelect, cluster }: {
+  graph: Graph; centre: GraphNode | null; matches: Set<string>; selected: GraphNode | null; onSelect: (n: GraphNode | null) => void; cluster: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -212,7 +244,12 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
   const nodes = useRef<SimNode[]>([]);
   const edges = useRef<SimEdge[]>([]);
   const hover = useRef<SimNode | null>(null);
-  const highlight = useRef({ matches, selected: selected?.id ?? null, centre: centre?.id ?? null });
+  const highlight = useRef<{ matches: Set<string>; selected: string | null; centre: string | null; cluster: Set<string> | null }>({ matches, selected: selected?.id ?? null, centre: centre?.id ?? null, cluster: null });
+  // Keyboard focus on a page (arrow keys), announced to screen readers.
+  const kb = useRef<string | null>(null);
+  const [announce, setAnnounce] = useState('');
+  const anim = useRef(0);
+  const placeLoners = useRef<() => void>(() => undefined);
   const draw = useRef<() => void>(() => undefined);
   // Once the reader pans or zooms, the view is theirs: no more automatic fitting.
   const userMoved = useRef(false);
@@ -220,6 +257,7 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
   // Declared before the simulation effect below, so it is ready when the layout settles.
   useEffect(() => {
     fit.current = () => {
+    placeLoners.current();
     const c = canvasRef.current;
     const placed = nodes.current.filter((n) => n.x !== undefined);
     if (!c || placed.length === 0) return;
@@ -242,13 +280,23 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
       return { ...n, x: o?.x, y: o?.y };
     });
     edges.current = graph.edges.map((e) => ({ ...e, source: e.source, target: e.target }));
+    // Pages with no line in this view wait in a neat ring around the edge instead of drifting in the force layout.
+    const linked = new Set(graph.edges.flatMap((e) => [e.source, e.target]));
+    const connected = nodes.current.filter((n) => linked.has(n.id));
+    const loners = nodes.current.filter((n) => !linked.has(n.id));
+    placeLoners.current = () => {
+      if (loners.length === 0) return;
+      const placed = connected.filter((n) => n.x !== undefined);
+      const inner = (placed.length ? Math.max(...placed.map((n) => Math.hypot(n.x!, n.y!))) : 0) + 70;
+      ringPositions(loners.length, inner).forEach((p, i) => { loners[i]!.x = p.x; loners[i]!.y = p.y; });
+    };
     const big = nodes.current.length > 600;
     if (big) {
       // Large wikis: lay out in a worker (about 1.5 s for 3,000 pages), then draw once.
       const worker = new Worker(new URL('../lib/graphLayout.worker.ts', import.meta.url), { type: 'module' });
       worker.onmessage = (ev: MessageEvent<[string, number, number][]>) => {
         const pos = new Map(ev.data.map(([id, x, y]) => [id, { x, y }]));
-        for (const n of nodes.current) {
+        for (const n of connected) {
           const q = pos.get(n.id);
           if (q) { n.x = q.x; n.y = q.y; }
         }
@@ -259,25 +307,28 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
           e.target = byId.get(e.target as string) ?? e.target;
         }
         sim.current = null;
+        placeLoners.current();
         if (!userMoved.current) fit.current();
         draw.current();
         setReady(true);
         worker.terminate();
       };
-      worker.postMessage({ nodes: nodes.current.map((n) => ({ id: n.id, x: n.x, y: n.y })), edges: graph.edges.map((e) => ({ source: e.source, target: e.target })) });
+      worker.postMessage({ nodes: connected.map((n) => ({ id: n.id, x: n.x, y: n.y })), edges: graph.edges.map((e) => ({ source: e.source, target: e.target })) });
       return () => worker.terminate();
     }
-    const s = forceSimulation<SimNode, SimEdge>(nodes.current)
+    const s = forceSimulation<SimNode, SimEdge>(connected)
       .force('link', forceLink<SimNode, SimEdge>(edges.current).id((d) => d.id).distance((e) => (e.kind === 'relation' ? 70 : 90)).strength(0.4))
       .force('charge', forceManyBody<SimNode>().strength(-160).theta(0.9))
       .force('centre', forceCenter(0, 0))
       .force('collide', forceCollide<SimNode>((n) => radius(n) + 3));
     sim.current = s;
+    placeLoners.current();
     if (prefersReducedMotion()) {
       // Settle without animation: a fixed number of steps, then draw once.
       s.stop();
       const steps = Math.min(300, Math.ceil(Math.log(s.alphaMin()) / Math.log(1 - s.alphaDecay())));
       for (let i = 0; i < steps; i++) s.tick();
+      placeLoners.current();
       if (!userMoved.current) fit.current();
       draw.current();
       requestAnimationFrame(() => setReady(true));
@@ -285,10 +336,12 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
       let ticks = 0;
       s.on('tick', () => {
         ticks++;
+        placeLoners.current();
         if (!userMoved.current && ticks % 20 === 0) fit.current();
         draw.current();
       });
       s.on('end', () => {
+        placeLoners.current();
         if (!userMoved.current) fit.current();
         setReady(true);
       });
@@ -316,6 +369,8 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
       const line = cssVar('--muted', '#6b5d48');
       const hl = highlight.current;
       const searching = hl.matches.size > 0;
+      const cl = hl.cluster;
+      const edgeLabels: { x: number; y: number; text: string }[] = [];
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
       ctx.translate(w / 2 + x, h / 2 + y);
@@ -326,7 +381,7 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
         const t = e.target as SimNode;
         if (s.x === undefined || t.x === undefined) continue;
         const lit = hl.selected && (s.id === hl.selected || t.id === hl.selected);
-        ctx.globalAlpha = searching && !(hl.matches.has(s.id) || hl.matches.has(t.id)) ? 0.12 : lit ? 0.95 : 0.45;
+        ctx.globalAlpha = cl && !(cl.has(s.id) && cl.has(t.id)) ? 0.06 : searching && !(hl.matches.has(s.id) || hl.matches.has(t.id)) ? 0.12 : lit ? 0.95 : 0.45;
         ctx.strokeStyle = lit ? cssVar('--gold', '#b08a2e') : line;
         ctx.lineWidth = (lit ? 2.2 : 1.1) / Math.sqrt(k);
         ctx.setLineDash(e.kind === 'link' ? [4 / k, 4 / k] : []);
@@ -334,6 +389,7 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
         ctx.moveTo(s.x, s.y!);
         ctx.lineTo(t.x, t.y!);
         ctx.stroke();
+        if (lit && k > 0.3) edgeLabels.push({ x: (s.x + t.x) / 2, y: (s.y! + t.y!) / 2, text: e.kind === 'link' ? 'mentions' : e.label });
         if (e.kind === 'relation' && k > 0.5) {
           // Arrow head at the target's edge.
           const dx = t.x - s.x;
@@ -357,8 +413,8 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
       // Pages.
       for (const n of nodes.current) {
         if (n.x === undefined) continue;
-        const dim = searching && !hl.matches.has(n.id);
-        const special = n.id === hl.selected || n.id === hl.centre || hl.matches.has(n.id) || n === hover.current;
+        const dim = (searching && !hl.matches.has(n.id)) || (cl !== null && !cl.has(n.id));
+        const special = n.id === hl.selected || n.id === hl.centre || hl.matches.has(n.id) || n === hover.current || n.id === kb.current;
         ctx.globalAlpha = dim ? 0.2 : 1;
         ctx.beginPath();
         ctx.arc(n.x, n.y!, radius(n) * (special ? 1.35 : 1), 0, Math.PI * 2);
@@ -378,7 +434,17 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
           ctx.fillText(n.title, n.x, n.y! + radius(n) + 13 / Math.sqrt(k));
         }
       }
+      // The names of the lines touching the selected page, on top of everything.
       ctx.globalAlpha = 1;
+      ctx.font = `600 ${12 / Math.sqrt(k)}px ${cssVar('--font-ui', 'sans-serif')}`;
+      ctx.textAlign = 'center';
+      for (const l of edgeLabels) {
+        ctx.lineWidth = 4 / Math.sqrt(k);
+        ctx.strokeStyle = bg;
+        ctx.strokeText(l.text, l.x, l.y - 4 / Math.sqrt(k));
+        ctx.fillStyle = text;
+        ctx.fillText(l.text, l.x, l.y - 4 / Math.sqrt(k));
+      }
     };
     const ro = new ResizeObserver(() => draw.current());
     ro.observe(canvas);
@@ -386,15 +452,41 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
     return () => ro.disconnect();
   }, []);
 
-  // Redraw when the highlight changes; bring a newly selected search match into view.
+  // Move the view to a page: a short ease, or at once when the reader prefers reduced motion.
+  const animateTo = (to: { k: number; x: number; y: number }) => {
+    cancelAnimationFrame(anim.current);
+    userMoved.current = true;
+    const from = { ...view.current };
+    if (prefersReducedMotion()) {
+      view.current = to;
+      draw.current();
+      return;
+    }
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = (now - start) / 350;
+      view.current = easeView(from, to, t);
+      draw.current();
+      if (t < 1) anim.current = requestAnimationFrame(step);
+    };
+    anim.current = requestAnimationFrame(step);
+  };
+  useEffect(() => () => cancelAnimationFrame(anim.current), []);
+
+  // Redraw when the highlight changes; bring a newly selected page (for example a search match) into view.
   useEffect(() => {
-    highlight.current = { matches, selected: selected?.id ?? null, centre: centre?.id ?? null };
+    highlight.current = { matches, selected: selected?.id ?? null, centre: centre?.id ?? null, cluster: cluster && selected ? connectedCluster(graph, selected.id) : null };
     if (selected) {
       const n = nodes.current.find((x) => x.id === selected.id);
-      if (n?.x !== undefined) view.current = { k: Math.max(view.current.k, 1.2), x: -n.x * Math.max(view.current.k, 1.2), y: -n.y! * Math.max(view.current.k, 1.2) };
+      if (n?.x !== undefined) {
+        const k = Math.max(view.current.k, 1.2);
+        animateTo({ k, x: -n.x * k, y: -n.y! * k });
+        return;
+      }
     }
     draw.current();
-  }, [matches, selected, centre]);
+    // animateTo only touches refs.
+  }, [matches, selected, centre, cluster, graph]);
 
   // ---- pointer handling: pan, drag a page, pinch, tap ----
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -490,6 +582,34 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
     return () => c.removeEventListener('wheel', stop);
   }, []);
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const dirs: Record<string, Direction> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const dir = dirs[e.key];
+    if (dir) {
+      e.preventDefault();
+      const pts = nodes.current.filter((n) => n.x !== undefined).map((n) => ({ id: n.id, x: n.x!, y: n.y! }));
+      const next = nearestInDirection(pts, kb.current ?? selected?.id ?? null, dir);
+      const n = next ? nodes.current.find((x) => x.id === next) : undefined;
+      if (!n) return;
+      kb.current = n.id;
+      setAnnounce(`${n.title}, ${TEMPLATES[n.type].label}, ${n.degree === 1 ? '1 connection' : `${n.degree} connections`}. Press Enter for details.`);
+      // Bring it into view if it lies near or beyond an edge.
+      const c = canvasRef.current!;
+      const { k, x, y } = view.current;
+      const sx = c.clientWidth / 2 + x + n.x! * k;
+      const sy = c.clientHeight / 2 + y + n.y! * k;
+      if (sx < 40 || sy < 40 || sx > c.clientWidth - 40 || sy > c.clientHeight - 40) animateTo({ k, x: -n.x! * k, y: -n.y! * k });
+      else draw.current();
+    } else if (e.key === 'Enter' && kb.current) {
+      e.preventDefault();
+      onSelect(graph.nodes.find((n) => n.id === kb.current) ?? null);
+    } else if (e.key === 'Escape') {
+      kb.current = null;
+      onSelect(null);
+      draw.current();
+    }
+  };
+
   return (
     <div className="graph-wrap" ref={wrapRef}>
       <div className="family-controls graph-controls" role="group" aria-label="Graph view">
@@ -498,12 +618,16 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect }: {
         <button type="button" className="button secondary small" onClick={() => { userMoved.current = false; fit.current(); }}>Reset view</button>
         <span className="fine-print family-hint">Drag to move · wheel or pinch to zoom · tap a page for details{ready ? '' : ' · arranging…'}</span>
       </div>
+      <p className="visually-hidden" role="status" aria-live="polite">{announce}</p>
       <canvas
         ref={canvasRef}
         className="graph-canvas"
         data-testid="graph-canvas"
-        role="img"
-        aria-label={`Graph of ${graph.nodes.length} pages. Use “Show as a list” for a text version.`}
+        role="application"
+        tabIndex={0}
+        aria-label={`Graph of ${graph.nodes.length} pages. Use the arrow keys to move between pages and Enter to open details, or “Show as a list” for a text version.`}
+        onKeyDown={onKeyDown}
+        onBlur={() => { if (kb.current) { kb.current = null; draw.current(); } }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
