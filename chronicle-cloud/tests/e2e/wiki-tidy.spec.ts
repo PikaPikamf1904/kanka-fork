@@ -120,9 +120,9 @@ test.describe('Tidy up the wiki', () => {
     await orphans.getByLabel('Sort pages nothing links to by').selectOption('visibility');
     await expect(page).toHaveURL(/sort-orphans=visibility/);
     const order = async () => (await orphans.getByRole('listitem').allInnerTexts()).map((t) => (t.includes('Lantern Rites Draft') ? 'hidden' : t.includes('Harbour Ledger Notes') ? 'live' : '')).filter(Boolean);
-    expect(await order()).toEqual(['hidden', 'live']);
+    await expect.poll(order).toEqual(['hidden', 'live']);
     await orphans.getByLabel('Sort pages nothing links to by').selectOption('title');
-    expect(await order()).toEqual(['live', 'hidden']); // "Harbour" before "Lantern"
+    await expect.poll(order).toEqual(['live', 'hidden']); // "Harbour" before "Lantern"
     await expect(page).not.toHaveURL(/sort-orphans/);
 
     // The type filter applies to every section and is kept in the address.
