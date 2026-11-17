@@ -3,13 +3,20 @@
 // The probe is generated from the catalogue, so a new table or column is covered without editing
 // this file. Fixtures are synthetic.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { admin, as, pool, resetFixtures } from './helpers.ts';
+import { admin, as, ids, pool, resetFixtures } from './helpers.ts';
 
 const SECRET = 'a0000000-0000-4000-8000-00000000000b';
 // References that are allowed to point at something the reader cannot see, and why.
 const ALLOWED: Record<string, string> = {
   // A member's own row names the access code they enrolled with; the code itself stays DM-only.
   'campaign_members.enrolled_via': 'own enrollment',
+  // Reader notes (20261117000100): a person's own bookmark, scratchpad note or journal link to a page that
+  // was readable when they made it and has been hidden since. The row holds only the page id they once
+  // saw; no title or address is stored, the page itself no longer comes back, and a hidden page's id is
+  // refused on every insert and update, so these tables cannot be used to probe for hidden pages.
+  'bookmarks.article_id': 'own bookmark: only the id of a page the owner could once read',
+  'scratchpad_notes.article_id': 'own scratchpad note: only the id of a page the owner could once read',
+  'journal_entry_links.article_id': 'own journal link: only the id of a page the owner could once read',
 };
 
 let probes: { fk: string; sql: string }[] = [];
@@ -18,6 +25,11 @@ beforeAll(async () => {
   await resetFixtures();
   // Point every settable reference we can at a DM-only page, so a leak has something to show.
   await admin(`update public.campaign_settings set current_location_id = $1`, [SECRET]);
+  // Own rows of the reader-notes tables pointing at the hidden page (as if it was hidden after saving).
+  await admin(`insert into public.bookmarks (user_id, article_id) values ($1, $2)`, [ids.player, SECRET]);
+  await admin(`insert into public.scratchpad_notes (user_id, article_id, body) values ($1, $2, 'Zz sweep')`, [ids.player, SECRET]);
+  const entry = await admin<{ id: string }>(`insert into public.journal_entries (user_id, title) values ($1, 'Zz sweep') returning id`, [ids.player]);
+  await admin(`insert into public.journal_entry_links (entry_id, article_id) values ($1, $2)`, [entry.rows[0]!.id, SECRET]);
   probes = (
     await admin<{ fk: string; sql: string }>(`
       select c.conrelid::regclass::text || '.' || a.attname as fk,
@@ -35,6 +47,9 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await admin(`update public.campaign_settings set current_location_id = null`);
+  await admin(`delete from public.bookmarks`);
+  await admin(`delete from public.scratchpad_notes`);
+  await admin(`delete from public.journal_entries`);
   await pool.end();
 });
 
