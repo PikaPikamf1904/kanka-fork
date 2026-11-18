@@ -3,15 +3,24 @@
 import { Link } from 'react-router';
 import { StatusBadge, VisibilityBadge } from '../components/Badges.tsx';
 import { Crest } from '../components/Crest.tsx';
+import { FamilyTree } from '../components/FamilyTree.tsx';
+import { OrgChart } from '../components/OrgChart.tsx';
+import { isFamilyKind } from '../lib/familyTree.ts';
 import { Infobox } from '../components/Infobox.tsx';
+import { LocationChips } from '../components/LocationChips.tsx';
 import { Markdown } from '../components/Markdown.tsx';
+import { Breadcrumbs } from '../components/Breadcrumbs.tsx';
+import { breadcrumbTrail } from '../lib/breadcrumbs.ts';
+import { SaveButton } from '../components/SaveButton.tsx';
+import { StatusRibbon } from '../components/StatusRibbon.tsx';
+import { ribbonFor, statusFromInfobox } from '../lib/statusRibbon.ts';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { sectionAnchor, Toc } from '../components/Toc.tsx';
 import { articlesBySlugs, listSessions } from '../lib/api.ts';
 import { longDate } from '../lib/dates.ts';
 import { splitTimestamp } from '../lib/journal.ts';
 import { slugify, wikiLinkTargets } from '../lib/slug.ts';
-import { relationLabel, TEMPLATES } from '../lib/templates.ts';
+import { relationKindFrom, relationLabel, TEMPLATES } from '../lib/templates.ts';
 import type { ArticleRef, ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 import type { ViewModel } from './ArticlePage.tsx';
@@ -19,6 +28,10 @@ import type { ViewModel } from './ArticlePage.tsx';
 interface ViewProps { v: ViewModel; isDm: boolean; from: string | null }
 
 // ---------- shared pieces ----------
+
+function Trail({ v, isDm }: { v: ViewModel; isDm: boolean }) {
+  return <Breadcrumbs trail={breadcrumbTrail(v, isDm)} />;
+}
 
 function DmBar({ v, isDm }: { v: ViewModel; isDm: boolean }) {
   if (!isDm) return null;
@@ -29,6 +42,11 @@ function DmBar({ v, isDm }: { v: ViewModel; isDm: boolean }) {
       <Link className="button small" to={`/dm/edit/${v.slug}`}>Edit</Link>
     </div>
   );
+}
+
+/** Place and map chips; not in the DM's "preview as player" view, which has no row ids to look up. */
+function Places({ v }: { v: ViewModel }) {
+  return v.previewing ? null : <LocationChips articleId={v.id} title={v.title} />;
 }
 
 function Sections({ v, isDm, chapter = false }: { v: ViewModel; isDm: boolean; chapter?: boolean }) {
@@ -58,11 +76,15 @@ function Sections({ v, isDm, chapter = false }: { v: ViewModel; isDm: boolean; c
 
 function Connections({ v, isDm }: { v: ViewModel; isDm: boolean }) {
   const byKind = new Map<string, ViewModel['relations']>();
-  for (const r of v.relations) byKind.set(r.kind, [...(byKind.get(r.kind) ?? []), r]);
+  for (const r of v.relations) {
+    const kind = relationKindFrom(r.kind, r.direction);
+    byKind.set(kind, [...(byKind.get(kind) ?? []), r]);
+  }
   if (byKind.size === 0) return null;
   return (
     <section className="article-section">
       <h2 id="connections">Connections</h2>
+      {!v.previewing && <p className="fine-print"><Link to={`/graph?focus=${encodeURIComponent(v.slug)}`}>Show in the knowledge graph</Link></p>}
       <dl className="connections">
         {[...byKind.entries()].map(([kind, rels]) => (
           <div key={kind}>
@@ -144,19 +166,24 @@ function Backlinks({ items, title = 'What links here', id = 'what-links-here' }:
 export function EncyclopediaPage({ v, isDm, from }: ViewProps) {
   return (
     <article className={`article article-type-${v.type}`}>
+      <Trail v={v} isDm={isDm} />
       <div className="article-meta-top">
         <Link to={`/browse/${v.type}`} className="article-kind"><span aria-hidden="true">{TEMPLATES[v.type].glyph} </span>{TEMPLATES[v.type].plural}</Link>
         <DmBar v={v} isDm={isDm} />
       </div>
       <h1 className="article-title">{v.title}</h1>
+      {!v.previewing && <SaveButton articleId={v.id} />}
+      {ribbonFor(statusFromInfobox(v.infobox)) && <p className="article-status"><StatusRibbon status={statusFromInfobox(v.infobox)} /></p>}
       {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
       {from && <p className="redirect-note">(Redirected from {from})</p>}
       <div className="article-layout">
         <Infobox title={v.title} type={v.type} heroMediaId={v.heroMediaId} fields={v.infobox} showVisibility={isDm} />
         <div className="article-body">
+          <Places v={v} />
           {v.summary && <div className="article-lead"><Markdown text={v.summary} /></div>}
           <Toc headings={v.sections.map((s) => splitTimestamp(s.heading).text)} />
           <Sections v={v} isDm={isDm} />
+          {v.type === 'faction' && !v.previewing && <OrgChart faction={{ id: v.id, slug: v.slug, title: v.title, type: v.type }} />}
           <Connections v={v} isDm={isDm} />
           <Backlinks items={v.backlinks} />
           <Footer v={v} isDm={isDm} />
@@ -196,6 +223,7 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
   const factLine = [facts.species, facts.class, facts.level].filter(Boolean);
   return (
     <article className="article article-character">
+      <Trail v={v} isDm={isDm} />
       <div className="article-meta-top">
         <Link to="/browse/character" className="article-kind"><span aria-hidden="true">{TEMPLATES.character.glyph} </span>Characters</Link>
         <DmBar v={v} isDm={isDm} />
@@ -211,13 +239,16 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
         </div>
         <div className="profile-heading">
           <h1 className="article-title">{v.title}</h1>
+        {!v.previewing && <SaveButton articleId={v.id} />}
+          {!v.previewing && <SaveButton articleId={v.id} />}
           {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
           {from && <p className="redirect-note">(Redirected from {from})</p>}
           {factLine.length > 0 && <p className="profile-facts">{factLine.join(' · ')}</p>}
           <p className="profile-chips">
             {isParty && <span className="chip chip-party">Of the party</span>}
-            {facts.status && <span className="chip">{facts.status}</span>}
+            {facts.status && (ribbonFor(facts.status) ? <StatusRibbon status={facts.status} /> : <span className="chip">{facts.status}</span>)}
           </p>
+          <Places v={v} />
         </div>
       </header>
 
@@ -237,6 +268,12 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
           {v.summary && <div className="article-lead" id="character-overview"><Markdown text={v.summary} /></div>}
           <Sections v={v} isDm={isDm} />
           <Connections v={v} isDm={isDm} />
+          {!v.previewing && v.relations.some((r) => isFamilyKind(r.kind)) && (
+            <section className="article-section" aria-labelledby="character-family">
+              <h2 id="character-family">Family</h2>
+              <FamilyTree slug={v.slug} compact />
+            </section>
+          )}
           {journals.length > 0 && (
             <section className="article-section character-journals">
               <h2 id="character-journals">In the session journals</h2>
@@ -279,6 +316,7 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
   const things = linked.of('item', 'quest', 'event', 'faction');
   return (
     <article className="article article-journal">
+      <Trail v={v} isDm={isDm} />
       <div className="article-meta-top">
         <Link to="/browse/session" className="article-kind"><span aria-hidden="true">{TEMPLATES.session.glyph} </span>Session journals</Link>
         <DmBar v={v} isDm={isDm} />
@@ -289,6 +327,7 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
         {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
         {from && <p className="redirect-note">(Redirected from {from})</p>}
       </header>
+      <Places v={v} />
       {v.heroMediaId && <MediaImage id={v.heroMediaId} alt={`Picture for ${v.title}`} className="journal-hero" />}
       {v.summary && (
         <div className="journal-recap">

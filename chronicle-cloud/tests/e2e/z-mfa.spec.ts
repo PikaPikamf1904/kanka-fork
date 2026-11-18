@@ -2,7 +2,7 @@
 // required, then turns it off again so other runs can sign in with a password.
 import crypto from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { localCredentials } from './support.ts';
+import { passDmScreen } from './support.ts';
 
 function base32Decode(input: string): Buffer {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -29,13 +29,9 @@ async function nextWindow() {
 
 test('two-step sign-in is required for the DM once enabled', async ({ page }) => {
   test.setTimeout(150_000);
-  const { dmEmail, dmPassword } = localCredentials();
   const signIn = async () => {
     await page.goto('/sign-in');
-    await page.getByLabel('Email').fill(dmEmail);
-    await page.getByLabel('Password').fill(dmPassword);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.locator('main#main').or(page.getByLabel('Code from your authenticator app'))).toBeVisible();
+    await passDmScreen(page);
   };
 
   await signIn();
@@ -50,7 +46,7 @@ test('two-step sign-in is required for the DM once enabled', async ({ page }) =>
   // Sign out and back in: the password alone now stops at the code screen.
   page.on('dialog', (d) => void d.accept());
   await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByLabel('Access code')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /who.s at the table/i })).toBeVisible();
   await signIn();
   await expect(page.getByLabel('Code from your authenticator app')).toBeVisible();
   await page.goto('/dm/notes');

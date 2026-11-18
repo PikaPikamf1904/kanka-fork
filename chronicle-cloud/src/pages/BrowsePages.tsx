@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
-import { categoryCounts, getCategory, listArticles, listCharacterFacts, listRelations, search, timeline } from '../lib/api.ts';
-import { useIsDm } from '../lib/session.tsx';
+import { categoryCounts, getCategory, listArticles, listCharacterFacts, listRelations, searchWithOperators, timeline } from '../lib/api.ts';
+import { parseSearch } from '../lib/searchQuery.ts';
+import { useIsDm, useSession } from '../lib/session.tsx';
+import { addSaved, clearHistory, excerpt, highlightSegments, loadHistory, loadSaved, queryTerms, recordSearch, removeSaved, storeSaved, type SavedSearch } from '../lib/searchHistory.ts';
+import { StatusRibbon } from '../components/StatusRibbon.tsx';
 import { relationLabel, TEMPLATES, TYPE_ORDER } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -16,8 +19,9 @@ export function BrowsePage() {
   const valid = (TYPE_ORDER as string[]).includes(type);
   const list = useLoad(() => (valid ? listArticles({ type: type as ArticleType, order: type === 'session' ? 'session' : 'title', limit: 500 }) : Promise.resolve([])), [type, isDm]);
   const [filter, setFilter] = useState('');
-  const characterIds = type === 'character' ? (list.data ?? []).map((a) => a.id) : [];
-  const facts = useLoad(() => listCharacterFacts(characterIds), [characterIds.join(',')]);
+  // Race, class and status as the reader may see them: status ribbons on every kind of card.
+  const pageIds = (list.data ?? []).map((a) => a.id);
+  const facts = useLoad(() => listCharacterFacts(pageIds), [pageIds.join(',')]);
   const [characterCategory, setCharacterCategory] = useState<'all' | 'party' | 'others'>('all');
   if (!valid) return <NotFound />;
   const t = TEMPLATES[type as ArticleType];
@@ -83,40 +87,145 @@ export function BrowsePage() {
               <div className="character-grid">
                 {entries.map((a) => {
                   const f = facts.data?.get(a.id);
-                  return <ArticleCard key={a.id} article={a} showState={isDm} portrait meta={[f?.race, f?.class].filter(Boolean).join(' · ')} badge={a.is_party_member ? 'Party' : undefined} />;
+                  return <ArticleCard key={a.id} article={a} showState={isDm} portrait meta={[f?.race, f?.class].filter(Boolean).join(' · ')} badge={a.is_party_member ? 'Party' : undefined} status={f?.status} />;
                 })}
               </div>
             </section>
           ))}
         </div>
       ) : (
-        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} />)}</div>
+        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} status={facts.data?.get(a.id)?.status} />)}</div>
       )}
     </div>
   );
 }
 
 export function SearchPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
-  const results = useLoad(() => (q.trim() ? search(q) : Promise.resolve([])), [q]);
+  const parsed = useMemo(() => parseSearch(q), [q]);
+  const [draft, setDraft] = useState(q);
+  // A new search from the header box replaces what is in this page's box.
+  const [shownQ, setShownQ] = useState(q);
+  if (q !== shownQ) {
+    setShownQ(q);
+    setDraft(q);
+  }
+  const results = useLoad(
+    () => (parsed.text || parsed.types.length || parsed.categories.length ? searchWithOperators(parsed) : Promise.resolve([])),
+    [parsed.text, parsed.types.join(','), parsed.categories.join(',')],
+  );
+  const byType = useMemo(() => {
+    const m = new Map<ArticleType, number>();
+    for (const h of results.data ?? []) m.set(h.type, (m.get(h.type) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [results.data]);
+  const submit = (next: string) => setParams(next.trim() ? { q: next.trim() } : {});
+  // History and saved searches stay in this browser, under this person's id (see lib/searchHistory.ts).
+  const { state } = useSession();
+  const userId = state.kind === 'member' ? state.userId : '';
+  const [history, setHistory] = useState(() => loadHistory(userId));
+  const [saved, setSaved] = useState<SavedSearch[]>(() => loadSaved(userId));
+  const [saveName, setSaveName] = useState('');
+  useEffect(() => {
+    // Recording a search is a sync with browser storage, which is what effects are for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (q.trim() && userId) setHistory(recordSearch(userId, q));
+  }, [q, userId]);
+  const terms = useMemo(() => queryTerms(parsed.text), [parsed.text]);
+  const facts = useLoad(() => listCharacterFacts((results.data ?? []).map((h) => h.article_id)), [(results.data ?? []).map((h) => h.article_id).join(',')]);
+  const withType = (t: ArticleType) => `${q.replace(/(^|\s)(type|kind):\S+/gi, '').trim()} type:${t}`.trim();
   return (
     <div>
       <h1 className="page-title">Search</h1>
-      <p className="muted">Results for “{q}”</p>
-      {results.error && <p className="form-error">{results.error}</p>}
-      {results.data?.length === 0 && <p>No pages match. Try fewer or different words.</p>}
+      <form className="search-form" role="search" onSubmit={(e) => { e.preventDefault(); submit(draft); }}>
+        <label className="visually-hidden" htmlFor="search-page-q">Search the wiki</label>
+        <input id="search-page-q" type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder='e.g. "red hand" -dragon type:character' />
+        <button type="submit" className="button small">Search</button>
+      </form>
+      <details className="search-tips">
+        <summary>Search tips</summary>
+        <ul>
+          <li><code>"silver quill"</code> finds the exact phrase.</li>
+          <li><code>-dragon</code> leaves out pages with that word; <code>harbour or port</code> finds either.</li>
+          <li><code>type:character</code> (or <code>type:locations</code>, <code>type:session</code>…) shows one kind of page.</li>
+          <li><code>category:"Silver Quill"</code> shows pages in a category.</li>
+        </ul>
+      </details>
+      {q && (
+        <form
+          className="search-save"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const next = addSaved(saved, saveName, q);
+            setSaved(next);
+            storeSaved(userId, next);
+            setSaveName('');
+          }}
+        >
+          <label className="visually-hidden" htmlFor="save-search-name">Name for this search</label>
+          <input id="save-search-name" value={saveName} maxLength={60} placeholder="Name this search to save it" onChange={(e) => setSaveName(e.target.value)} />
+          <button type="submit" className="button secondary small">Save this search</button>
+        </form>
+      )}
+      {saved.length > 0 && (
+        <section className="search-saved" aria-label="Saved searches">
+          <h2>Saved searches</h2>
+          <ul className="plain-list">
+            {saved.map((s) => (
+              <li key={s.name}>
+                <Link to={`/search?q=${encodeURIComponent(s.query)}`}>{s.name}</Link> <span className="muted">· {s.query}</span>{' '}
+                <button type="button" className="link-button" aria-label={`Remove the saved search ${s.name}`} onClick={() => { const next = removeSaved(saved, s.name); setSaved(next); storeSaved(userId, next); }}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {history.length > 0 && (
+        <section className="search-history" aria-label="Recent searches">
+          <h2>Recent searches</h2>
+          <p className="chip-cloud">
+            {history.map((h) => <Link key={h} className="chip" to={`/search?q=${encodeURIComponent(h)}`}>{h}</Link>)}
+          </p>
+          <button type="button" className="button secondary small" onClick={() => { clearHistory(userId); setHistory([]); }}>Clear recent searches</button>
+        </section>
+      )}
+      {(saved.length > 0 || history.length > 0) && <p className="fine-print">Recent and saved searches are kept in this browser only, on this device. They are not sent to the server.</p>}
+      {q && (
+        <p className="muted" data-testid="search-summary">
+          {parsed.text ? <>Results for “{parsed.text}”</> : 'All pages'}
+          {parsed.types.length > 0 && <> · {parsed.types.map((t) => TEMPLATES[t].plural).join(', ')}</>}
+          {parsed.categories.length > 0 && <> · in {parsed.categories.join(', ')}</>}
+        </p>
+      )}
+      {parsed.unknown.length > 0 && <p className="notice">Not understood: {parsed.unknown.join(', ')}. Kinds are {TYPE_ORDER.map((t) => t).join(', ')}.</p>}
+      {results.loading && <p className="muted" role="status">Searching…</p>}
+      {results.error && <p className="form-error" role="alert">{results.error}</p>}
+      {byType.length > 1 && parsed.types.length === 0 && (
+        <p className="chip-cloud" aria-label="Narrow by kind">
+          {byType.map(([t, n]) => (
+            <Link key={t} className="chip" to={`/search?q=${encodeURIComponent(withType(t))}`}>{TEMPLATES[t].plural} <span className="muted">({n})</span></Link>
+          ))}
+        </p>
+      )}
+      {q && results.data?.length === 0 && <p>No pages match. Try fewer or different words.</p>}
       <ol className="search-results">
         {results.data?.map((hit) => (
           <li key={hit.article_id}>
-            <Link to={`/wiki/${hit.slug}`} className="search-title">{hit.title}</Link>
+            <Link to={`/wiki/${hit.slug}`} className="search-title"><Terms text={hit.title} terms={terms} /></Link>
             <span className="muted"> · {TEMPLATES[hit.type].label}</span>
-            {hit.snippet ? <p className="snippet"><Highlighted text={hit.snippet} /></p> : hit.summary && <p className="snippet">{hit.summary}</p>}
+            <StatusRibbon status={facts.data?.get(hit.article_id)?.status} />
+            {hit.snippet ? <p className="snippet"><Highlighted text={hit.snippet} /></p> : hit.summary && <p className="snippet"><Terms text={excerpt(hit.summary, terms)} terms={terms} /></p>}
           </li>
         ))}
       </ol>
     </div>
   );
+}
+
+/** Plain text with the searched words marked. Text is only split, never changed or parsed as HTML. */
+function Terms({ text, terms }: { text: string; terms: string[] }) {
+  return <>{highlightSegments(text, terms).map((p, i) => (p.hit ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))}</>;
 }
 
 /** ts_headline marks matches with ⟦ ⟧; render them as <mark> without any HTML parsing. */

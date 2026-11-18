@@ -4,19 +4,23 @@ import type { Article } from '../lib/types.ts';
 import { StatusBadge, VisibilityBadge } from './Badges.tsx';
 import { Crest } from './Crest.tsx';
 import { MediaImage } from './MediaImage.tsx';
+import { StatusRibbon } from './StatusRibbon.tsx';
 
-export function ArticleCard({ article, showState = false, compact = false, portrait = false, meta, badge }: {
+export function ArticleCard({ article, showState = false, compact = false, portrait = false, meta, badge, status }: {
   article: Article; showState?: boolean; compact?: boolean;
   /** Large 3:4 picture on top (character directory). */
   portrait?: boolean;
   /** One line of known facts under the title, e.g. "Gnome · Artificer". Omitted when empty. */
   meta?: string;
   badge?: string;
+  /** The page's Status field (as the reader may see it); a known world state shows as a ribbon. */
+  status?: string;
 }) {
   return (
     <Link to={`/wiki/${article.slug}`} className={compact ? 'card card-compact' : portrait ? 'card card-portrait' : 'card'}>
       <div className="card-art">
         {article.hero_media_id ? <MediaImage id={article.hero_media_id} alt="" /> : <Crest type={article.type} title={article.title} size={compact ? 44 : portrait ? 96 : 64} />}
+        {!compact && <StatusRibbon status={status} placement="card" />}
       </div>
       <div className="card-body">
         <div className="card-kind">{TEMPLATES[article.type].label}</div>

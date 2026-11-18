@@ -3,10 +3,20 @@
 import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
 import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, type WikiIndex } from './loreImport.ts';
+import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
+import { likeLiteral } from './azIndex.ts';
+import { pickWander } from './wander.ts';
+import { slugify } from './slug.ts';
+import type { AuditData } from './visibilityAudit.ts';
+import type { OrgRel } from './orgChart.ts';
+import type { GraphInput } from './knowledgeGraph.ts';
+import type { RecentPage, RecentSection } from './recentChanges.ts';
+import { FAMILY_KINDS, MAX_GENERATIONS, MAX_PEOPLE, type FamilyEdge, type FamilyPerson } from './familyTree.ts';
+import { minLengthPattern, STUB_LONG_SECTION, STUB_MEDIUM_SECTION, type TidyArticle, type TidyData } from './wikiTidy.ts';
 import { MEDIA_BUCKET, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase.ts';
 import type {
   AccessCode, Article, ArticleRef, ArticleType, CampaignSettings, Category, CategoryCount, DmNote,
-  InfoboxField, MapFogArea, MapMarker, Media, Member, Relation, Revision, SearchHit, Section, TimelineEvent, WikiMap,
+  InfoboxField, MapFogArea, MapMarker, Media, Member, PublishStatus, Relation, Revision, SearchHit, Section, TimelineEvent, Visibility, WikiMap,
 } from './types.ts';
 
 function must<T>(result: { data: T | null; error: { message: string } | null }): T {
@@ -186,6 +196,220 @@ export async function listAllArticleRefs(): Promise<(ArticleRef & { id: string; 
   );
 }
 
+/**
+ * Everything the "Tidy up the wiki" report needs, in a few parallel paged queries. No section text
+ * is downloaded: sections with a non-blank body are found by a filter on the server.
+ */
+/**
+ * Everything the DM's visibility audit needs, in parallel paged queries. Only the bodies of sections
+ * that are themselves published to players are downloaded (only those can give anything away), and
+ * of the summary only whether it has text is kept. The DM can read all of this already.
+ */
+export async function loadVisibilityAuditData(): Promise<AuditData> {
+  const [articles, sections, bodies, links, redirects, fields, categories, articleCategories, media] = await Promise.all([
+    fetchAll<{ id: string; slug: string; title: string; type: ArticleType; visibility: Visibility; status: PublishStatus; summary: string; subtitle: string }>((from, to) =>
+      supabase.from('articles').select('id, slug, title, type, visibility, status, summary, subtitle').order('id').range(from, to)),
+    fetchAll<AuditData['sections'][number]>((from, to) =>
+      supabase.from('article_sections').select('id, article_id, heading, visibility, status').order('id').range(from, to)),
+    fetchAll<AuditData['visibleBodies'][number]>((from, to) =>
+      supabase.from('article_sections').select('id, article_id, body').eq('visibility', 'players').eq('status', 'published').order('id').range(from, to)),
+    fetchAll<AuditData['links'][number]>((from, to) =>
+      supabase.from('article_links').select('source_section_id, target_slug').order('source_section_id').order('target_slug').range(from, to)),
+    fetchAll<AuditData['redirects'][number]>((from, to) => supabase.from('redirects').select('from_slug, article_id').order('from_slug').range(from, to)),
+    fetchAll<AuditData['visibleFields'][number] & { id: string }>((from, to) =>
+      supabase.from('infobox_fields').select('id, article_id, label, value').eq('visibility', 'players').order('id').range(from, to)),
+    fetchAll<AuditData['categories'][number]>((from, to) => supabase.from('categories').select('id, name, visibility').order('id').range(from, to)),
+    fetchAll<AuditData['articleCategories'][number]>((from, to) =>
+      supabase.from('article_categories').select('article_id, category_id').order('article_id').order('category_id').range(from, to)),
+    fetchAll<{ path: string; visibility: Visibility }>((from, to) => supabase.from('media').select('path, visibility').order('path').range(from, to)),
+  ]);
+  const readable = (a: { visibility: Visibility; status: PublishStatus }) => a.visibility === 'players' && a.status === 'published';
+  return {
+    media,
+    articles: articles.map(({ summary, subtitle, ...a }) => ({
+      ...a, has_summary: summary.trim() !== '',
+      // Only text players can read is checked for leaks.
+      summary: readable(a) ? summary : '', subtitle: readable(a) ? subtitle : '',
+    })),
+    sections, visibleBodies: bodies, links, redirects,
+    visibleFields: fields.map(({ article_id, label, value }) => ({ article_id, label, value })),
+    categories, articleCategories,
+  };
+}
+
+/**
+ * A character's family, breadth-first from the character through family connections, a few round
+ * trips at most. Everything is read under the reader's Row Level Security: a hidden person or a
+ * hidden connection never comes back, so it can never be drawn.
+ */
+export async function loadFamily(slug: string): Promise<{ rootId: string; people: FamilyPerson[]; edges: FamilyEdge[] } | null> {
+  type Ref = { id: string; slug: string; title: string; hero_media_id: string | null };
+  const root = must(await supabase.from('articles').select('id, slug, title, hero_media_id').eq('slug', slug).maybeSingle()) as Ref | null;
+  if (!root) return null;
+  const people = new Map<string, FamilyPerson>([[root.id, { id: root.id, slug: root.slug, title: root.title, heroMediaId: root.hero_media_id }]]);
+  const edges = new Map<string, FamilyEdge>();
+  let frontier = [root.id];
+  const asked = new Set<string>();
+  // Each round reaches one more step out; generations up and down plus spouses and siblings.
+  for (let round = 0; round < MAX_GENERATIONS * 2 + 2 && frontier.length && people.size < MAX_PEOPLE; round++) {
+    frontier.forEach((id) => asked.add(id));
+    const list = frontier.join(',');
+    const rows = must(await supabase
+      .from('relations')
+      .select('id, kind, source_article_id, target_article_id, source:articles!relations_source_article_id_fkey(id, slug, title, hero_media_id), target:articles!relations_target_article_id_fkey(id, slug, title, hero_media_id)')
+      .in('kind', [...FAMILY_KINDS])
+      .or(`source_article_id.in.(${list}),target_article_id.in.(${list})`)
+      .limit(500)) as unknown as { id: string; kind: FamilyEdge['kind']; source: Ref | null; target: Ref | null }[];
+    const next: string[] = [];
+    for (const r of rows) {
+      if (!r.source || !r.target) continue;
+      for (const a of [r.source, r.target]) {
+        if (!people.has(a.id) && people.size < MAX_PEOPLE) {
+          people.set(a.id, { id: a.id, slug: a.slug, title: a.title, heroMediaId: a.hero_media_id });
+        }
+        if (people.has(a.id) && !asked.has(a.id) && !next.includes(a.id)) next.push(a.id);
+      }
+      if (people.has(r.source.id) && people.has(r.target.id)) edges.set(r.id, { kind: r.kind, source: r.source.id, target: r.target.id });
+    }
+    frontier = next;
+  }
+  return { rootId: root.id, people: [...people.values()], edges: [...edges.values()] };
+}
+
+/**
+ * Material for "Recently updated": the newest section edits and publications the reader can read.
+ * Players get only what Row Level Security lets them read; `readerView` narrows the DM's own view to
+ * the same. Page timestamps are not used, because editing hidden text also moves them.
+ */
+export async function loadRecentChanges(readerView: boolean): Promise<{ pages: RecentPage[]; sections: RecentSection[] }> {
+  let sq = supabase.from('article_sections').select('article_id, heading, updated_at').order('updated_at', { ascending: false }).limit(400);
+  if (readerView) sq = sq.eq('visibility', 'players').eq('status', 'published');
+  let pq = supabase.from('articles').select('id, slug, title, type, summary, published_at').neq('type', 'news').not('published_at', 'is', null).order('published_at', { ascending: false }).limit(100);
+  if (readerView) pq = pq.eq('visibility', 'players').eq('status', 'published');
+  const [sections, published] = await Promise.all([sq, pq]);
+  const secs = must(sections) as RecentSection[];
+  const pages = new Map((must(published) as RecentPage[]).map((p) => [p.id, p]));
+  const missing = [...new Set(secs.map((s) => s.article_id))].filter((id) => !pages.has(id));
+  for (let i = 0; i < missing.length; i += 150) {
+    let q = supabase.from('articles').select('id, slug, title, type, summary, published_at').in('id', missing.slice(i, i + 150));
+    if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+    for (const p of must(await q) as RecentPage[]) pages.set(p.id, p);
+  }
+  return { pages: [...pages.values()], sections: secs };
+}
+
+/**
+ * Pages sharing one infobox value (label and value compared case-insensitively), plus every value
+ * used under that label, for "Infobox field browse". Row Level Security decides which fields come
+ * back, so a DM-only field never lists a page for a player.
+ */
+export async function loadFacts(label: string, value: string): Promise<{ pages: Pick<Article, 'id' | 'slug' | 'title' | 'type' | 'summary'>[]; values: string[] }> {
+  const [matches, values] = await Promise.all([
+    supabase.from('infobox_fields').select('article_id, article:articles(id, slug, title, type, summary)')
+      .ilike('label', likeLiteral(label.trim())).ilike('value', likeLiteral(value.trim())).limit(500),
+    supabase.from('infobox_fields').select('value').ilike('label', likeLiteral(label.trim())).limit(3000),
+  ]);
+  const rows = must(matches) as unknown as { article: Pick<Article, 'id' | 'slug' | 'title' | 'type' | 'summary'> | null }[];
+  const pages = new Map(rows.filter((r) => r.article && r.article.type !== 'news').map((r) => [r.article!.id, r.article!]));
+  return {
+    pages: [...pages.values()].sort((a, b) => a.title.localeCompare(b.title)),
+    values: (must(values) as { value: string }[]).map((v) => v.value),
+  };
+}
+
+/**
+ * Everything the Knowledge Graph draws, in parallel paged queries of ids and short fields only.
+ * Row Level Security decides what comes back; `readerView` narrows the DM's own view to what
+ * players receive ("View as a player").
+ */
+export async function loadGraphData(readerView: boolean): Promise<GraphInput> {
+  const [pages, relations, sections, links, redirects] = await Promise.all([
+    fetchAll<GraphInput['pages'][number]>((from, to) => {
+      let q = supabase.from('articles').select('id, slug, title, type').neq('type', 'news');
+      if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+      return q.order('id').range(from, to);
+    }),
+    fetchAll<GraphInput['relations'][number] & { id: string }>((from, to) => {
+      let q = supabase.from('relations').select('id, source_article_id, target_article_id, kind');
+      if (readerView) q = q.eq('visibility', 'players');
+      return q.order('id').range(from, to);
+    }),
+    fetchAll<GraphInput['sections'][number]>((from, to) => {
+      let q = supabase.from('article_sections').select('id, article_id');
+      if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+      return q.order('id').range(from, to);
+    }),
+    fetchAll<GraphInput['links'][number]>((from, to) =>
+      supabase.from('article_links').select('source_section_id, target_slug').order('source_section_id').order('target_slug').range(from, to)),
+    fetchAll<GraphInput['redirects'][number]>((from, to) => {
+      let q = supabase.from('redirects').select('from_slug, article_id');
+      if (readerView) q = q.eq('visibility', 'players');
+      return q.order('from_slug').range(from, to);
+    }),
+  ]);
+  return { pages, relations: relations.map(({ source_article_id, target_article_id, kind }) => ({ source_article_id, target_article_id, kind })), sections, links, redirects };
+}
+
+/** A page's summary for the graph's preview card (Row Level Security applies). */
+export async function getPagePreview(id: string): Promise<{ summary: string; hero_media_id: string | null } | null> {
+  return must(await supabase.from('articles').select('summary, hero_media_id').eq('id', id).maybeSingle()) as { summary: string; hero_media_id: string | null } | null;
+}
+
+/** "Member of" connections into a faction and its sub-factions (two levels), under Row Level Security. */
+export async function loadOrg(factionId: string): Promise<OrgRel[]> {
+  type Row = { label: string; source: OrgRel['source'] | null; target: OrgRel['target'] | null };
+  const out: OrgRel[] = [];
+  let frontier = [factionId];
+  const asked = new Set<string>();
+  for (let level = 0; level < 3 && frontier.length; level++) {
+    frontier.forEach((id) => asked.add(id));
+    const rows = must(await supabase
+      .from('relations')
+      .select('label, source:articles!relations_source_article_id_fkey(id, slug, title, type), target:articles!relations_target_article_id_fkey(id, slug, title, type)')
+      .eq('kind', 'member_of')
+      .in('target_article_id', frontier)
+      .limit(500)) as unknown as Row[];
+    const next: string[] = [];
+    for (const r of rows) {
+      if (!r.source || !r.target) continue;
+      out.push({ label: r.label ?? '', source: r.source, target: r.target });
+      if (r.source.type === 'faction' && !asked.has(r.source.id) && !next.includes(r.source.id)) next.push(r.source.id);
+    }
+    frontier = next;
+  }
+  return out;
+}
+
+export async function loadWikiTidyData(): Promise<TidyData> {
+  // Section lengths without downloading bodies: the server filters with a regular expression
+  // ("." also matches line breaks in PostgreSQL; one repetition is capped at 255, hence minLengthPattern), so only ids come back. See STUB_* in wikiTidy.ts.
+  const [articles, sections, withText, links, redirects, relations, long, medium, notes] = await Promise.all([
+    fetchAll<TidyArticle>((from, to) =>
+      supabase.from('articles').select('id, slug, title, type, summary, hero_media_id, visibility, status').order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) => supabase.from('article_sections').select('id, article_id').order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) =>
+      supabase.from('article_sections').select('id, article_id').filter('body', 'match', '\\S').order('id').range(from, to)),
+    fetchAll<{ source_section_id: string; target_slug: string }>((from, to) =>
+      supabase.from('article_links').select('source_section_id, target_slug').order('source_section_id').order('target_slug').range(from, to)),
+    fetchAll<{ from_slug: string; article_id: string }>((from, to) => supabase.from('redirects').select('from_slug, article_id').order('from_slug').range(from, to)),
+    fetchAll<{ id: string; source_article_id: string; target_article_id: string }>((from, to) =>
+      supabase.from('relations').select('id, source_article_id, target_article_id').order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) =>
+      supabase.from('article_sections').select('id, article_id').filter('body', 'match', minLengthPattern(STUB_LONG_SECTION)).order('id').range(from, to)),
+    fetchAll<{ id: string; article_id: string }>((from, to) =>
+      supabase.from('article_sections').select('id, article_id').filter('body', 'match', minLengthPattern(STUB_MEDIUM_SECTION)).order('id').range(from, to)),
+    // DM notes attached to a page: only the title is read, never the body.
+    fetchAll<{ id: string; article_id: string; title: string }>((from, to) =>
+      supabase.from('dm_notes').select('id, article_id, title').not('article_id', 'is', null).order('id').range(from, to)),
+  ]);
+  return {
+    articles, sections, articlesWithText: [...new Set(withText.map((s) => s.article_id))], links, redirects, relations,
+    longTextArticles: [...new Set(long.map((s) => s.article_id))],
+    mediumSections: medium.map((s) => ({ article_id: s.article_id })),
+    notes: notes.map((n) => ({ article_id: n.article_id, title: n.title })),
+  };
+}
+
 /** Race, class and status of the given characters, as far as the reader may see them (one request). */
 export async function listCharacterFacts(ids: string[]): Promise<Map<string, { race?: string; class?: string; status?: string }>> {
   const out = new Map<string, { race?: string; class?: string; status?: string }>();
@@ -265,6 +489,34 @@ export async function search(q: string): Promise<SearchHit[]> {
   return must(await supabase.rpc('search_wiki', { q, max_results: 25 })) as SearchHit[];
 }
 
+/**
+ * Search with operators (see searchQuery.ts): the remaining text goes to the database's search,
+ * and kind and category filters are applied to results that already passed Row Level Security.
+ * With only filters and no text, it lists the matching pages by title.
+ */
+export async function searchWithOperators(p: { text: string; types: ArticleType[]; categories: string[] }): Promise<SearchHit[]> {
+  let hits: SearchHit[];
+  if (p.text) {
+    hits = must(await supabase.rpc('search_wiki', { q: p.text, max_results: 50 })) as SearchHit[];
+  } else {
+    let q = supabase.from('articles').select('id, slug, title, type, summary').neq('type', 'news').order('title').limit(100);
+    if (p.types.length) q = q.in('type', p.types);
+    hits = (must(await q) as { id: string; slug: string; title: string; type: ArticleType; summary: string }[])
+      .map((a) => ({ article_id: a.id, slug: a.slug, title: a.title, type: a.type, summary: a.summary, snippet: null, rank: 0 }) as SearchHit);
+  }
+  if (p.types.length) hits = hits.filter((h) => p.types.includes(h.type));
+  if (p.categories.length) {
+    // Match by address or by name ("Silver Quill" and silver-quill both work).
+    const all = must(await supabase.from('categories').select('id, slug, name').limit(2000)) as { id: string; slug: string; name: string }[];
+    const cats = all.filter((c) => p.categories.includes(c.slug) || p.categories.includes(slugify(c.name)));
+    const inCats = cats.length
+      ? new Set((must(await supabase.from('article_categories').select('article_id').in('category_id', cats.map((c) => c.id)).limit(5000)) as { article_id: string }[]).map((r) => r.article_id))
+      : new Set<string>();
+    hits = hits.filter((h) => inCats.has(h.article_id));
+  }
+  return hits;
+}
+
 export async function suggest(prefix: string): Promise<ArticleRef[]> {
   return must(await supabase.rpc('suggest_articles', { prefix, max_results: 8 })) as ArticleRef[];
 }
@@ -326,6 +578,84 @@ export async function getMap(slug: string): Promise<{ map: WikiMap; markers: Map
     parent: must(parent) as WikiMap | null,
     fog: must(fog) as MapFogArea[],
   };
+}
+
+/**
+ * The places an article is connected to and the maps that show them, for the "place" chips. Three
+ * small queries, all under the reader's Row Level Security: a location, pin or map the reader may
+ * not see simply returns no row, so it can never become a chip.
+ */
+export async function getPlaceChips(articleId: string, title: string): Promise<{ places: PlaceChip[]; maps: MapChip[] }> {
+  const rels = must(
+    await supabase
+      .from('relations')
+      .select('kind, source_article_id, target_article_id, source:articles!relations_source_article_id_fkey(id, slug, title, type), target:articles!relations_target_article_id_fkey(id, slug, title, type)')
+      .or(`source_article_id.eq.${articleId},target_article_id.eq.${articleId}`)
+      .limit(300),
+  ) as unknown as PlaceRelationRow[];
+  const places = placeChips(articleId, rels);
+  const ids = [articleId, ...places.map((p) => p.id)];
+  const [markers, maps] = await Promise.all([
+    supabase.from('map_markers').select('id, article_id, map:maps(slug, title)').in('article_id', ids).limit(200),
+    supabase.from('maps').select('slug, title, article_id').in('article_id', ids).limit(100),
+  ]);
+  return {
+    places,
+    maps: mapChips(articleId, title, places, must(markers) as unknown as PlaceMarkerRow[], must(maps) as PlaceMapRow[]),
+  };
+}
+
+/**
+ * One random page the reader may read, for "Wander". Never downloads the wiki: an exact count
+ * (HEAD request) under Row Level Security, then single rows by offset in a stable (slug) order.
+ * News stories are left out (they live under /news). `readerView` narrows the DM's own view to
+ * what players receive. Returns null when there is nothing to wander to.
+ */
+export async function wanderToSlug(opts: { type?: ArticleType; readerView: boolean; recent: string[] }): Promise<string | null> {
+  const base = () => {
+    let q = supabase.from('articles').select('slug').neq('type', 'news');
+    if (opts.type) q = q.eq('type', opts.type);
+    if (opts.readerView) q = q.eq('visibility', 'players').eq('status', 'published');
+    return q;
+  };
+  let counter = supabase.from('articles').select('id', { count: 'exact', head: true }).neq('type', 'news');
+  if (opts.type) counter = counter.eq('type', opts.type);
+  if (opts.readerView) counter = counter.eq('visibility', 'players').eq('status', 'published');
+  const { count, error } = await counter;
+  if (error) throw new Error(error.message);
+  return pickWander({
+    count: count ?? 0,
+    recent: opts.recent,
+    at: async (n) => {
+      const rows = must(await base().order('slug').range(n, n)) as { slug: string }[];
+      return rows[0]?.slug ?? null;
+    },
+  });
+}
+
+/** Every title and type the reader can see, titles only (no bodies), to know which letters of the A-Z index have entries. */
+export async function listIndexTitles(): Promise<{ title: string; type: ArticleType }[]> {
+  return fetchAll((from, to) => supabase.from('articles').select('title, type').neq('type', 'news').order('title').order('id').range(from, to));
+}
+
+export type IndexEntry = Pick<Article, 'id' | 'slug' | 'type' | 'title' | 'summary' | 'visibility' | 'status'>;
+
+/**
+ * Pages for the A-Z index, from the server: one letter (titles starting with it; "#" = not A-Z) or
+ * titles containing `contains`, optionally of one type. Row Level Security decides what comes back.
+ */
+export async function listIndexEntries(opts: { letter?: string; contains?: string; type?: ArticleType | null }): Promise<IndexEntry[]> {
+  const build = (from: number, to: number) => {
+    let q = supabase.from('articles').select('id, slug, type, title, summary, visibility, status').neq('type', 'news');
+    if (opts.type) q = q.eq('type', opts.type);
+    if (opts.contains) q = q.ilike('title', `%${likeLiteral(opts.contains)}%`);
+    else if (opts.letter === '#') q = q.filter('title', 'match', '^[^A-Za-z]');
+    else if (opts.letter) q = q.ilike('title', `${opts.letter}%`);
+    return q.order('title').order('id').range(from, to);
+  };
+  // A search is capped (it is for finding a page, not listing); a letter is read in full.
+  if (opts.contains) return must(await build(0, 99)) as IndexEntry[];
+  return fetchAll<IndexEntry>(build);
 }
 
 export async function listRelations(): Promise<(Relation & { source: ArticleRef; target: ArticleRef })[]> {

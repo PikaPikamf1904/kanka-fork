@@ -22,6 +22,7 @@ const QUICK: { to: string; label: string; glyph: string }[] = [
   { to: '/browse/location', label: 'Places', glyph: TEMPLATES.location.glyph },
   { to: '/browse/quest', label: 'Quests', glyph: TEMPLATES.quest.glyph },
   { to: '/maps', label: 'Maps', glyph: '⌘' },
+  { to: '/wander', label: 'Wander', glyph: '⚐' },
   { to: '/news', label: 'The Gazette', glyph: '✒' },
 ];
 
@@ -125,7 +126,7 @@ export function HomePage() {
               <div className="company-grid character-grid">
                 {d.party.map((a) => {
                   const f = d.facts.get(a.id);
-                  return <ArticleCard key={a.id} article={a} portrait showState={isDm} meta={[f?.race, f?.class].filter(Boolean).join(' · ')} />;
+                  return <ArticleCard key={a.id} article={a} portrait showState={isDm} meta={[f?.race, f?.class].filter(Boolean).join(' · ')} status={f?.status} />;
                 })}
               </div>
             </section>

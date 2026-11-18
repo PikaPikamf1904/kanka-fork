@@ -1,4 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import { MysteriesPanel } from './MysteryStudio.tsx';
+import { InvitationsPanel } from './Invitations.tsx';
+import { MaintenanceSwitch } from '../../components/MaintenanceSwitch.tsx';
+import { DmOverview } from '../../components/DmOverview.tsx';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArticleCard } from '../../components/ArticleCard.tsx';
 import { StatusBadge, VisibilityBadge } from '../../components/Badges.tsx';
@@ -29,9 +33,11 @@ export function DmDesk() {
   return (
     <div>
       <h1 className="page-title">DM desk</h1>
+      <MysteriesPanel />
+      <DmOverview />
       <section className="panel">
         <h2>Create</h2>
-        <p><Link className="button secondary small" to="/dm/import">Import a lore package</Link></p>
+        <p className="button-row"><Link className="button secondary small" to="/dm/import">Import a lore package</Link> <Link className="button secondary small" to="/dm/tidy">Tidy up the wiki</Link> <Link className="button secondary small" to="/dm/visibility">What players can see</Link></p>
         <div className="chip-cloud">
           {TYPE_ORDER.map((t) => (
             <Link key={t} className="chip" to={`/dm/new?type=${t}`}><span aria-hidden="true">{TEMPLATES[t].glyph} </span>New {TEMPLATES[t].label.toLowerCase()}</Link>
@@ -186,6 +192,7 @@ export function AccessAdmin() {
     <div>
       <h1 className="page-title">Player access</h1>
       {failed && <p className="form-error" role="alert">{failed}</p>}
+      <InvitationsPanel />
       <section className="panel">
         <h2>Access codes</h2>
         <p className="fine-print">
@@ -216,7 +223,8 @@ export function AccessAdmin() {
         </table>
       </section>
       <section className="panel">
-        <h2>Devices and members</h2>
+        <h2>All members</h2>
+        <p className="fine-print">Everyone with access. Players who joined with an access code have one device each; invited players are managed above.</p>
         <table className="table">
           <thead><tr><th>Name</th><th>Role</th><th>Joined</th><th>Last seen</th><th>Status</th><th /></tr></thead>
           <tbody>
@@ -405,6 +413,7 @@ export function SettingsPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
       {dirty && <p className="fine-print"><span className="badge badge-draft">Unsaved changes</span></p>}
     </form>
+    <MaintenanceSwitch />
     <TwoStepPanel />
     </>
   );

@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { DmPasscode } from '../components/DmPasscode.tsx';
+import { useDmGate } from '../lib/dmGate.ts';
 import { supabase } from '../lib/supabase.ts';
 import { useSession } from '../lib/session.tsx';
 
@@ -8,35 +10,27 @@ export function safeNext(next: string | null): string {
   return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') && !next.startsWith('/sign-in') ? next : '/';
 }
 
-/** Email and password sign-in for named accounts (the DM), with a TOTP step when MFA is enrolled. */
+/**
+ * Sign-in for the DM: the DM passcode alone (checked on the server, which then opens the DM
+ * account's session), then a TOTP step only if two-step sign-in is turned on for that account.
+ */
 export function SignInPage() {
   const { state, refresh } = useSession();
+  const gate = useDmGate();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
   // Shown in place (two-step sign-in) the page keeps its own address; from /sign-in, ?next= says
   // where to return, so a sign-in started by an assistant's consent request ends back on it.
   const next = location.pathname === '/sign-in' ? safeNext(params.get('next')) : safeNext(location.pathname + location.search);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (state.kind === 'member' && location.pathname === '/sign-in') navigate(next, { replace: true });
+    // Only a signed-in DM is sent on; a player who opens the DM screen is shown its sign-in.
+    if (state.kind === 'member' && state.role === 'dm' && location.pathname === '/sign-in') navigate(next, { replace: true });
   }, [state, navigate, next, location.pathname]);
-
-  async function signIn(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    setPassword('');
-    setBusy(false);
-    if (err) setError('Those details were not accepted.');
-    else await refresh();
-  }
 
   async function verify(e: FormEvent) {
     e.preventDefault();
@@ -60,7 +54,7 @@ export function SignInPage() {
   return (
     <div className="access-page">
       <div className="access-card">
-        <h1>Sign in</h1>
+        <h1>Dungeon Master</h1>
         {state.kind === 'needs-mfa' ? (
           <form onSubmit={verify} className="access-form">
             <label>
@@ -71,20 +65,16 @@ export function SignInPage() {
             <button type="submit" className="button" disabled={busy}>Verify</button>
           </form>
         ) : (
-          <form onSubmit={signIn} className="access-form">
-            <label>
-              Email
-              <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </label>
-            <label>
-              Password
-              <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </label>
-            {error && <p className="form-error" role="alert">{error}</p>}
-            <button type="submit" className="button" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-          </form>
+          // The passcode is the whole sign-in: there is no email or password step.
+          <DmPasscode
+            status={gate.status === 'open' ? 'locked' : gate.status}
+            onOpen={async () => {
+              await gate.check();
+              await refresh();
+            }}
+          />
         )}
-        <p className="account-link"><Link to="/">Use an access code instead</Link></p>
+        <p className="account-link"><Link to="/table">Back to who’s at the table</Link></p>
       </div>
     </div>
   );

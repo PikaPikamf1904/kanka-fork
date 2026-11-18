@@ -4,6 +4,8 @@ import { Crest } from './Crest.tsx';
 import { MediaImage } from './MediaImage.tsx';
 import { Markdown } from './Markdown.tsx';
 import { VisibilityBadge } from './Badges.tsx';
+import { Link } from 'react-router';
+import { browsableValue, factsHref } from '../lib/facts.ts';
 
 export interface InfoboxProps {
   title: string;
@@ -31,6 +33,11 @@ export function Infobox({ title, type, heroMediaId, fields, showVisibility }: In
               </dt>
               <dd>
                 <Markdown text={f.value} />
+                {browsableValue(f.value) && (
+                  <Link className="infobox-more" to={factsHref(f.label, f.value)} aria-label={`Other pages with ${f.label}: ${f.value.trim()}`} title={`Other pages with ${f.label}: ${f.value.trim()}`}>
+                    <span aria-hidden="true">⌕</span>
+                  </Link>
+                )}
               </dd>
             </div>
           ))}

@@ -125,7 +125,7 @@ test.describe('DM', () => {
     await screenshot(dm, '11-access-admin');
     const row = dm.getByRole('row', { name: new RegExp(name) });
     dm.once('dialog', (d) => void d.accept());
-    await row.getByRole('button', { name: 'Remove' }).click();
+    await row.getByRole('button', { name: 'Remove', exact: true }).click();
     await expect(dm.getByRole('row', { name: new RegExp(name) })).toContainText('Removed');
 
     await player.reload();

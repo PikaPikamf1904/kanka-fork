@@ -62,10 +62,43 @@ async function resetLocalEnrollmentLimit() {
   }
 }
 
+/** The synthetic DM screen passcode the local server is started with (scripts/e2e-local.sh). */
+export const E2E_DM_PASSCODE = '24680';
+
+/** Clear the LOCAL DM-screen attempt log, so a test that guesses wrong does not affect the next. */
+export async function resetLocalDmGate() {
+  const url = readLocalEnv().DATABASE_URL;
+  if (!url) throw new Error('Missing local database URL.');
+  await assertDisposableDatabase(url);
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    await client.query('delete from public.dm_gate_attempts');
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * On /sign-in (or the DM lock screen): the passcode is the whole DM sign-in. Waits until the DM is
+ * in, or until two-step sign-in asks for its code.
+ */
+export async function passDmScreen(page: Page) {
+  await page.getByLabel('DM passcode').fill(E2E_DM_PASSCODE);
+  await page.getByRole('button', { name: 'Open the DM screen' }).click();
+  await expect(page.locator('main#main').or(page.getByLabel('Code from your authenticator app'))).toBeVisible();
+}
+
+/** On the first screen: open the "Someone else" form (any name, with the access code). */
+export async function openOtherForm(page: Page) {
+  await page.getByRole('button', { name: /Someone else/ }).click();
+}
+
 export async function enrollAsPlayer(page: Page, name = 'Test Player') {
   await resetLocalEnrollmentLimit();
   const { playerCode } = localCredentials();
   await page.goto('/');
+  await openOtherForm(page);
   await page.getByLabel('Access code').fill(playerCode);
   await page.getByLabel('Your name at the table').fill(name);
   await page.getByRole('button', { name: 'Enter Chronicle' }).click();
@@ -73,11 +106,8 @@ export async function enrollAsPlayer(page: Page, name = 'Test Player') {
 }
 
 export async function signInAsDm(page: Page) {
-  const { dmEmail, dmPassword } = localCredentials();
   await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(dmEmail);
-  await page.getByLabel('Password').fill(dmPassword);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await passDmScreen(page);
   await expect(page.locator('main#main')).toBeVisible();
 }
 

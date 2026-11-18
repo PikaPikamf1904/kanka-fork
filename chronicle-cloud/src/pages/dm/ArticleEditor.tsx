@@ -70,12 +70,21 @@ export function ArticleEditor() {
   const categories = useLoad(listCategories, []);
   const allArticles = useLoad(listAllArticleRefs, []);
 
-  const [draft, setDraft] = useState<ArticleDraft>(() => blankDraft(initialType));
+  const [draft, setDraft] = useState<ArticleDraft>(() => {
+    const draft = blankDraft(initialType);
+    // "Create this page" on the tidy report passes the missing address and a title made from it.
+    const title = (params.get('title') ?? '').slice(0, 200);
+    const wanted = slugify(params.get('slug') ?? title);
+    if (!slug && (title || wanted)) draft.article = { ...draft.article, title: title || wanted, slug: wanted };
+    return draft;
+  });
   const [dirty, setDirty] = useState(false);
   const saveInFlight = useRef(false);
   const [slugTouched, setSlugTouched] = useState(Boolean(slug));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // Renaming an article's address keeps the old one working unless the DM unticks this.
+  const [keepOldAddress, setKeepOldAddress] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
 
@@ -162,6 +171,17 @@ export function ArticleEditor() {
       const saved = await saveArticle(draft, 'Before save', slug ? baseVersion : undefined);
       setDirty(false);
       setMessage('Saved.');
+      const renamedFrom = slug && saved.slug !== slug ? slug : null;
+      if (renamedFrom && keepOldAddress && existing.data) {
+        // Old links keep working. Players get the old address only if they could read the page
+        // under it, so an earlier, perhaps revealing, address of a hidden page stays DM-only.
+        try {
+          await addRedirect(renamedFrom, existing.data.article.id, wasPublic ? 'players' : 'dm');
+          setMessage(`Saved. The old address /wiki/${renamedFrom} now leads here.`);
+        } catch (err) {
+          setMessage(`Saved, but the old address /wiki/${renamedFrom} could not be kept (${err instanceof Error ? err.message : 'unknown error'}). Add it under Redirects below.`);
+        }
+      }
       if (!slug || saved.slug !== slug) navigate(`/dm/edit/${saved.slug}`, { replace: true });
       else existing.reload();
     } catch (err) {
@@ -211,8 +231,14 @@ export function ArticleEditor() {
             }}
             required
           />
-          <span className="fine-print">/wiki/{draft.article.slug || '…'}{slug && draft.article.slug !== slug && ' · add a redirect below so old links keep working'}</span>
+          <span className="fine-print">/wiki/{draft.article.slug || '…'}</span>
         </label>
+        {slug && draft.article.slug && draft.article.slug !== slug && (
+          <label className="checkbox">
+            <input type="checkbox" checked={keepOldAddress} onChange={(ev) => setKeepOldAddress(ev.target.checked)} />
+            Keep the old address /wiki/{slug} working (adds a redirect when you save)
+          </label>
+        )}
         <label>
           Type
           <select
@@ -545,7 +571,7 @@ function NotesEditor({ articleId, notes, onChange }: { articleId: string; notes:
   const [body, setBody] = useState('');
   const [error, attempt] = useAttempt();
   return (
-    <section className="panel dm-panel">
+    <section className="panel dm-panel" id="dm-notes">
       <h2>Private DM notes <VisibilityBadge visibility="dm" /></h2>
       {notes.map((n) => (
         <details key={n.id} className="note">

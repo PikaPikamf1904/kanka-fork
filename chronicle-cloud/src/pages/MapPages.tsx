@@ -1,9 +1,11 @@
+import { ClueFinds } from '../components/Clues.tsx';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { VisibilityBadge } from '../components/Badges.tsx';
 import { deleteFogArea, deleteMarker, getMap, listAllArticleRefs, listMaps, mediaUrls, saveFogArea, saveMarker, setMapFog } from '../lib/api.ts';
+import { focusMarker } from '../lib/placeChips.ts';
 import { useIsDm } from '../lib/session.tsx';
 import type { MapFogArea, MapMarker, Visibility, WikiMap } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -96,6 +98,10 @@ export function MapPage() {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const pinsRef = useRef(new Map<string, L.Marker>());
+  const [search] = useSearchParams();
+  const focusKey = `${slug}|${search.get('marker') ?? ''}|${search.get('focus') ?? ''}`;
+  const focusedFor = useRef('');
   const [filter, setFilter] = useState('');
   // The marker and fog dialogs remember what they opened with, so unsaved edits are never
   // replaced or dropped without asking (another marker, Cancel, leaving the page).
@@ -139,6 +145,7 @@ export function MapPage() {
     const current = data.data?.map;
     if (!layer || !current) return;
     layer.clearLayers();
+    pinsRef.current.clear();
     for (const m of shown) {
       const marker = L.marker(toLatLng(current, m.x, m.y), { icon: markerIcon(m.label, isDm && m.visibility === 'dm'), title: m.label, keyboard: true });
       const popup = document.createElement('div');
@@ -170,8 +177,23 @@ export function MapPage() {
       marker.bindPopup(popup);
       if (isDm) marker.on('dblclick', () => openMarker(m));
       marker.addTo(layer);
+      pinsRef.current.set(m.id, marker);
     }
   }, [shown, isDm, data.data, navigate, openMarker]);
+
+  // ?marker=<id> or ?focus=<page address> (from a page's "On map" chip): centre on that pin and open
+  // its popup, once per address. A pin the reader may not see is not in the data, so nothing happens.
+  useEffect(() => {
+    const map = mapRef.current;
+    const d = data.data;
+    if (!map || !d || focusedFor.current === focusKey) return;
+    const target = focusMarker(d.markers, { marker: search.get('marker'), focus: search.get('focus') });
+    const pin = target ? pinsRef.current.get(target.id) : undefined;
+    if (!target || !pin) return;
+    focusedFor.current = focusKey;
+    map.setView(toLatLng(d.map, target.x, target.y), Math.min(1, map.getMaxZoom()));
+    pin.openPopup();
+  }, [data.data, shown, focusKey, search]);
 
   // Fog: the whole map is covered except revealed areas (cut out with an SVG mask, so overlapping
   // areas stay clear). The DM sees through a lighter fog, with every area outlined.
@@ -412,6 +434,7 @@ export function MapPage() {
           )}
         </aside>
       </div>
+      {d && <ClueFinds attach="map" id={d.map.id} />}
 
       {isDm && fogEditing && (
         <dialog open className="dialog" aria-label="Fog area">

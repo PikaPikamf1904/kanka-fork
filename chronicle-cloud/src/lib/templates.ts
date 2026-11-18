@@ -117,8 +117,18 @@ export const RELATION_KINDS: { kind: string; label: string }[] = [
   { kind: 'appeared_in', label: 'Appeared in' },
   { kind: 'controls', label: 'Controls' },
   { kind: 'related_to', label: 'Related to' },
+  // Family: drawn as a family tree on character pages. "Parent of" points from parent to child.
+  { kind: 'parent_of', label: 'Parent of' },
+  { kind: 'spouse_of', label: 'Spouse of' },
+  { kind: 'sibling_of', label: 'Sibling of' },
 ];
 
+/** The kind as read from the other end: on a child's page, "parent_of" pointing at it reads "Child of". */
+export function relationKindFrom(kind: string, direction: 'out' | 'in' | undefined): string {
+  return kind === 'parent_of' && direction === 'in' ? 'child_of' : kind;
+}
+
 export function relationLabel(kind: string): string {
+  if (kind === 'child_of') return 'Child of';
   return RELATION_KINDS.find((r) => r.kind === kind)?.label ?? kind.replace(/_/g, ' ');
 }

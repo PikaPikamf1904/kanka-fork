@@ -1,5 +1,79 @@
 # Chronicle implementation status
 
+## 2026-11-16 — overnight sprint (branch `claude/chronicle-website-features`, draft PR #31)
+
+Local, committed and pushed only. Nothing deployed, merged or applied to the hosted project; no
+migration files written. Started at `3f69e5925`.
+
+Built (unit and browser tests for each; player tests check hidden pages never arrive):
+- Knowledge graph (`/graph`): global and local views, zoom, pan, pinch, drag, search, kind filters,
+  preview card, accessible list view, filters kept in the address and per browser. d3-force and
+  d3-quadtree (pinned); layout in a Web Worker above 600 pages. Built only from pages the reader
+  received, so hidden pages and links to them never appear.
+- Maintenance notice (`/api/status`): the exact agreed visitor text; turned on by an environment
+  switch, a token-protected deploy flag in KV, or (opt-in) a development heartbeat. Off by default.
+- Command palette (Ctrl/⌘+K or "/"): pages and parts of the site; DM entries hidden from players.
+- Search operators: `type:`, `category:`, `"exact phrase"`, `-exclude`.
+- Reading comfort: larger text, or larger text with a plain font, remembered per browser.
+- Leak checks extended: summaries, subtitles, DM-only pictures placed in visible text, categories
+  players can see that only hold hidden pages.
+- "Recently updated" kind filter; Unknown and Inactive status ribbons.
+- Faction organisation charts from "Member of" connections.
+
+Waiting for owner approval (migration design only, in
+[PROPOSAL-MIGRATIONS.md](PROPOSAL-MIGRATIONS.md)): bookmarks, reading lists, personal notes,
+Investigation Board, Mystery Studio, Feedback Center, player invitations, Knowledge Studio.
+
+Verified at `6fa3282db` (local, PostgreSQL 17): lint 0, typecheck 0 (site and MCP worker), unit
+199/199, database 311/311, browser 91/91, production build OK. `235681f32` adds documentation only.
+
+## 2026-11-16 — second website sprint (branch `claude/chronicle-website-features`, draft PR #31)
+
+Local, committed and pushed only. Nothing deployed, no production change, no migrations. Stacked
+on PR #30 (`8c58704a2`).
+
+Built (each with unit and browser tests; every player-facing test checks that hidden pages,
+fields and connections never reach a player):
+- Wave one (agents, reviewed): picture-viewer expired-link recovery, place chips, Wander, A–Z
+  index at `/a-z`, stubs and to-dos in the tidy report.
+- "What players can see" (`/dm/visibility`): visibility totals and leak detection (links to and
+  mentions of hidden pages, empty published pages, player drafts).
+- Family trees from new "Parent of / Spouse of / Sibling of" connections (free-text kinds, no
+  migration); "Child of" shown from the child's side.
+- Status ribbons from the existing Status field.
+- "Recently updated" (`/recent`) from per-section timestamps, so hidden edits never show.
+- Renaming an address keeps the old one working (redirect added on save).
+- Infobox field browse (`/facts?label=…&value=…`).
+- Header and menu: phone search, dialog-like phone menu, named theme choice, sticky desktop
+  menu, 44px touch targets, fuller reduced-motion support.
+- Test maintenance: documentation screenshots only with `SAVE_DOC_SHOTS=1`.
+
+Waiting for owner approval: bookmarks, reading lists and personal notes need a migration
+(design in [PROPOSAL-MIGRATIONS.md](PROPOSAL-MIGRATIONS.md)). Roadmap:
+[ROADMAP-50.md](ROADMAP-50.md). Guides: [WEBSITE-FEATURES.md](WEBSITE-FEATURES.md).
+
+Verified at `bfbd88849` (local, PostgreSQL 17.12): lint 0, typecheck 0 (site and MCP worker), unit
+187/187, browser 82/82, production build OK; database 311/311 on the run just before (no database
+change since). The first full run of this sprint found three browser failures caused by the new
+theme picker and menu focus; fixed in `bfbd88849`. CI `check` and `db` were green on `8cd5ce924`.
+
+## 2026-11-16 — website features (branch `claude/chronicle-website-features`, draft PR #31)
+
+Stacked on PR #30 (`8c58704a2`). Local, committed and pushed only; nothing deployed; no
+migrations.
+
+- **Picture viewer** (commit `038d4f18d`): click or Enter on a wiki picture opens a full-screen
+  viewer over the pictures the reader can see on that page.
+- **DM wiki tidy-up report** (commit `8dc55c9bf`): read-only report at `/dm/tidy` with broken
+  links, unlinked pages, missing summaries and pictures, and empty pages.
+- User guides: see [WEBSITE-FEATURES.md](WEBSITE-FEATURES.md).
+
+Full verification at `44a4eca44`, local PostgreSQL 17.12: lint 0, typecheck 0, unit 138/138,
+database 311/311, browser 65/65. The first full run found two problems, both fixed: the package
+importer could re-select pages it had just created when the next file was chosen right after an
+import (`44f5d1374`), and the picture-viewer browser test shared an article with the image test
+(`44a4eca44`).
+
 ## 2026-11-15 — release prep (branch `claude/chronicle-release-prep`, draft PR #30)
 
 Resume here. Local, committed and pushed only; **nothing applied to production**, nothing

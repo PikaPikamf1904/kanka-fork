@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { enrollAsPlayer, noHorizontalOverflow, recordApi, SAMPLE_SECRETS, screenshot } from './support.ts';
+import { enrollAsPlayer, noHorizontalOverflow, openOtherForm, recordApi, SAMPLE_SECRETS, screenshot } from './support.ts';
 
 test.describe('player', () => {
   test('access screen refuses a wrong code', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Chronicle' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /who.s at the table/i })).toBeVisible();
     await screenshot(page, '01-access-screen');
+    await openOtherForm(page);
     await page.getByLabel('Access code').fill('definitely-not-the-code');
     await page.getByLabel('Your name at the table').fill('Nobody');
     await page.getByRole('button', { name: 'Enter Chronicle' }).click();
@@ -82,7 +83,7 @@ test.describe('player', () => {
     await box.fill('Port');
     await expect(page.getByRole('option', { name: /Port Vellmoor/ })).toBeVisible();
     await box.fill('the masked');
-    await expect(page.getByRole('option')).toHaveCount(0);
+    await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(0);
     await page.goto('/search?q=ledger');
     await expect(page.getByRole('link', { name: 'Operation Emberfall' })).toBeVisible();
     await expect(page.locator('.search-results mark').first()).toBeVisible();
@@ -116,9 +117,9 @@ test.describe('player', () => {
     page.once('dialog', (d) => void d.accept());
     await page.getByRole('button', { name: 'Leave on this device' }).click();
     // (desktop layout: the sidebar is always visible)
-    await expect(page.getByLabel('Access code')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /who.s at the table/i })).toBeVisible();
     await page.reload();
-    await expect(page.getByLabel('Access code')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /who.s at the table/i })).toBeVisible();
   });
 
   test('stays signed in across reloads', async ({ page }) => {
