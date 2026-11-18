@@ -1,6 +1,7 @@
 // The DM screen passcode, checked by /api/dm-gate on the server. The browser only sends what was
 // typed and learns whether this browser has passed the screen (an HttpOnly cookie it cannot read).
 import { useCallback, useEffect, useState } from 'react';
+import { supabase } from './supabase.ts';
 
 export type GateStatus = 'loading' | 'locked' | 'open' | 'unconfigured' | 'error';
 
@@ -32,9 +33,12 @@ export async function unlockDmGate(passcode: string): Promise<void> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ passcode }),
   });
-  if (res.ok) return;
-  const body = (await res.json().catch(() => ({}))) as { error?: string };
-  throw new Error(body.error ?? 'That passcode was not accepted.');
+  const body = (await res.json().catch(() => ({}))) as { error?: string; session?: { access_token: string; refresh_token: string } };
+  if (!res.ok) throw new Error(body.error ?? 'That passcode was not accepted.');
+  // The passcode is the DM sign-in: the server answers with the DM account's session.
+  if (!body.session) throw new Error('Could not start the DM session. Please try again.');
+  const { error } = await supabase.auth.setSession({ access_token: body.session.access_token, refresh_token: body.session.refresh_token });
+  if (error) throw new Error('Could not start the DM session. Please try again.');
 }
 
 /** Close the DM screen on this browser. Best effort; the DM's own sign-in is separate. */

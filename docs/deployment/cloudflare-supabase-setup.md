@@ -49,11 +49,13 @@ not add a payment method. Use synthetic content until you are ready to import re
    - `SUPABASE_PUBLISHABLE_KEY` = publishable key
    - `SUPABASE_SECRET_KEY` = secret key (**Secret**)
    - `IP_HASH_SECRET` = 32+ random characters (**Secret**)
-   - `DM_SCREEN_PASSCODE` = the Dungeon Master screen passcode (**Secret**, digits or letters, at most
-     64 characters). Checked only by `/api/dm-gate` on the server; it is never in the browser bundle or
-     the repository. If it is missing, the DM sign-in refuses to open (fails closed) and says the DM
-     screen is not set up. Changing it closes every open DM screen at once. It is an extra lock in front
-     of the DM sign-in; the DM account, password, second step and Row Level Security remain the real gate.
+   - `DM_SCREEN_PASSCODE` = the Dungeon Master passcode (**Secret**, at most 64 characters). Since
+     2026-11-18 (owner's decision) it is the whole DM sign-in: `/api/dm-gate` checks it on the server
+     and, when correct, opens a session for the campaign's one active DM account, with no email or
+     password. Two-step sign-in is still asked for if it is turned on for that account. Wrong guesses
+     are limited (5 per address per 15 minutes, 100 per hour overall). Anyone who learns the passcode
+     has full DM access, so use a long one where possible. It is never in the browser bundle or the
+     repository. If it is missing, DM sign-in is refused. Changing it ends every open DM screen.
    - optional `TURNSTILE_SECRET_KEY` (**Secret**) with a free Turnstile widget (the widget is not
      yet wired into the access screen; leave unset for now)
 5. Leave Functions on the free plan's daily limit (fail closed is fine: only enrollment uses it).

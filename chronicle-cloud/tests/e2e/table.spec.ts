@@ -108,31 +108,28 @@ test.describe('who is at the table', () => {
 test.describe('the DM screen', () => {
   test.beforeEach(async () => { await resetLocalDmGate(); });
 
-  test('needs the passcode, then the DM account; a wrong passcode opens nothing', async ({ page }) => {
-    const { dmEmail, dmPassword } = localCredentials();
+  test('the passcode alone signs the DM in; a wrong passcode opens nothing; there is no email or password', async ({ page, context }) => {
+    const api = recordApi(context);
     await page.goto('/');
     await page.getByRole('button', { name: 'Dungeon Master' }).click();
     await expect(page).toHaveURL(/\/sign-in/);
-    await expect(page.getByLabel('Email')).toHaveCount(0); // no sign-in form before the passcode
+    await expect(page.getByLabel('Email')).toHaveCount(0);
+    await expect(page.getByLabel('Password')).toHaveCount(0);
     await page.getByLabel('DM passcode').fill('11111');
     await page.getByRole('button', { name: 'Open the DM screen' }).click();
     await expect(page.getByRole('alert')).toContainText('not accepted');
-    await expect(page.getByLabel('Email')).toHaveCount(0);
+    await expect(page.locator('main#main')).toHaveCount(0);
+    // A wrong passcode never reached the database as the DM.
+    expect(api.filter((b) => b.url.includes('/rest/v1/dm_notes'))).toHaveLength(0);
 
     await page.getByLabel('DM passcode').fill(E2E_DM_PASSCODE);
     await page.getByRole('button', { name: 'Open the DM screen' }).click();
-    // The passcode alone gives nothing: the DM's own account is still required.
-    await expect(page.getByLabel('Email')).toBeVisible();
-    await expect(page.locator('main#main')).toHaveCount(0);
-    await page.getByLabel('Email').fill(dmEmail);
-    await page.getByLabel('Password').fill('not-the-password');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('alert')).toContainText('not accepted');
-    await page.getByLabel('Password').fill(dmPassword);
-    await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.locator('main#main')).toBeVisible();
     await page.goto('/dm');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.goto('/dm/notes');
+    await expect(page.locator('main#main')).toBeVisible();
+    await expect(page.getByLabel('DM passcode')).toHaveCount(0);
   });
 
   test('wrong guesses are limited, and the right passcode is refused while the limit holds', async ({ page }) => {
@@ -145,16 +142,12 @@ test.describe('the DM screen', () => {
     await page.getByLabel('DM passcode').fill(E2E_DM_PASSCODE);
     await page.getByRole('button', { name: 'Open the DM screen' }).click();
     await expect(page.getByRole('alert')).toContainText('Too many attempts');
-    await expect(page.getByLabel('Email')).toHaveCount(0);
+    await expect(page.locator('main#main')).toHaveCount(0);
   });
 
   test('a signed-in DM without the passcode in this browser sees the lock, not the DM pages', async ({ page, context }) => {
     await page.goto('/sign-in');
     await passDmScreen(page);
-    const { dmEmail, dmPassword } = localCredentials();
-    await page.getByLabel('Email').fill(dmEmail);
-    await page.getByLabel('Password').fill(dmPassword);
-    await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.locator('main#main')).toBeVisible();
 
     await context.clearCookies(); // the DM screen's cookie is gone; the account's sign-in remains
@@ -190,7 +183,5 @@ test.describe('the DM screen', () => {
     // Another site cannot submit a passcode on a DM's behalf.
     const cross = await request.post(`${url}/api/dm-gate`, { headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, data: { passcode: E2E_DM_PASSCODE } });
     expect(cross.status()).toBe(403);
-    const { dmEmail } = localCredentials();
-    expect(dmEmail).toBeTruthy();
   });
 });

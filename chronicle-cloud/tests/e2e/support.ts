@@ -79,16 +79,14 @@ export async function resetLocalDmGate() {
   }
 }
 
-/** On /sign-in: pass the DM screen passcode if it is asked for, then wait for the email field. */
+/**
+ * On /sign-in (or the DM lock screen): the passcode is the whole DM sign-in. Waits until the DM is
+ * in, or until two-step sign-in asks for its code.
+ */
 export async function passDmScreen(page: Page) {
-  const field = page.getByLabel('DM passcode');
-  const email = page.getByLabel('Email');
-  await expect(field.or(email)).toBeVisible();
-  if (await field.isVisible()) {
-    await field.fill(E2E_DM_PASSCODE);
-    await page.getByRole('button', { name: 'Open the DM screen' }).click();
-    await expect(email).toBeVisible();
-  }
+  await page.getByLabel('DM passcode').fill(E2E_DM_PASSCODE);
+  await page.getByRole('button', { name: 'Open the DM screen' }).click();
+  await expect(page.locator('main#main').or(page.getByLabel('Code from your authenticator app'))).toBeVisible();
 }
 
 /** On the first screen: open the "Someone else" form (any name, with the access code). */
@@ -108,12 +106,8 @@ export async function enrollAsPlayer(page: Page, name = 'Test Player') {
 }
 
 export async function signInAsDm(page: Page) {
-  const { dmEmail, dmPassword } = localCredentials();
   await page.goto('/sign-in');
   await passDmScreen(page);
-  await page.getByLabel('Email').fill(dmEmail);
-  await page.getByLabel('Password').fill(dmPassword);
-  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.locator('main#main')).toBeVisible();
 }
 

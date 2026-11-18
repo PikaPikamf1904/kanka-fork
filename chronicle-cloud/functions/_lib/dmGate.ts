@@ -5,11 +5,14 @@
 // twelve hours. The cookie is signed with IP_HASH_SECRET and the passcode's own digest, so changing
 // the passcode ends every open DM screen.
 //
-// This is a screen lock IN FRONT OF the DM sign-in. It does not replace it: DM data is protected by
-// the DM's own account (password and second step) and by Row Level Security in the database.
-// Wrong guesses are limited in the database (5 per address per 15 minutes, 100 per hour overall).
+// The passcode IS the DM sign-in (the owner's choice, 2026-11-18): a correct passcode also starts a
+// session for the campaign's one active DM account, without a password. Two-step sign-in, if the DM
+// account has it turned on, is still asked for afterwards. Row Level Security still decides what that
+// session may read. Wrong guesses are limited in the database (5 per address per 15 minutes, 100 per
+// hour overall).
 
-import { supabaseDeps, type EnrollEnv } from './enroll.ts';
+import { supabaseDeps, type EnrollEnv, type Session } from './enroll.ts';
+import { joinDeps } from './join.ts';
 
 export interface DmGateEnv extends EnrollEnv {
   DM_SCREEN_PASSCODE?: string;
@@ -23,6 +26,8 @@ export interface DmGateDeps {
   finish(attempt: number): Promise<void>;
   hashIp(ip: string): Promise<string>;
   now(): number;
+  /** A fresh session for the campaign's one active DM account (no password). */
+  dmSession(): Promise<Session>;
 }
 
 export interface DmGateRequest {
@@ -113,7 +118,15 @@ export async function handleDmGate(req: DmGateRequest, env: DmGateEnv, deps: DmG
   if (!sameText(given, wanted)) return fail(401, GATE_MESSAGES.wrong);
 
   await deps.finish(check.attempt);
-  return { status: 200, body: { open: true }, setCookie: cookie(await makeCookieValue(env, deps.now()), GATE_SECONDS) };
+  const session = await deps.dmSession();
+  return {
+    status: 200,
+    body: {
+      open: true,
+      session: { access_token: session.access_token, refresh_token: session.refresh_token, expires_in: session.expires_in, token_type: session.token_type },
+    },
+    setCookie: cookie(await makeCookieValue(env, deps.now()), GATE_SECONDS),
+  };
 }
 
 export function dmGateDeps(env: DmGateEnv, fetchImpl: typeof fetch = fetch): DmGateDeps {
@@ -134,5 +147,16 @@ export function dmGateDeps(env: DmGateEnv, fetchImpl: typeof fetch = fetch): DmG
     },
     hashIp: supabaseDeps(env, fetchImpl).hashIp,
     now: () => Date.now(),
+    async dmSession() {
+      const res = await fetchImpl(`${base}/rest/v1/campaign_members?role=eq.dm&revoked_at=is.null&select=user_id`, {
+        headers: { apikey: env.SUPABASE_SECRET_KEY, authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` },
+      });
+      if (!res.ok) throw new Error(`find DM failed with ${res.status}`);
+      const rows = (await res.json()) as { user_id: string }[];
+      // Exactly one active DM, or no session at all: never guess which account to open.
+      if (rows.length !== 1) throw new Error(`expected one active DM, found ${rows.length}`);
+      const join = joinDeps(env, fetchImpl);
+      return join.sessionFor(await join.getUserEmail(rows[0]!.user_id));
+    },
   };
 }

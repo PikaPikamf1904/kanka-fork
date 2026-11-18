@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { enrollAsPlayer, localCredentials, noHorizontalOverflow, passDmScreen, signInAsDm } from './support.ts';
+import { enrollAsPlayer, noHorizontalOverflow, passDmScreen, signInAsDm } from './support.ts';
 
 // Synthetic sample characters only; screenshots are disposable test artifacts.
 const shots = path.resolve(import.meta.dirname, '../../test-results/screenshots-characters');
@@ -148,15 +148,11 @@ test.describe('Character encyclopedia', () => {
 
 test.describe('Assistant sign-in', () => {
   test('signing in from the access screen returns to the consent request instead of the home page', async ({ page }) => {
-    const { dmEmail, dmPassword } = localCredentials();
     const consent = '/dm/connect?authorization_id=synthetic-request';
     await page.goto(consent);
     await page.getByRole('button', { name: 'Dungeon Master' }).click();
     await expect(page).toHaveURL(/\/sign-in\?next=%2Fdm%2Fconnect%3Fauthorization_id%3Dsynthetic-request$/);
     await passDmScreen(page);
-    await page.getByLabel('Email').fill(dmEmail);
-    await page.getByLabel('Password').fill(dmPassword);
-    await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(new RegExp(`${consent.replace(/[?]/g, '\\?')}$`));
   });
 
@@ -181,10 +177,6 @@ test.describe('Assistant sign-in', () => {
   test('a next address pointing at another site is ignored', async ({ page }) => {
     await page.goto('/sign-in?next=//evil.example/steal');
     await passDmScreen(page);
-    const { dmEmail, dmPassword } = localCredentials();
-    await page.getByLabel('Email').fill(dmEmail);
-    await page.getByLabel('Password').fill(dmPassword);
-    await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
   });
 });

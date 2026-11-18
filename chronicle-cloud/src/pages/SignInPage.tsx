@@ -11,8 +11,8 @@ export function safeNext(next: string | null): string {
 }
 
 /**
- * Sign-in for the DM: the DM screen passcode (checked on the server), then email and password,
- * then a TOTP step when MFA is enrolled. The passcode is an extra lock; the account is the real gate.
+ * Sign-in for the DM: the DM passcode alone (checked on the server, which then opens the DM
+ * account's session), then a TOTP step only if two-step sign-in is turned on for that account.
  */
 export function SignInPage() {
   const { state, refresh } = useSession();
@@ -23,8 +23,6 @@ export function SignInPage() {
   // Shown in place (two-step sign-in) the page keeps its own address; from /sign-in, ?next= says
   // where to return, so a sign-in started by an assistant's consent request ends back on it.
   const next = location.pathname === '/sign-in' ? safeNext(params.get('next')) : safeNext(location.pathname + location.search);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,17 +31,6 @@ export function SignInPage() {
     // Only a signed-in DM is sent on; a player who opens the DM screen is shown its sign-in.
     if (state.kind === 'member' && state.role === 'dm' && location.pathname === '/sign-in') navigate(next, { replace: true });
   }, [state, navigate, next, location.pathname]);
-
-  async function signIn(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    setPassword('');
-    setBusy(false);
-    if (err) setError('Those details were not accepted.');
-    else await refresh();
-  }
 
   async function verify(e: FormEvent) {
     e.preventDefault();
@@ -68,9 +55,7 @@ export function SignInPage() {
     <div className="access-page">
       <div className="access-card">
         <h1>Dungeon Master</h1>
-        {gate.status !== 'open' ? (
-          <DmPasscode status={gate.status} onOpen={gate.check} />
-        ) : state.kind === 'needs-mfa' ? (
+        {state.kind === 'needs-mfa' ? (
           <form onSubmit={verify} className="access-form">
             <label>
               Code from your authenticator app
@@ -80,18 +65,14 @@ export function SignInPage() {
             <button type="submit" className="button" disabled={busy}>Verify</button>
           </form>
         ) : (
-          <form onSubmit={signIn} className="access-form">
-            <label>
-              Email
-              <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </label>
-            <label>
-              Password
-              <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </label>
-            {error && <p className="form-error" role="alert">{error}</p>}
-            <button type="submit" className="button" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-          </form>
+          // The passcode is the whole sign-in: there is no email or password step.
+          <DmPasscode
+            status={gate.status === 'open' ? 'locked' : gate.status}
+            onOpen={async () => {
+              await gate.check();
+              await refresh();
+            }}
+          />
         )}
         <p className="account-link"><Link to="/table">Back to who’s at the table</Link></p>
       </div>

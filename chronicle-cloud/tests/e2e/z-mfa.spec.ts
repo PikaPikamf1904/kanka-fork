@@ -2,7 +2,7 @@
 // required, then turns it off again so other runs can sign in with a password.
 import crypto from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { localCredentials, passDmScreen } from './support.ts';
+import { passDmScreen } from './support.ts';
 
 function base32Decode(input: string): Buffer {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -29,14 +29,9 @@ async function nextWindow() {
 
 test('two-step sign-in is required for the DM once enabled', async ({ page }) => {
   test.setTimeout(150_000);
-  const { dmEmail, dmPassword } = localCredentials();
   const signIn = async () => {
     await page.goto('/sign-in');
     await passDmScreen(page);
-    await page.getByLabel('Email').fill(dmEmail);
-    await page.getByLabel('Password').fill(dmPassword);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.locator('main#main').or(page.getByLabel('Code from your authenticator app'))).toBeVisible();
   };
 
   await signIn();
