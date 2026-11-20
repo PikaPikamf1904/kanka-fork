@@ -12,9 +12,13 @@ export async function maintenanceUntil(): Promise<Date | null> {
   return new Date(data as string);
 }
 
+/** Fired on this page when the DM changes the switch, so the banner updates at once. */
+export const MAINTENANCE_CHANGED = 'chronicle:maintenance-changed';
+
 /** DM only: 0 turns it off; 15 to 480 minutes turns it on until then. */
 export async function setMaintenance(minutes: number): Promise<Date | null> {
   const { data, error } = await supabase.rpc('set_maintenance', { p_minutes: minutes });
   if (error) throw new Error(error.message);
+  window.dispatchEvent(new Event(MAINTENANCE_CHANGED));
   return data ? new Date(data as string) : null;
 }

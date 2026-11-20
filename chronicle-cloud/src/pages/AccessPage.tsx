@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { BannerArt } from '../components/Banner.tsx';
+import { MaintenanceNotice } from '../components/MaintenanceNotice.tsx';
 import { savedAccounts } from '../lib/accounts.ts';
 import { enrollWithCode, useSession } from '../lib/session.tsx';
 import { SEATS, accountForSeat, accountMatchesSeat, type Seat } from '../lib/table.ts';
@@ -70,6 +71,7 @@ export function TablePage() {
   return (
     <div className="access-page">
       <BannerArt className="access-art" />
+      <div className="access-notice"><MaintenanceNotice memberSwitch={false} /></div>
       <main className="access-card table-card-wrap">
         <div className="brand-mark big" aria-hidden="true">✶</div>
         <h1 className="table-title">Who’s at the table?</h1>

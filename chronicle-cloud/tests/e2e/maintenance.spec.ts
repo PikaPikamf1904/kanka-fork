@@ -42,6 +42,8 @@ test.describe('Maintenance notice', () => {
     await expect(panel.getByRole('status')).toHaveText('Off.');
     await panel.getByRole('button', { name: 'Show for 30 minutes' }).click();
     await expect(panel.getByRole('status')).toContainText('On until');
+    // The DM's own page shows the banner at once, without waiting for the next check or a reload.
+    await expect(page.getByTestId('maintenance-notice')).toContainText('Declan is currently performing maintenance on Chronicle.', { timeout: 5000 });
 
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const player = await ctx.newPage();
@@ -53,9 +55,24 @@ test.describe('Maintenance notice', () => {
 
     await panel.getByRole('button', { name: 'Turn off now' }).click();
     await expect(panel.getByRole('status')).toHaveText('Off.');
+    await expect(page.getByTestId('maintenance-notice')).toHaveCount(0, { timeout: 5000 });
     await player.reload();
     await expect(player.locator('main#main')).toBeVisible();
     await expect(player.getByTestId('maintenance-notice')).toHaveCount(0);
     await ctx.close();
+  });
+
+  test('the first screen shows the deploy or Cloudflare notice to visitors who are not signed in', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: /who.s at the table/i })).toBeVisible();
+    await expect(page.getByTestId('maintenance-notice')).toHaveCount(0);
+    const message = 'Declan is currently performing maintenance on Chronicle. Some features may be temporarily unavailable or behave unexpectedly. Please save your work before refreshing.';
+    await page.route('**/api/status', (route) => route.fulfill({ json: { notice: true, message } }));
+    await page.reload();
+    await expect(page.getByTestId('maintenance-notice')).toContainText(message);
+    // Signed out, the DM's switch is not asked for, so nothing fails in the console.
+    expect(errors).toEqual([]);
   });
 });
