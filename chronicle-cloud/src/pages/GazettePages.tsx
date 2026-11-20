@@ -14,7 +14,7 @@ import { MarkdownField } from '../components/images/MarkdownField.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { useMediaUrl } from '../components/MediaImage.tsx';
 import {
-  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getNewsStory, listNews, listNewsPending, listNewsProposals, newsTransition, saveNewsStory,
+  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getNewsStory, listNews, listNewsIndex, listNewsPending, listNewsProposals, listPrintedNews, listUnprintedNews, newsTransition, saveNewsStory,
   type NewsAction, type NewsDetails, type NewsDraft, type NewsStory,
 } from '../lib/api.ts';
 import { ChronicleError } from '../lib/changeSetTypes.ts';
@@ -125,15 +125,20 @@ function NewsroomStrip({ stories }: { stories: NewsStory[] }) {
   );
 }
 
+/** How many of the newest printed stories the front page lays out. */
+const FRONT_PAGE_STORIES = 40;
+
 export function GazetteFront() {
   const isDm = useIsDm();
   const [params] = useSearchParams();
   const section = params.get('section') as NewsSection | null;
-  const news = useLoad(listNews, [isDm]);
+  // The front page is what players see: the newest printed stories only, even for the DM. Older
+  // stories stay in the archive and in search.
+  const news = useLoad(() => listPrintedNews({ section, limit: FRONT_PAGE_STORIES }), [isDm, section]);
+  const desk = useLoad(() => (isDm ? listUnprintedNews() : Promise.resolve([])), [isDm]);
   useEffect(() => { document.title = `${GAZETTE.name} · Chronicle`; }, []);
 
-  // The front page is what players see: published stories only, even for the DM.
-  const printed = (news.data ?? []).filter(isPublished);
+  const printed = news.data ?? [];
   const issue = printed.reduce((m, s) => Math.max(m, s.news?.issue_number ?? 0), 0) || null;
   const shown = section ? printed.filter((s) => s.news?.section === section) : printed;
   const lead = section ? shown[0] : shown.find((s) => s.news?.is_lead) ?? shown.find((s) => s.news?.reliability === 'confirmed') ?? shown[0];
@@ -145,7 +150,7 @@ export function GazetteFront() {
   return (
     <div className="gazette">
       <Masthead issue={issue} />
-      {isDm && news.data && <NewsroomStrip stories={news.data} />}
+      {isDm && desk.data && <NewsroomStrip stories={desk.data} />}
       {news.error && <p className="form-error">{news.error}</p>}
       {news.loading && !news.data && <p className="muted">The presses are warming up…</p>}
       {news.data && shown.length === 0 && (
@@ -164,6 +169,9 @@ export function GazetteFront() {
               <div className="gz-columns">
                 {columns.map((s) => <StoryTeaser key={s.id} s={s} />)}
               </div>
+            )}
+            {printed.length === FRONT_PAGE_STORIES && (
+              <p className="gz-more"><Link to="/news/archive">Older stories are in the Archive</Link></p>
             )}
           </div>
           {!section && (
@@ -205,8 +213,8 @@ function StaffBox() {
 
 export function GazetteArchive() {
   const isDm = useIsDm();
-  const news = useLoad(listNews, [isDm]);
-  const printed = (news.data ?? []).filter(isPublished);
+  const news = useLoad(listNewsIndex, [isDm]);
+  const printed = news.data ?? [];
   const issues = new Map<string, NewsStory[]>();
   for (const s of printed) {
     const k = s.news?.issue_number ? `No. ${s.news.issue_number}` : 'Special editions';

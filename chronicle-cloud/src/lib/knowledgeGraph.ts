@@ -10,9 +10,8 @@ export interface GraphPage { id: string; slug: string; title: string; type: Arti
 export interface GraphInput {
   pages: GraphPage[];
   relations: { source_article_id: string; target_article_id: string; kind: string }[];
-  /** Sections the reader can read: id and owning page (links are stored per section). */
-  sections: { id: string; article_id: string }[];
-  links: { source_section_id: string; target_slug: string }[];
+  /** Wiki links in sections the reader can read, by the page that holds the section. */
+  links: { article_id: string; target_slug: string }[];
   redirects: { from_slug: string; article_id: string }[];
 }
 
@@ -25,7 +24,6 @@ export function buildGraph(d: GraphInput): Graph {
   const byId = new Map(d.pages.filter((p) => p.type !== 'news').map((p) => [p.id, p]));
   const bySlug = new Map([...byId.values()].map((p) => [p.slug, p.id]));
   for (const r of d.redirects) if (byId.has(r.article_id) && !bySlug.has(r.from_slug)) bySlug.set(r.from_slug, r.article_id);
-  const sectionPage = new Map(d.sections.map((s) => [s.id, s.article_id]));
   const edges = new Map<string, GraphEdge>();
   const add = (e: GraphEdge) => {
     if (e.source === e.target || !byId.has(e.source) || !byId.has(e.target)) return;
@@ -36,7 +34,7 @@ export function buildGraph(d: GraphInput): Graph {
   // A connection between two pages makes a plain link between them redundant.
   const related = new Set([...edges.values()].map((e) => [e.source, e.target].sort().join('|')));
   for (const l of d.links) {
-    const from = sectionPage.get(l.source_section_id);
+    const from = l.article_id;
     const to = bySlug.get(slugify(l.target_slug));
     if (!from || !to || related.has([from, to].sort().join('|'))) continue;
     add({ source: from, target: to, kind: 'link', label: 'mentions' });

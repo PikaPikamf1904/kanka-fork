@@ -8,15 +8,18 @@ import { TEMPLATES, TYPE_ORDER } from '../lib/templates.ts';
 import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 
+/** How many pages the list shows (one entry each). */
+const RECENT_SHOWN = 200;
+
 /** "Recently updated": pages whose readable text changed or that were published lately. */
 export function RecentPage() {
   const { playerPreview } = useSession();
   const isDm = useIsDm();
-  const data = useLoad(() => loadRecentChanges(playerPreview), [playerPreview, isDm]);
+  const data = useLoad(() => loadRecentChanges(playerPreview, RECENT_SHOWN), [playerPreview, isDm]);
   const [params, setParams] = useSearchParams();
   const asked = params.get('type');
   const type = (TYPE_ORDER as string[]).includes(asked ?? '') ? (asked as ArticleType) : null;
-  const entries = useMemo(() => (data.data ? recentChanges(data.data.pages, data.data.sections, 200) : []), [data.data]);
+  const entries = useMemo(() => (data.data ? recentChanges(data.data.pages, data.data.sections, RECENT_SHOWN) : []), [data.data]);
   const kinds = useMemo(() => TYPE_ORDER.filter((t) => entries.some((e) => e.page.type === t)), [entries]);
   const days = useMemo(
     () => groupByDay(entries.filter((e) => !type || e.page.type === type).slice(0, 50), new Date(), (d) => longDate(d.toISOString())),

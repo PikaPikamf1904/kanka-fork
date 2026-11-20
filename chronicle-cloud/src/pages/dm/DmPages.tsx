@@ -527,6 +527,9 @@ export function MapEditor() {
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // True from choosing a picture until it has been uploaded. Saving (or leaving) before then would
+  // keep the map without its picture and leave the uploaded file unattached.
+  const [uploading, setUploading] = useState(false);
   const [baseline, setBaseline] = useState<string>(() => JSON.stringify(form));
   const [loadedFrom, setLoadedFrom] = useState<unknown>(null);
   if (existing.data && existing.data !== loadedFrom) {
@@ -534,7 +537,7 @@ export function MapEditor() {
     setForm(existing.data.map);
     setBaseline(JSON.stringify(existing.data.map));
   }
-  useUnsavedGuard(JSON.stringify(form) !== baseline && !saving);
+  useUnsavedGuard((JSON.stringify(form) !== baseline || uploading) && !saving);
   if (slug && !existing.loading && !existing.data) return <NotFound what="map" />;
 
   return (
@@ -542,7 +545,7 @@ export function MapEditor() {
       className="panel form-grid"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (saving) return;
+        if (saving || uploading) return;
         setError(null);
         setSaving(true); // stays set on success so the redirect to the map is not questioned
         try {
@@ -589,23 +592,35 @@ export function MapEditor() {
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp,image/gif"
+            disabled={uploading}
             onChange={async (e) => {
-              const file = e.target.files?.[0];
+              const input = e.target;
+              const file = input.files?.[0];
               if (!file) return;
+              setError(null);
+              setUploading(true);
               try {
                 const p = await prepareImage(file, MAX_MAP_IMAGE, 0.85);
                 const media = await uploadMedia(p.blob, { alt: '', width: p.width, height: p.height });
-                setForm({ ...form, media_id: media.id, width: p.width, height: p.height });
+                // The latest form, not the one from when the file was chosen: other fields may have changed since.
+                setForm((f) => ({ ...f, media_id: media.id, width: p.width, height: p.height }));
               } catch (err) {
                 setError(err instanceof Error ? err.message : 'Upload failed.');
+              } finally {
+                setUploading(false);
+                input.value = ''; // choosing the same file again must still count as a choice
               }
             }}
           />
         </label>
+        {uploading && <p className="fine-print" role="status">Uploading the picture… wait for it to finish before saving.</p>}
+        {!uploading && form.media_id && form.media_id !== (existing.data?.map.media_id ?? null) && (
+          <p className="fine-print" role="status">Picture ready. Press “Save map” to keep it.</p>
+        )}
       </div>
       <p className="fine-print span-2">The map image becomes visible to players only when the map is published for players.</p>
       {error && <p className="form-error span-2">{error}</p>}
-      <button type="submit" className="button">Save map</button>
+      <button type="submit" className="button" disabled={uploading || saving}>{uploading ? 'Uploading picture…' : 'Save map'}</button>
     </form>
   );
 }
