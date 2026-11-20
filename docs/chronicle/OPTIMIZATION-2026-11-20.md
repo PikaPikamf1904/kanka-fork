@@ -55,6 +55,8 @@ by about 50 ms between runs and are not claimed as changes.
 | 9 | P3 | Every open tab polled `/api/status` (a Pages Function call) and an RPC every 2 minutes, **even while hidden**. | Skipped while the tab is hidden; runs again when it becomes visible. |
 | 10 | P4 | `api.search()` had been dead since search operators replaced it. `src/lib/home.ts` was replaced by the query. | Removed. |
 | 11 | Security | MCP Worker logs kept full request URLs, including query strings. | `redact_query_string: true`. Takes effect on the Worker's next deploy. |
+| 12 | P3 | The Gazette front page laid out **every** story ever printed. The archive downloaded full stories to list titles. | The front page shows the newest 40 printed stories, with a link to the archive (a small visible change). The archive fetches only the fields it lists. The DM's newsroom strip reads only unprinted stories. |
+| 13 | P3 | Recently updated downloaded each page's summary, which it never shows, for every page edited in the last 400 section edits. | No summaries. Pages are looked up only for the 200 entries the page can show. |
 
 ### Checked and found sound
 
@@ -95,6 +97,8 @@ Each value is shown as before → after.
 | Graph (player) | 439.2 → 176.1 KB (−60%) |
 | Graph (DM) | 1,162 → 521 KB (−55%) |
 | Home → character page (warm) | 211.1 → 62.1 KB (−71%) |
+| Gazette front page (player, 150 stories) | 99.8 → 36.2 KB (−64%) |
+| Recently updated (player) | 128.0 → 102.5 KB (−20%) |
 
 ### Android-like cold load (sample data)
 
@@ -170,12 +174,10 @@ Estimates. Each states its assumption, and none is a measured production figure.
 
 ### Worth doing later
 
-- **Gazette front page:** it still lists every story (up to 500) on one page, about 100 KB at
-  150 stories. Paging needs a small design change to the front page and the archive.
-- **Recent page:** it reads the 400 most recently edited sections (about 125 KB at scale). A
-  server-side summary would need a migration.
-- **DM editor:** it loads every page's title for the link picker (about 130 KB at scale). Loading
-  it on first use would help on very large wikis.
+- **Recent page:** it still reads the 400 most recently edited sections, for the headings it
+  shows (about 100 KB at scale). A server-side summary would need a migration.
+- **DM editor:** it loads every page's title to check links (about 130 KB at scale; about 7 KB
+  today). The check runs as soon as the editor opens, so loading on demand would not help.
 - **Image caching:** signed image URLs rotate every 10 minutes, so a picture is downloaded again
   after that. A longer lifetime saves egress but lengthens the window in which a hidden picture
   stays viewable; this was a deliberate privacy choice.
