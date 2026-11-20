@@ -204,7 +204,6 @@ All on the final code, local stack, PostgreSQL 17.12.
 | Typecheck | 0 errors |
 | Unit tests | 285/285. `home.test.ts` was removed with `home.ts`; its rule is covered by `home-now.spec.ts`. |
 | Database tests | 387/387, including the new `graph-links.test.ts` |
-| Browser tests, full run | 124 passed, 1 failed |
-| Browser test after fix | The one failure was an over-broad assertion in the new `home-now.spec.ts`; after narrowing it, the spec passes on its own (1/1). |
+| Browser tests, full run | 126/126, including the new `home-now.spec.ts` and `gazette-front.spec.ts` |
 | Production build | OK |
 | MCP Worker config | `wrangler deploy --dry-run` OK; nothing uploaded |
