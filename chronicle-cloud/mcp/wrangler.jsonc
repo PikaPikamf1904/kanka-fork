@@ -7,7 +7,9 @@
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
   "preview_urls": false,
-  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // Every request is logged (the volume is tiny next to the free 0.5 GB/day from 1 Dec 2026), but
+  // query strings are redacted so no code or token in an address can end up in the logs.
+  "observability": { "enabled": true, "head_sampling_rate": 1, "logs": { "enabled": true, "invocation_logs": true }, "redact_query_string": true },
   "vars": {
     "SUPABASE_URL": "https://cqrgdtnvmgnimzxyaiih.supabase.co",
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_yrCOIzmQmdxxicUpwRiatQ_9iqqAsuK",
