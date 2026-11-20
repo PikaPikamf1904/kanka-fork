@@ -213,9 +213,11 @@ function factsOf(v: ViewModel) {
 export function CharacterProfile({ v, isDm, from }: ViewProps) {
   const facts = factsOf(v);
   const linked = useLinked(v);
-  const sessions = useLoad(listSessions, []);
+  const mentions = v.backlinks.filter((b) => b.type === 'session');
+  // Play order is only needed to sort two or more journals; one or none needs no request.
+  const sessions = useLoad(() => (mentions.length > 1 ? listSessions() : Promise.resolve([])), [mentions.length > 1]);
   const order = new Map((sessions.data ?? []).map((s, i) => [s.slug, i]));
-  const journals = v.backlinks.filter((b) => b.type === 'session').sort((a, b) => (order.get(a.slug) ?? 0) - (order.get(b.slug) ?? 0));
+  const journals = [...mentions].sort((a, b) => (order.get(a.slug) ?? 0) - (order.get(b.slug) ?? 0));
   const others = v.backlinks.filter((b) => b.type !== 'session');
   const places = linked.of('location');
   const events = linked.of('event', 'quest');
@@ -239,7 +241,6 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
         </div>
         <div className="profile-heading">
           <h1 className="article-title">{v.title}</h1>
-        {!v.previewing && <SaveButton articleId={v.id} />}
           {!v.previewing && <SaveButton articleId={v.id} />}
           {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
           {from && <p className="redirect-note">(Redirected from {from})</p>}

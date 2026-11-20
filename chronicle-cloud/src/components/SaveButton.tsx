@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { bookmarksForPage, loadSaved, noteErrorMessage, removeBookmark, savePage } from '../lib/readerNotes.ts';
+import { bookmarksForPage, listReadingLists, noteErrorMessage, removeBookmark, savePage } from '../lib/readerNotes.ts';
 import { PinButton } from './Clues.tsx';
 import { useLoad } from '../lib/useLoad.ts';
 
@@ -10,8 +10,8 @@ import { useLoad } from '../lib/useLoad.ts';
  */
 export function SaveButton({ articleId }: { articleId: string }) {
   const state = useLoad(async () => {
-    const [marks, saved] = await Promise.all([bookmarksForPage(articleId), loadSaved()]);
-    return { marks, lists: saved.lists };
+    const [marks, lists] = await Promise.all([bookmarksForPage(articleId), listReadingLists()]);
+    return { marks, lists };
   }, [articleId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

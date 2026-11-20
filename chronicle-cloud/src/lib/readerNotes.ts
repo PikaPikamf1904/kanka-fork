@@ -40,12 +40,16 @@ export async function resolvePages(ids: string[]): Promise<Map<string, PageRef>>
 export interface ReadingList { id: string; name: string; position: number }
 export interface Bookmark { id: string; article_id: string; list_id: string | null; position: number }
 
+export async function listReadingLists(): Promise<ReadingList[]> {
+  return must(await supabase.from('reading_lists').select('id, name, position').order('position').order('created_at')) as ReadingList[];
+}
+
 export async function loadSaved(): Promise<{ lists: ReadingList[]; bookmarks: Bookmark[] }> {
   const [lists, bookmarks] = await Promise.all([
-    supabase.from('reading_lists').select('id, name, position').order('position').order('created_at'),
+    listReadingLists(),
     supabase.from('bookmarks').select('id, article_id, list_id, position').order('position').order('created_at').limit(1000),
   ]);
-  return { lists: must(lists) as ReadingList[], bookmarks: must(bookmarks) as Bookmark[] };
+  return { lists, bookmarks: must(bookmarks) as Bookmark[] };
 }
 
 export async function bookmarksForPage(articleId: string): Promise<Bookmark[]> {
