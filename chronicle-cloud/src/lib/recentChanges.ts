@@ -3,7 +3,7 @@
 // pages they can read, so an edit the DM makes to hidden text never shows up as "updated".
 import type { ArticleType } from './types.ts';
 
-export interface RecentPage { id: string; slug: string; title: string; type: ArticleType; summary: string; published_at: string | null }
+export interface RecentPage { id: string; slug: string; title: string; type: ArticleType; published_at: string | null }
 export interface RecentSection { article_id: string; heading: string; updated_at: string }
 
 export interface RecentEntry {

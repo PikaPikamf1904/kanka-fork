@@ -139,15 +139,34 @@ export async function listNews(): Promise<NewsStory[]> {
 }
 
 /**
- * The home page's headline: the lead of the 30 most recently printed player stories, in the same
- * order as the Gazette front page. Issues are numbered as they are printed, so the newest issue is
- * among the newest printings; the home page no longer downloads every story to show one.
+ * The most recently printed player stories (optionally one section), newest issue first. Issues are
+ * numbered as they are printed, so the newest issues are among the newest printings. Used by the
+ * front page and the home headline instead of downloading every story.
  */
+export async function listPrintedNews(opts: { section?: NewsSection | null; limit: number }): Promise<NewsStory[]> {
+  const select = opts.section ? `${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey!inner(*)` : NEWS_SELECT;
+  let q = supabase.from('articles').select(select).eq('type', 'news').eq('status', 'published').eq('visibility', 'players');
+  if (opts.section) q = q.eq('news.section', opts.section);
+  return newsInOrder(must(await q.order('published_at', { ascending: false, nullsFirst: false }).limit(opts.limit)) as never);
+}
+
+/** The home page's headline: the first story of the front page's order. */
 export async function latestHeadline(): Promise<NewsStory | null> {
-  const raw = must(await supabase.from('articles').select(NEWS_SELECT).eq('type', 'news')
-    .eq('status', 'published').eq('visibility', 'players')
-    .order('published_at', { ascending: false, nullsFirst: false }).limit(30)) as never;
-  return newsInOrder(raw)[0] ?? null;
+  return (await listPrintedNews({ limit: 30 }))[0] ?? null;
+}
+
+/** The archive's list: every printed story, with only the fields the list shows (no story text). */
+export async function listNewsIndex(): Promise<NewsStory[]> {
+  return newsInOrder(must(await supabase.from('articles')
+    .select('id, slug, title, status, visibility, published_at, updated_at, news:news_stories!news_stories_article_id_fkey(section, reliability, reporter, issue_number, in_world_date)')
+    .eq('type', 'news').eq('status', 'published').eq('visibility', 'players').limit(2000)) as never);
+}
+
+/** DM: stories not yet printed to players, with their review state (for the newsroom strip). */
+export async function listUnprintedNews(): Promise<NewsStory[]> {
+  return newsInOrder(must(await supabase.from('articles')
+    .select('id, slug, title, status, visibility, published_at, updated_at, news:news_stories!news_stories_article_id_fkey(review_state)')
+    .eq('type', 'news').or('status.neq.published,visibility.neq.players').limit(500)) as never);
 }
 
 /** A revision of a printed story, waiting for the DM (only the DM can read these). */
@@ -323,17 +342,21 @@ export async function loadFamily(slug: string): Promise<{ rootId: string; people
  * Players get only what Row Level Security lets them read; `readerView` narrows the DM's own view to
  * the same. Page timestamps are not used, because editing hidden text also moves them.
  */
-export async function loadRecentChanges(readerView: boolean): Promise<{ pages: RecentPage[]; sections: RecentSection[] }> {
+/** `shown` is how many pages the Recent page lists (one entry each). */
+export async function loadRecentChanges(readerView: boolean, shown = 200): Promise<{ pages: RecentPage[]; sections: RecentSection[] }> {
   let sq = supabase.from('article_sections').select('article_id, heading, updated_at').order('updated_at', { ascending: false }).limit(400);
   if (readerView) sq = sq.eq('visibility', 'players').eq('status', 'published');
-  let pq = supabase.from('articles').select('id, slug, title, type, summary, published_at').neq('type', 'news').not('published_at', 'is', null).order('published_at', { ascending: false }).limit(100);
+  let pq = supabase.from('articles').select('id, slug, title, type, published_at').neq('type', 'news').not('published_at', 'is', null).order('published_at', { ascending: false }).limit(100);
   if (readerView) pq = pq.eq('visibility', 'players').eq('status', 'published');
   const [sections, published] = await Promise.all([sq, pq]);
   const secs = must(sections) as RecentSection[];
   const pages = new Map((must(published) as RecentPage[]).map((p) => [p.id, p]));
-  const missing = [...new Set(secs.map((s) => s.article_id))].filter((id) => !pages.has(id));
-  for (let i = 0; i < missing.length; i += 150) {
-    let q = supabase.from('articles').select('id, slug, title, type, summary, published_at').in('id', missing.slice(i, i + 150));
+  // A page can only make the list through its sections if it is among the `shown` most recently
+  // edited pages, so only those are looked up (summaries were never shown and are not fetched).
+  const recentIds = [...new Set(secs.map((s) => s.article_id))].slice(0, shown);
+  const missing = recentIds.filter((id) => !pages.has(id));
+  if (missing.length) {
+    let q = supabase.from('articles').select('id, slug, title, type, published_at').in('id', missing);
     if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
     for (const p of must(await q) as RecentPage[]) pages.set(p.id, p);
   }

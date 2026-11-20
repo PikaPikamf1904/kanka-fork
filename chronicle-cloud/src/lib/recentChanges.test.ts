@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { groupByDay, recentChanges, type RecentPage } from './recentChanges.ts';
 
-const page = (id: string, published_at: string | null, type: RecentPage['type'] = 'location'): RecentPage => ({ id, slug: id, title: id.toUpperCase(), type, summary: '', published_at });
+const page = (id: string, published_at: string | null, type: RecentPage['type'] = 'location'): RecentPage => ({ id, slug: id, title: id.toUpperCase(), type, published_at });
 
 describe('recentChanges', () => {
   it('orders pages by their latest visible change and lists changed headings', () => {
