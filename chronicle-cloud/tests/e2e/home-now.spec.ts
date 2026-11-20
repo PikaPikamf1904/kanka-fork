@@ -27,6 +27,7 @@ test('the latest played session and the newest printed headline, for a player', 
   await page.goto('/');
   const cards = page.locator('.now-big');
   await expect(cards.filter({ hasText: DATED })).toHaveCount(1);
-  await expect(page.getByText(UNDATED)).toHaveCount(0);
+  // The undated page may appear elsewhere (recently updated), never as the latest session.
+  await expect(cards.filter({ hasText: UNDATED })).toHaveCount(0);
   if (expected) await expect(page.locator('.now-headline')).toHaveText(expected.title);
 });
