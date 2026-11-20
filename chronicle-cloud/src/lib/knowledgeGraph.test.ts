@@ -5,13 +5,14 @@ const page = (id: string, type: GraphInput['pages'][number]['type'] = 'character
 const base: GraphInput = {
   pages: [page('a'), page('b'), page('c', 'location'), page('d'), page('n', 'news')],
   relations: [{ source_article_id: 'a', target_article_id: 'b', kind: 'knows' }, { source_article_id: 'a', target_article_id: 'hidden', kind: 'knows' }],
-  sections: [{ id: 's1', article_id: 'a' }, { id: 's2', article_id: 'b' }],
+  // Links in sections the reader cannot read never arrive: the database leaves them out (see
+  // tests/db for the embedded query under Row Level Security).
   links: [
-    { source_section_id: 's1', target_slug: 'b' }, // already connected: no extra link edge
-    { source_section_id: 's1', target_slug: 'old-c' }, // through a redirect
-    { source_section_id: 's2', target_slug: 'secret-page' }, // a page the reader did not receive
-    { source_section_id: 's-hidden', target_slug: 'd' }, // a section the reader did not receive
-    { source_section_id: 's2', target_slug: 'n' }, // news pages are not in the graph
+    { article_id: 'a', target_slug: 'b' }, // already connected: no extra link edge
+    { article_id: 'a', target_slug: 'old-c' }, // through a redirect
+    { article_id: 'b', target_slug: 'secret-page' }, // a page the reader did not receive
+    { article_id: 'hidden', target_slug: 'd' }, // from a page the reader did not receive
+    { article_id: 'b', target_slug: 'n' }, // news pages are not in the graph
   ],
   redirects: [{ from_slug: 'old-c', article_id: 'c' }],
 };
@@ -50,8 +51,7 @@ describe('legend, clusters and summaries', () => {
       { source_article_id: 'a', target_article_id: 'c', kind: 'resides_in' },
       { source_article_id: 'd', target_article_id: 'a', kind: 'knows' },
     ],
-    sections: [{ id: 's1', article_id: 'a' }, { id: 's2', article_id: 'e' }],
-    links: [{ source_section_id: 's1', target_slug: 'e' }, { source_section_id: 's2', target_slug: 'a' }, { source_section_id: 's1', target_slug: 'd-missing' }],
+    links: [{ article_id: 'a', target_slug: 'e' }, { article_id: 'e', target_slug: 'a' }, { article_id: 'a', target_slug: 'd-missing' }],
     redirects: [],
   };
   const g = buildGraph(input);

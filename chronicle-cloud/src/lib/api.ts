@@ -2,7 +2,8 @@
 // signed-in user may see, so nothing here filters secrets client-side.
 import { toChronicleError } from './changeSets.ts';
 import type { NewsReliability, NewsReviewState, NewsSection } from './gazette.ts';
-import { emptyDecisions, type Decisions, type ProgressEntry, type StagedImport, type WikiIndex } from './loreImport.ts';
+// Types only: importing a value from loreImport.ts would put the whole importer in every visitor's first download.
+import type { Decisions, ProgressEntry, StagedImport, WikiIndex } from './loreImport.ts';
 import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, type PlaceMarkerRow, type PlaceRelationRow } from './placeChips.ts';
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
@@ -47,7 +48,23 @@ const ARTICLE_COLUMNS =
 const LEGACY_SETTINGS =
   'title, tagline, overview, banner_media_id, current_location_id, current_status, current_location:articles(slug, title, type)';
 
-export async function getSettings(): Promise<CampaignSettings | null> {
+/**
+ * The layout and the home page ask for the settings at the same moment; they share one request.
+ * Only the request in flight is shared, nothing is kept afterwards, and it is dropped when the
+ * signed-in person changes (clearSettingsRequest), so one reader never gets another's answer.
+ */
+let settingsInFlight: Promise<CampaignSettings | null> | null = null;
+export function getSettings(): Promise<CampaignSettings | null> {
+  settingsInFlight ??= loadSettings().finally(() => {
+    settingsInFlight = null;
+  });
+  return settingsInFlight;
+}
+export function clearSettingsRequest() {
+  settingsInFlight = null;
+}
+
+async function loadSettings(): Promise<CampaignSettings | null> {
   // Where the party is comes from campaign_location(): the DM always gets it, a player only when the
   // page is published to players (20261116000100). Before that migration the function does not
   // exist and the column is read directly, with the page embedded through Row Level Security.
@@ -79,6 +96,14 @@ export async function articlesBySlugs(slugs: string[]): Promise<(ArticleRef & { 
   return must(await supabase.from('articles').select('id, slug, title, type, hero_media_id, summary').in('slug', unique));
 }
 
+/** The most recently played session with a play date (ties: the first written), or none. */
+export async function latestDatedSession(): Promise<Pick<Article, 'id' | 'slug' | 'title' | 'summary' | 'session_date' | 'status' | 'visibility' | 'updated_at'> | null> {
+  const rows = must(await supabase.from('articles').select('id, slug, title, summary, session_date, status, visibility, updated_at')
+    .eq('type', 'session').not('session_date', 'is', null)
+    .order('session_date', { ascending: false }).order('created_at', { ascending: true }).limit(1)) as Article[];
+  return rows[0] ?? null;
+}
+
 /** Session journals in play order: by play date, then by when they were written. */
 export async function listSessions(): Promise<Pick<Article, 'id' | 'slug' | 'title' | 'summary' | 'session_date' | 'status' | 'visibility' | 'updated_at'>[]> {
   const rows = must(await supabase.from('articles').select('id, slug, title, summary, session_date, status, visibility, updated_at, created_at').eq('type', 'session').limit(500)) as (Article & { created_at: string })[];
@@ -100,12 +125,29 @@ export interface NewsDetails {
 }
 export type NewsStory = Article & { news: NewsDetails | null };
 
-/** Every story the reader may see: players get published stories only (Row Level Security). */
-export async function listNews(): Promise<NewsStory[]> {
-  const raw = must(await supabase.from('articles').select(`${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey(*)`).eq('type', 'news').limit(500)) as unknown as (Article & { news: NewsDetails | NewsDetails[] | null })[];
-  // One story row per page; PostgREST may return it as an object or a one-element list.
+const NEWS_SELECT = `${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey(*)`;
+
+/** Newest issue first, then newest printing; one story row per page (PostgREST may return it as a list). */
+function newsInOrder(raw: (Article & { news: NewsDetails | NewsDetails[] | null })[]): NewsStory[] {
   const rows: NewsStory[] = raw.map((r) => ({ ...r, news: Array.isArray(r.news) ? r.news[0] ?? null : r.news }));
   return rows.sort((a, b) => (b.news?.issue_number ?? 0) - (a.news?.issue_number ?? 0) || (b.published_at ?? b.updated_at).localeCompare(a.published_at ?? a.updated_at));
+}
+
+/** Every story the reader may see: players get published stories only (Row Level Security). */
+export async function listNews(): Promise<NewsStory[]> {
+  return newsInOrder(must(await supabase.from('articles').select(NEWS_SELECT).eq('type', 'news').limit(500)) as never);
+}
+
+/**
+ * The home page's headline: the lead of the 30 most recently printed player stories, in the same
+ * order as the Gazette front page. Issues are numbered as they are printed, so the newest issue is
+ * among the newest printings; the home page no longer downloads every story to show one.
+ */
+export async function latestHeadline(): Promise<NewsStory | null> {
+  const raw = must(await supabase.from('articles').select(NEWS_SELECT).eq('type', 'news')
+    .eq('status', 'published').eq('visibility', 'players')
+    .order('published_at', { ascending: false, nullsFirst: false }).limit(30)) as never;
+  return newsInOrder(raw)[0] ?? null;
 }
 
 /** A revision of a printed story, waiting for the DM (only the DM can read these). */
@@ -323,31 +365,41 @@ export async function loadFacts(label: string, value: string): Promise<{ pages: 
  * players receive ("View as a player").
  */
 export async function loadGraphData(readerView: boolean): Promise<GraphInput> {
-  const [pages, relations, sections, links, redirects] = await Promise.all([
+  const [pages, relations, links, redirects] = await Promise.all([
     fetchAll<GraphInput['pages'][number]>((from, to) => {
       let q = supabase.from('articles').select('id, slug, title, type').neq('type', 'news');
       if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
       return q.order('id').range(from, to);
     }),
-    fetchAll<GraphInput['relations'][number] & { id: string }>((from, to) => {
-      let q = supabase.from('relations').select('id, source_article_id, target_article_id, kind');
+    // Ordered by id for stable pages, but the id itself is not downloaded.
+    fetchAll<GraphInput['relations'][number]>((from, to) => {
+      let q = supabase.from('relations').select('source_article_id, target_article_id, kind');
       if (readerView) q = q.eq('visibility', 'players');
       return q.order('id').range(from, to);
     }),
-    fetchAll<GraphInput['sections'][number]>((from, to) => {
-      let q = supabase.from('article_sections').select('id, article_id');
-      if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
-      return q.order('id').range(from, to);
+    // Each link carries its section's page id (embedded, under the sections' own Row Level Security),
+    // so the sections themselves are no longer downloaded just to map links to pages.
+    fetchAll<{ target_slug: string; section: { article_id: string } | { article_id: string }[] | null }>((from, to) => {
+      let q = supabase.from('article_links').select('target_slug, section:article_sections!inner(article_id)');
+      if (readerView) q = q.eq('section.visibility', 'players').eq('section.status', 'published');
+      return q.order('source_section_id').order('target_slug').range(from, to);
     }),
-    fetchAll<GraphInput['links'][number]>((from, to) =>
-      supabase.from('article_links').select('source_section_id, target_slug').order('source_section_id').order('target_slug').range(from, to)),
     fetchAll<GraphInput['redirects'][number]>((from, to) => {
       let q = supabase.from('redirects').select('from_slug, article_id');
       if (readerView) q = q.eq('visibility', 'players');
       return q.order('from_slug').range(from, to);
     }),
   ]);
-  return { pages, relations: relations.map(({ source_article_id, target_article_id, kind }) => ({ source_article_id, target_article_id, kind })), sections, links, redirects };
+  return {
+    pages,
+    relations,
+    // A link belongs to exactly one section; PostgREST returns it as an object (or a one-item list).
+    links: links.flatMap((l) => {
+      const section = Array.isArray(l.section) ? l.section[0] : l.section;
+      return section ? [{ article_id: section.article_id, target_slug: l.target_slug }] : [];
+    }),
+    redirects,
+  };
 }
 
 /** A page's summary for the graph's preview card (Row Level Security applies). */
@@ -483,10 +535,6 @@ export interface PlayerPreview {
 
 export async function previewAsPlayer(slug: string): Promise<PlayerPreview> {
   return must(await supabase.rpc('preview_article_as_player', { p_slug: slug })) as PlayerPreview;
-}
-
-export async function search(q: string): Promise<SearchHit[]> {
-  return must(await supabase.rpc('search_wiki', { q, max_results: 25 })) as SearchHit[];
 }
 
 /**
@@ -1167,7 +1215,8 @@ export async function getImportBatch(id: string): Promise<ImportBatch | null> {
   if (error) throw new Error(error.message);
   if (!data) return null;
   const d = data as ImportBatch;
-  return { ...d, decisions: { ...emptyDecisions(), ...d.decisions } };
+  const none: Decisions = { items: {}, relations: {}, types: {}, categories: {} };
+  return { ...d, decisions: { ...none, ...d.decisions } };
 }
 
 export async function stageImportBatch(label: string, sourceName: string, staged: StagedImport): Promise<string> {

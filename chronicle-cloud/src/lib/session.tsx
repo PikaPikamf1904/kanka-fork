@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { forgetAccount, rememberAccount, savedAccounts } from './accounts.ts';
-import { clearMediaUrlCache } from './api.ts';
+import { clearMediaUrlCache, clearSettingsRequest } from './api.ts';
 import { lockDmGate } from './dmGate.ts';
 import { deviceStatus } from './invitations.ts';
 import { clearWanderHistory } from './wander.ts';
@@ -35,16 +35,17 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 async function loadAccess(session: Session | null): Promise<AccessState> {
   if (!session) return { kind: 'signed-out' };
   // The role comes from the database (campaign_members), never from the token or user metadata.
-  const { data, error } = await supabase
-    .from('campaign_members')
-    .select('role, display_name, revoked_at')
-    .eq('user_id', session.user.id)
-    .maybeSingle();
+  // Asked together: the device check only reads this session's own device row, so it is safe for
+  // every role, and starting it at once saves a round trip on every visit.
+  const [{ data, error }, device] = await Promise.all([
+    supabase.from('campaign_members').select('role, display_name, revoked_at').eq('user_id', session.user.id).maybeSingle(),
+    deviceStatus(),
+  ]);
   if (error) throw new Error(error.message);
   if (!data) return { kind: 'no-access', reason: 'not-member' };
   if (data.revoked_at) return { kind: 'no-access', reason: 'revoked' };
   // A device the DM signed out keeps a valid Auth session, but the database refuses it everything.
-  if (data.role === 'player' && (await deviceStatus()) === 'revoked') return { kind: 'no-access', reason: 'revoked' };
+  if (data.role === 'player' && device === 'revoked') return { kind: 'no-access', reason: 'revoked' };
   if (data.role === 'dm') {
     const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal.data && aal.data.nextLevel === 'aal2' && aal.data.currentLevel !== 'aal2') return { kind: 'needs-mfa' };
@@ -84,6 +85,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'MFA_CHALLENGE_VERIFIED' || event === 'USER_UPDATED') {
         // Signed media URLs belong to the previous identity; never reuse them.
         clearMediaUrlCache();
+        clearSettingsRequest();
         clearWanderHistory();
         // Defer: calling Supabase inside the callback can deadlock the auth lock.
         setTimeout(() => void refresh(), 0);
@@ -131,6 +133,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     rememberAccount({ userId, name: target.name, refreshToken: data.session.refresh_token });
     clearMediaUrlCache();
+    clearSettingsRequest();
     clearWanderHistory();
     setPlayerPreview(false);
     await refresh();

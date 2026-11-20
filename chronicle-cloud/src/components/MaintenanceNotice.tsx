@@ -10,6 +10,8 @@ export function MaintenanceNotice() {
   useEffect(() => {
     let live = true;
     const check = () => {
+      // A hidden tab shows nothing, so it asks nothing; it checks again when it becomes visible.
+      if (document.visibilityState === 'hidden') return;
       const server = fetch('/api/status', { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .then((s: { notice?: boolean; message?: string | null } | null) => (s?.notice && s.message ? s.message : null))

@@ -4,10 +4,9 @@ import { BannerArt } from '../components/Banner.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { SearchBox } from '../components/SearchBox.tsx';
-import { getSettings, listArticles, listCharacterFacts, listMaps, listNews, listSessions } from '../lib/api.ts';
+import { getSettings, latestDatedSession, latestHeadline, listArticles, listCharacterFacts, listMaps } from '../lib/api.ts';
 import { longDate } from '../lib/dates.ts';
 import { GAZETTE, reporter, sectionLabel } from '../lib/gazette.ts';
-import { latestDatedSession } from '../lib/home.ts';
 import { useIsDm } from '../lib/session.tsx';
 import { TEMPLATES } from '../lib/templates.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -29,19 +28,17 @@ const QUICK: { to: string; label: string; glyph: string }[] = [
 export function HomePage() {
   const isDm = useIsDm();
   const home = useLoad(async () => {
-    const [settings, featured, recent, party, sessions, quests, maps, news] = await Promise.all([
+    const [settings, featured, recent, party, latestSession, quests, maps, headline] = await Promise.all([
       getSettings(),
       listArticles({ featured: true, order: 'importance', limit: 6 }),
       listArticles({ order: 'updated', limit: 8 }),
       listArticles({ party: true, order: 'title', limit: 8 }),
-      listSessions(),
+      latestDatedSession(),
       listArticles({ type: 'quest', order: 'updated', limit: 6 }),
       listMaps(),
-      listNews(),
+      latestHeadline(),
     ]);
     const facts = await listCharacterFacts(party.map((p) => p.id));
-    const latestSession = latestDatedSession(sessions);
-    const headline = news.find((s) => s.status === 'published' && s.visibility === 'players') ?? null;
     return { settings, featured, hasContent: recent.length > 0, recent: recent.filter((a) => a.type !== 'news'), party, facts, latestSession, quests, maps, headline };
   }, [isDm]);
 
