@@ -192,6 +192,7 @@ SQL
     -e PGRST_DB_URI="postgres://authenticator@127.0.0.1:$PG_PORT/postgres" \
     -e PGRST_DB_SCHEMAS=public -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET="$secret" \
     -e PGRST_DB_USE_LEGACY_GUCS=false -e PGRST_SERVER_PORT="$REST_PORT" -e PGRST_SERVER_HOST=127.0.0.1 \
+    -e PGRST_DB_MAX_ROWS=1000 \
     "$POSTGREST_IMAGE" >/dev/null
   wait_http "http://127.0.0.1:$REST_PORT/"
 

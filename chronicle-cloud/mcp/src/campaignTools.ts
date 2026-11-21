@@ -80,16 +80,19 @@ async function party(db: Db) {
 }
 
 /** The wiki as the DM sees it, paged, for duplicate checks and import analysis. */
+/** Every row of a query, 1000 at a time: the hosted Data API returns at most 1000 per request. The path needs a stable order. */
+async function getAll<T>(db: Db, path: string): Promise<T[]> {
+  const out: T[] = [];
+  for (let offset = 0; offset < 50000; offset += 1000) {
+    const page = await db.get<T>(`${path}&limit=1000&offset=${offset}`);
+    out.push(...page);
+    if (page.length < 1000) break;
+  }
+  return out;
+}
+
 export async function loadWikiIndex(db: Db): Promise<WikiIndex> {
-  const all = async <T>(path: string) => {
-    const out: T[] = [];
-    for (let offset = 0; offset < 20000; offset += 1000) {
-      const page = await db.get<T>(`${path}&limit=1000&offset=${offset}`);
-      out.push(...page);
-      if (page.length < 1000) break;
-    }
-    return out;
-  };
+  const all = <T>(path: string) => getAll<T>(db, path);
   const [articles, fields, redirects, categories] = await Promise.all([
     all<WikiIndex['articles'][number]>('articles?select=id,slug,title,type,version,visibility,status&order=id'),
     all<WikiIndex['fields'][number]>('infobox_fields?select=article_id,label,value&order=id'),
@@ -231,10 +234,10 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const idx = await loadWikiIndex(ctx.db);
       const pages = idx.articles.filter((x) => x.type !== 'news');
       const [summaries, cats, rels, sections] = await Promise.all([
-        ctx.db.get<{ id: string; summary: string }>('articles?select=id,summary&limit=20000'),
-        ctx.db.get<{ article_id: string }>('article_categories?select=article_id&limit=50000'),
-        ctx.db.get<{ source_article_id: string; target_article_id: string; kind: string }>('relations?select=source_article_id,target_article_id,kind&limit=50000'),
-        ctx.db.get<{ article_id: string; body: string }>('article_sections?select=article_id,body&body=like.*%5B%5B*&limit=50000'),
+        getAll<{ id: string; summary: string }>(ctx.db, 'articles?select=id,summary&order=id'),
+        getAll<{ article_id: string }>(ctx.db, 'article_categories?select=article_id&order=article_id,category_id'),
+        getAll<{ source_article_id: string; target_article_id: string; kind: string }>(ctx.db, 'relations?select=source_article_id,target_article_id,kind&order=id'),
+        getAll<{ article_id: string; body: string }>(ctx.db, 'article_sections?select=article_id,body&body=like.*%5B%5B*&order=id'),
       ]);
       const bySlug = new Map(idx.articles.map((x) => [x.slug, x]));
       const byId = new Map(idx.articles.map((x) => [x.id, x]));
