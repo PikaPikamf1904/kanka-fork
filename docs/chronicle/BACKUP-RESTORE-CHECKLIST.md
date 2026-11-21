@@ -21,7 +21,7 @@ Take all of these from the **same point in time**, before any change, and record
 - [ ] **Row-count and checksum summary** of the key tables (see section 4), generated at backup time.
 - [ ] **Migration list**: the applied migration versions (`select version, name from supabase_migrations.schema_migrations order by version`), as text.
 
-Environment variable names to record (names only), from the code: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `IP_HASH_SECRET`, `TURNSTILE_SECRET_KEY`, `MAINTENANCE_MODE`, `MAINTENANCE_SHOW_DEVELOPMENT`, `MAINTENANCE_TOKEN`, the `CHRONICLE_STATUS` KV binding, and the build-time `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Check the list against the Pages project before use; it is taken from `functions/` and `src/lib/` and may be incomplete.
+Environment variable names to record (names only), from the code: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `IP_HASH_SECRET`, `TURNSTILE_SECRET_KEY`, `MAINTENANCE_MODE`, `DM_SCREEN_PASSCODE`, and the build-time `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Check the list against the Pages project before use; it is taken from `functions/` and `src/lib/` and may be incomplete.
 
 ## 2. Where the backup must be kept
 

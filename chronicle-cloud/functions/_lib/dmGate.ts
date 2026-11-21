@@ -12,7 +12,7 @@
 // hour overall).
 
 import { supabaseDeps, type EnrollEnv, type Session } from './enroll.ts';
-import { joinDeps } from './join.ts';
+import { joinDeps, sha256Hex } from './join.ts';
 
 export interface DmGateEnv extends EnrollEnv {
   DM_SCREEN_PASSCODE?: string;
@@ -55,10 +55,6 @@ export const GATE_MESSAGES = {
 
 const fail = (status: number, message: string): DmGateResponse => ({ status, body: { error: message } });
 const hex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
-
-async function sha256Hex(text: string) {
-  return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
-}
 
 /** Compare two strings without stopping at the first difference. */
 export function sameText(a: string, b: string): boolean {
