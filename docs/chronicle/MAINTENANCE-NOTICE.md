@@ -1,59 +1,25 @@
 # Maintenance notice
 
-When maintenance is on, every page shows this banner:
+A banner at the top of every page:
 
 > Declan is currently performing maintenance on Chronicle. Some features may be temporarily
 > unavailable or behave unexpectedly. Please save your work before refreshing.
 
-The website checks `/api/status` (a Cloudflare Pages Function) when a page loads, every two
-minutes, and whenever the tab becomes visible again. Visitors learn only whether to show the
-notice: nothing about who is working or how. If the status can't be read, no notice is shown, so
-there are no false alarms.
+## Two ways to turn it on
 
-## Three ways to turn it on
-
-| Source | How | When it shows |
+| Switch | Where | Who sees it |
 |---|---|---|
-| **Manual switch** | Set `MAINTENANCE_MODE=on` in the Pages project's environment variables, then redeploy. Remove it to turn the notice off. | Always while set |
-| **Deploy** | A deploy step posts `deploy start` (and `end`) to `/api/status` | Until `end`, or until the time limit (at most one hour) expires |
-| **Development** | A development session posts `development` heartbeats | **Only** if `MAINTENANCE_SHOW_DEVELOPMENT=on`. Editing a draft branch doesn't disturb the live site, so by default development is recorded but not shown. |
+| **DM switch** (everyday) | Wiki settings → Maintenance notice. Choose 30 minutes, 1, 2 or 8 hours; it turns itself off. "Turn off now" ends it early. | Everyone signed in. It appears at once on the DM's own page and within 2 minutes on other open pages (sooner when a tab is brought back to the front). |
+| **Cloudflare switch** (emergency) | Cloudflare Pages → Settings → Variables: `MAINTENANCE_MODE=on` for Production, then redeploy. Remove it (or set `off`) and redeploy to end. | Everyone, including the "Who's at the table?" screen. Works even if the database is down. |
 
-Records expire on their own (default 15 minutes, at most 1 hour). A session that crashes without
-sending `end` can't leave the notice on.
+The DM switch is stored in the database (`campaign_settings.maintenance_until`) and can only be
+changed through `set_maintenance`, which allows the DM alone, for at most 8 hours. Members can only
+read whether it is on and until when.
 
-## One-time setup for deploy and development reports (owner)
+## Removed (2026-11-21)
 
-The manual switch needs none of this. Nothing here has been configured on the live project.
-
-1. Create a Workers KV namespace and bind it to the Pages project as `CHRONICLE_STATUS`.
-2. Add a secret `MAINTENANCE_TOKEN` of at least 32 random characters, for example from
-   `openssl rand -hex 32`. Without it, the write endpoint answers "not found".
-3. Wherever a report should come from, set `CHRONICLE_STATUS_URL=https://<site>/api/status` and
-   `CHRONICLE_STATUS_TOKEN=<the same secret>`. Then call `scripts/maintenance-heartbeat.sh`:
-   - **Deploys** (for example a GitHub Actions step around a production deploy):
-     `scripts/maintenance-heartbeat.sh deploy start 600` before, and
-     `scripts/maintenance-heartbeat.sh deploy end` after.
-   - **Claude Code sessions** (optional): add hooks to your own user settings
-     (`~/.claude/settings.json`), not to the repository, so only your machine reports:
-     ```json
-     { "hooks": {
-         "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash chronicle-cloud/scripts/maintenance-heartbeat.sh development start" }] }],
-         "Stop": [{ "hooks": [{ "type": "command", "command": "bash chronicle-cloud/scripts/maintenance-heartbeat.sh development heartbeat" }] }],
-         "SessionEnd": [{ "hooks": [{ "type": "command", "command": "bash chronicle-cloud/scripts/maintenance-heartbeat.sh development end" }] }]
-     } }
-     ```
-     The script does nothing when the two variables aren't set. It never prints the token, and
-     it sends no prompts, transcripts or file contents: only `kind`, `state` and a time limit.
-
-## Security
-
-- Writing needs the bearer token. The token is compared in constant time.
-- Without a token configured, the endpoint answers 404. Without a KV store bound, it answers 501.
-- Request bodies are limited to 1 KB. Only `deploy` and `development` are accepted.
-- Reading is public and returns only `{ notice, message }`.
-
-## Not verified
-
-The Pages Function and the banner are tested locally: unit tests for the status logic, and a
-browser test for the endpoint and the banner. Binding KV, setting the secret and calling the script
-from a real deploy or session haven't been done. They need the owner's Cloudflare account.
+An earlier version could also be turned on by a "deploy record" in a Workers KV namespace,
+written through `POST /api/status` with a secret token, and by "development heartbeats" from a
+helper script. Neither the KV namespace nor the token was ever configured in production, so that
+path could not do anything. It was removed with `scripts/maintenance-heartbeat.sh`.
+`/api/status` now only answers `GET`.

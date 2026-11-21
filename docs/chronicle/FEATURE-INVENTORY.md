@@ -93,9 +93,8 @@ Sources: `chronicle-cloud/src/App.tsx` (routes), `src/components/Layout.tsx` (me
 
 | Feature | Where | Who | What it does | Tests |
 |---|---|---|---|---|
-| Visitor maintenance notice | `/api/status` (Pages function `functions/api/status.ts`) | Visitor | Shows the agreed maintenance text when turned on by an environment switch, a token-protected deploy record in KV, or an opt-in development heartbeat. Off by default. | `functions/_lib/status.test.ts`, `functions/_lib/notice-text.test.ts`, `e2e/maintenance.spec.ts` |
+| Visitor maintenance notice | `/api/status` (Pages function `functions/api/status.ts`) | Visitor | Shows the agreed maintenance text when `MAINTENANCE_MODE=on` is set in Pages (the everyday switch is the DM's, in Wiki settings). Off by default. | `functions/_lib/status.test.ts`, `functions/_lib/notice-text.test.ts`, `e2e/maintenance.spec.ts` |
 | DM maintenance switch | `/dm/settings` (component `MaintenanceSwitch`) | DM | Turns the notice on for 1 to 480 minutes, or off (0). Always expires. | `db/maintenance-switch.test.ts`, `e2e/maintenance.spec.ts` |
-| Heartbeat script | `scripts/maintenance-heartbeat.sh` | Operator | Development heartbeat for the status function. Shown to visitors only when `MAINTENANCE_SHOW_DEVELOPMENT` is on. | none |
 
 ## Not in the product
 

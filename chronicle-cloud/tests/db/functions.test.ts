@@ -205,7 +205,7 @@ describe('wiki links', () => {
       "select target_slug from public.article_links where source_section_id = '50000000-0000-4000-8000-000000000001' order by 1",
     );
     expect(rows.map((r) => r.target_slug)).toEqual(['public-two', 'secret-article']);
-    for (const input of ['Secret Article', '  Harbour   Town!! ', 'Ünïcode & Co.', '--x--', 'A_b c']) {
+    for (const input of ['Secret Article', '  Harbour   Town!! ', 'Ünïcode & Co.', '--x--', 'A_b c', 'Jenna’s Silver Pendant', "The Dragon Queen's Claim"]) {
       const db = await admin<{ s: string }>('select private.slugify($1) as s', [input]);
       expect(db.rows[0]!.s, input).toBe(slugify(input));
     }
