@@ -211,8 +211,9 @@ export function convertMentions(
   });
 }
 
+/** Same rule as src/lib/slug.ts (importer/slug-rule.test.ts checks they agree). */
 export function slugify(input: string): string {
-  return input.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return input.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 // ---------------------------------------------------------------------------------------------
