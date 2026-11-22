@@ -1,4 +1,4 @@
-import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force';
+import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force';
 import { quadtree } from 'd3-quadtree';
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -352,10 +352,14 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect, cluster }: {
       return () => worker.terminate();
     }
     const s = forceSimulation<SimNode, SimEdge>(connected)
-      .force('link', forceLink<SimNode, SimEdge>(edges.current).id((d) => d.id).distance((e) => (e.kind === 'relation' ? 70 : 90)).strength(0.4))
+      .force('link', forceLink<SimNode, SimEdge>(edges.current).id((d) => d.id).distance((e) => (e.kind === 'relation' ? 80 : 90)).strength(0.4))
       .force('charge', forceManyBody<SimNode>().strength(-160).theta(0.9))
       .force('centre', forceCenter(0, 0))
-      .force('collide', forceCollide<SimNode>((n) => radius(n) + 3));
+      // A gentle pull to the middle keeps separate groups near each other, so fitting the view to
+      // the screen does not shrink every name; the wider collision leaves room for the names.
+      .force('x', forceX<SimNode>(0).strength(0.06))
+      .force('y', forceY<SimNode>(0).strength(0.06))
+      .force('collide', forceCollide<SimNode>((n) => radius(n) + 14));
     sim.current = s;
     placeLoners.current();
     if (prefersReducedMotion()) {
@@ -456,6 +460,7 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect, cluster }: {
       }
       ctx.setLineDash([]);
       // Pages.
+      const labels: { n: SimNode; special: boolean }[] = [];
       for (const n of nodes.current) {
         if (n.x === undefined) continue;
         const dim = (searching && !hl.matches.has(n.id)) || (cl !== null && !cl.has(n.id));
@@ -469,15 +474,27 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect, cluster }: {
         ctx.strokeStyle = special ? cssVar('--gold', '#b08a2e') : bg;
         ctx.stroke();
         // Labels when zoomed in, for well-connected pages, and for anything highlighted.
-        if (!dim && (special || k > 1.4 || (k > 0.8 && n.degree >= 3) || nodes.current.length < 40)) {
-          ctx.font = `${special ? 700 : 500} ${12 / Math.sqrt(k)}px ${cssVar('--font-ui', 'sans-serif')}`;
-          ctx.textAlign = 'center';
-          ctx.lineWidth = 3 / Math.sqrt(k);
-          ctx.strokeStyle = bg;
-          ctx.strokeText(n.title, n.x, n.y! + radius(n) + 13 / Math.sqrt(k));
-          ctx.fillStyle = text;
-          ctx.fillText(n.title, n.x, n.y! + radius(n) + 13 / Math.sqrt(k));
-        }
+        if (!dim && (special || k > 1.4 || (k > 0.8 && n.degree >= 3) || nodes.current.length < 40)) labels.push({ n, special });
+      }
+      // Names that would cover a name already drawn are skipped (they appear as you zoom in):
+      // highlighted pages first, then the best connected.
+      labels.sort((a, b) => Number(b.special) - Number(a.special) || b.n.degree - a.n.degree);
+      const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+      const size = 12 / Math.sqrt(k);
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = 1;
+      for (const { n, special } of labels) {
+        ctx.font = `${special ? 700 : 500} ${size}px ${cssVar('--font-ui', 'sans-serif')}`;
+        const half = ctx.measureText(n.title).width / 2;
+        const y = n.y! + radius(n) + 13 / Math.sqrt(k);
+        const box = { x0: n.x! - half, y0: y - size, x1: n.x! + half, y1: y + size * 0.3 };
+        if (!special && placed.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) continue;
+        placed.push(box);
+        ctx.lineWidth = 3 / Math.sqrt(k);
+        ctx.strokeStyle = bg;
+        ctx.strokeText(n.title, n.x!, y);
+        ctx.fillStyle = text;
+        ctx.fillText(n.title, n.x!, y);
       }
       // The names of the lines touching the selected page, on top of everything.
       ctx.globalAlpha = 1;
