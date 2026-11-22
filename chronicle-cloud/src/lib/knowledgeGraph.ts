@@ -9,14 +9,14 @@ import type { ArticleType } from './types.ts';
 export interface GraphPage { id: string; slug: string; title: string; type: ArticleType }
 export interface GraphInput {
   pages: GraphPage[];
-  relations: { source_article_id: string; target_article_id: string; kind: string }[];
+  relations: { source_article_id: string; target_article_id: string; kind: string; label?: string | null }[];
   /** Wiki links in sections the reader can read, by the page that holds the section. */
   links: { article_id: string; target_slug: string }[];
   redirects: { from_slug: string; article_id: string }[];
 }
 
 export type EdgeKind = 'relation' | 'link';
-export interface GraphEdge { source: string; target: string; kind: EdgeKind; label: string }
+export interface GraphEdge { source: string; target: string; kind: EdgeKind; label: string; detail?: string }
 export interface GraphNode extends GraphPage { degree: number }
 export interface Graph { nodes: GraphNode[]; edges: GraphEdge[] }
 
@@ -27,10 +27,14 @@ export function buildGraph(d: GraphInput): Graph {
   const edges = new Map<string, GraphEdge>();
   const add = (e: GraphEdge) => {
     if (e.source === e.target || !byId.has(e.source) || !byId.has(e.target)) return;
-    const key = `${e.kind}|${e.source}|${e.target}|${e.label}`;
+    const key = `${e.kind}|${e.source}|${e.target}|${e.label}|${e.detail ?? ''}`;
     if (!edges.has(key)) edges.set(key, e);
   };
-  for (const r of d.relations) add({ source: r.source_article_id, target: r.target_article_id, kind: 'relation', label: relationLabel(relationKindFrom(r.kind, 'out')) });
+  for (const r of d.relations) add({
+    source: r.source_article_id, target: r.target_article_id, kind: 'relation',
+    label: relationLabel(relationKindFrom(r.kind, 'out')),
+    detail: r.label?.trim() || undefined,
+  });
   // A connection between two pages makes a plain link between them redundant.
   const related = new Set([...edges.values()].map((e) => [e.source, e.target].sort().join('|')));
   for (const l of d.links) {
@@ -48,6 +52,24 @@ export function buildGraph(d: GraphInput): Graph {
     nodes: [...byId.values()].map((p) => ({ ...p, degree: degree.get(p.id) ?? 0 })),
     edges: [...edges.values()],
   };
+}
+
+
+/** Every saved connection in the current reader's graph, including custom descriptions.
+ * The caller supplies only RLS-authorized pages and relations, so missing/hidden
+ * endpoints can never appear in this directory. */
+export function connectionRows(g: Graph): { from: GraphNode; to: GraphNode; label: string; detail?: string }[] {
+  const byId = new Map(g.nodes.map((n) => [n.id, n]));
+  return g.edges.filter((e) => e.kind === 'relation').flatMap((e) => {
+    const from = byId.get(e.source);
+    const to = byId.get(e.target);
+    return from && to ? [{ from, to, label: e.label, detail: e.detail }] : [];
+  }).sort((a, b) =>
+    a.from.title.localeCompare(b.from.title) ||
+    a.to.title.localeCompare(b.to.title) ||
+    a.label.localeCompare(b.label) ||
+    (a.detail ?? '').localeCompare(b.detail ?? '')
+  );
 }
 
 /** The part of the graph within `depth` steps of a page (either direction). */
