@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { getPagePreview, loadGraphData } from '../lib/api.ts';
 import {
-  buildGraph, connectedCluster, easeView, legendEntries, nearestInDirection, neighbourhood, onlyTypes, relationshipSummary, ringPositions, searchNodes,
+  buildGraph, connectedCluster, connectionRows, easeView, legendEntries, nearestInDirection, neighbourhood, onlyTypes, relationshipSummary, ringPositions, searchNodes,
   summaryText, TYPE_COLOURS, withoutLoners, type Direction, type Graph, type GraphNode, type SummaryItem,
 } from '../lib/knowledgeGraph.ts';
 import { useSession } from '../lib/session.tsx';
@@ -65,6 +65,8 @@ export function GraphPage() {
   const data = useLoad(() => loadGraphData(playerPreview), [playerPreview]);
   const p = useGraphParams();
   const full = useMemo(() => (data.data ? buildGraph(data.data) : null), [data.data]);
+  const savedConnections = useMemo(() => (full ? connectionRows(full) : []), [full]);
+  const [browseConnections, setBrowseConnections] = useState(false);
   const centre = useMemo(() => full?.nodes.find((n) => n.slug === p.focus) ?? null, [full, p.focus]);
   const shown: Graph | null = useMemo(() => {
     if (!full) return null;
@@ -118,6 +120,9 @@ export function GraphPage() {
             Include unconnected pages
           </button>
         )}
+        <button type="button" className="button secondary small" aria-expanded={browseConnections} aria-controls="graph-connections-directory" onClick={() => setBrowseConnections(!browseConnections)}>
+          {browseConnections ? 'Hide saved connections' : `Browse saved connections (${savedConnections.length})`}
+        </button>
         <button type="button" className="button secondary small" onClick={() => p.set({ view: p.view === 'list' ? null : 'list' })}>
           {p.view === 'list' ? 'Show as a graph' : 'Show as a list'}
         </button>
@@ -127,6 +132,36 @@ export function GraphPage() {
           </button>
         )}
       </div>
+
+      {browseConnections && (
+        <section className="panel graph-connections-directory" id="graph-connections-directory" aria-label="Saved connections" data-testid="graph-connections-directory">
+          <h2>Saved connections ({savedConnections.length})</h2>
+          <p className="fine-print">
+            These are the same saved relationships shown in each article's Connections section.
+            Every line shown here also appears in the graph. DM-only connections appear only in the DM view.
+            Select “Focus in graph” to zoom into that page's connections.
+          </p>
+          {savedConnections.length === 0
+            ? <p>No saved connections are visible to this reader.</p>
+            : <ol className="connections">
+              {savedConnections.map((r, i) => (
+                <li key={`${r.from.id}|${r.to.id}|${r.label}|${r.detail ?? ''}|${i}`}>
+                  <Link to={`/wiki/${r.from.slug}`}>{r.from.title}</Link>
+                  {' — '}{r.label.toLowerCase()}{' → '}
+                  <Link to={`/wiki/${r.to.slug}`}>{r.to.title}</Link>
+                  {r.detail && <> <span className="muted">({r.detail})</span></>}
+                  {' '}
+                  <button type="button" className="link-button" onClick={() => {
+                    p.set({ focus: r.from.slug, depth: '1', view: null, types: null });
+                    setSelected(null);
+                    setBrowseConnections(false);
+                  }}>Focus in graph</button>
+                </li>
+              ))}
+            </ol>
+          }
+        </section>
+      )}
       <div className="graph-legend" role="group" aria-label="Kinds of page shown">
         <button type="button" className="graph-kind" aria-pressed={p.types.length === 0} onClick={() => p.set({ types: null })}>
           All kinds
@@ -389,7 +424,7 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect, cluster }: {
         ctx.moveTo(s.x, s.y!);
         ctx.lineTo(t.x, t.y!);
         ctx.stroke();
-        if (lit && k > 0.3) edgeLabels.push({ x: (s.x + t.x) / 2, y: (s.y! + t.y!) / 2, text: e.kind === 'link' ? 'mentions' : e.label });
+        if (lit && k > 0.3) edgeLabels.push({ x: (s.x + t.x) / 2, y: (s.y! + t.y!) / 2, text: e.kind === 'link' ? 'mentions' : (e.detail ?? e.label) });
         if (e.kind === 'relation' && k > 0.5) {
           // Arrow head at the target's edge.
           const dx = t.x - s.x;
