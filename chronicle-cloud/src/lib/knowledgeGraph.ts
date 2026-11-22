@@ -46,9 +46,11 @@ export function buildGraph(d: GraphInput): Graph {
     if (!from || !to || byId.get(from)?.type === 'news' || related.has([from, to].sort().join('|'))) continue;
     add(`link|${from}|${to}`, { source: from, target: to, kind: 'link', label: 'mentions' });
   }
-  // Lines sharing two pages get lanes -n..n so they are drawn as separate curves, not on top of each other.
+  // Saved connections sharing two pages get lanes -n..n so they are drawn as separate curves, not on
+  // top of each other. (Wiki links never share a pair with a connection; see `related` above.)
   const pairs = new Map<string, GraphEdge[]>();
   for (const e of edges.values()) {
+    if (e.kind !== 'relation') continue;
     const k = [e.source, e.target].sort().join('|');
     pairs.set(k, [...(pairs.get(k) ?? []), e]);
   }
