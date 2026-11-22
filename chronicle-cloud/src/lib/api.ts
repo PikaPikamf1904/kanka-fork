@@ -398,7 +398,7 @@ export async function loadGraphData(readerView: boolean): Promise<GraphInput> {
     }),
     // Ordered by id for stable pages, but the id itself is not downloaded.
     fetchAll<GraphInput['relations'][number]>((from, to) => {
-      let q = supabase.from('relations').select('source_article_id, target_article_id, kind');
+      let q = supabase.from('relations').select('source_article_id, target_article_id, kind, label');
       if (readerView) q = q.eq('visibility', 'players');
       return q.order('id').range(from, to);
     }),
