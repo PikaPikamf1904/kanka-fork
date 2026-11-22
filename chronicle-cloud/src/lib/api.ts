@@ -390,13 +390,14 @@ export async function loadFacts(label: string, value: string): Promise<{ pages: 
 export async function loadGraphData(readerView: boolean): Promise<GraphInput> {
   const [pages, relations, links, redirects] = await Promise.all([
     fetchAll<GraphInput['pages'][number]>((from, to) => {
-      let q = supabase.from('articles').select('id, slug, title, type').neq('type', 'news');
+      // Gazette stories are included so a saved connection to one can be drawn; buildGraph drops the rest.
+      let q = supabase.from('articles').select('id, slug, title, type');
       if (readerView) q = q.eq('visibility', 'players').eq('status', 'published');
       return q.order('id').range(from, to);
     }),
-    // Ordered by id for stable pages, but the id itself is not downloaded.
+    // The id keeps two identical saved connections as two lines, as on the Connections page.
     fetchAll<GraphInput['relations'][number]>((from, to) => {
-      let q = supabase.from('relations').select('source_article_id, target_article_id, kind');
+      let q = supabase.from('relations').select('id, source_article_id, target_article_id, kind, label');
       if (readerView) q = q.eq('visibility', 'players');
       return q.order('id').range(from, to);
     }),

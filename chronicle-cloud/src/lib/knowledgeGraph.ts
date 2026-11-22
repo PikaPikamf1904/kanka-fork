@@ -9,45 +9,79 @@ import type { ArticleType } from './types.ts';
 export interface GraphPage { id: string; slug: string; title: string; type: ArticleType }
 export interface GraphInput {
   pages: GraphPage[];
-  relations: { source_article_id: string; target_article_id: string; kind: string }[];
+  relations: { id?: string; source_article_id: string; target_article_id: string; kind: string; label?: string | null }[];
   /** Wiki links in sections the reader can read, by the page that holds the section. */
   links: { article_id: string; target_slug: string }[];
   redirects: { from_slug: string; article_id: string }[];
 }
 
 export type EdgeKind = 'relation' | 'link';
-export interface GraphEdge { source: string; target: string; kind: EdgeKind; label: string }
+/** `lane` spreads several lines between the same two pages apart (0 when there is only one). */
+export interface GraphEdge { source: string; target: string; kind: EdgeKind; label: string; detail?: string; lane?: number }
 export interface GraphNode extends GraphPage { degree: number }
 export interface Graph { nodes: GraphNode[]; edges: GraphEdge[] }
 
 export function buildGraph(d: GraphInput): Graph {
-  const byId = new Map(d.pages.filter((p) => p.type !== 'news').map((p) => [p.id, p]));
-  const bySlug = new Map([...byId.values()].map((p) => [p.slug, p.id]));
-  for (const r of d.redirects) if (byId.has(r.article_id) && !bySlug.has(r.from_slug)) bySlug.set(r.from_slug, r.article_id);
+  // Gazette stories are not drawn for their wiki links, only when a saved connection names one.
+  const byId = new Map(d.pages.map((p) => [p.id, p]));
+  const linkable = new Map([...byId.values()].filter((p) => p.type !== 'news').map((p) => [p.slug, p.id]));
+  for (const r of d.redirects) if (byId.has(r.article_id) && byId.get(r.article_id)!.type !== 'news' && !linkable.has(r.from_slug)) linkable.set(r.from_slug, r.article_id);
   const edges = new Map<string, GraphEdge>();
-  const add = (e: GraphEdge) => {
+  const add = (key: string, e: GraphEdge) => {
     if (e.source === e.target || !byId.has(e.source) || !byId.has(e.target)) return;
-    const key = `${e.kind}|${e.source}|${e.target}|${e.label}`;
     if (!edges.has(key)) edges.set(key, e);
   };
-  for (const r of d.relations) add({ source: r.source_article_id, target: r.target_article_id, kind: 'relation', label: relationLabel(relationKindFrom(r.kind, 'out')) });
+  // One line per saved connection row, as on the Connections page: two rows are two lines even
+  // when they read the same.
+  d.relations.forEach((r, i) => add(`relation|${r.id ?? i}`, {
+    source: r.source_article_id, target: r.target_article_id, kind: 'relation',
+    label: relationLabel(relationKindFrom(r.kind, 'out')),
+    detail: r.label?.trim() || undefined,
+  }));
   // A connection between two pages makes a plain link between them redundant.
   const related = new Set([...edges.values()].map((e) => [e.source, e.target].sort().join('|')));
   for (const l of d.links) {
     const from = l.article_id;
-    const to = bySlug.get(slugify(l.target_slug));
-    if (!from || !to || related.has([from, to].sort().join('|'))) continue;
-    add({ source: from, target: to, kind: 'link', label: 'mentions' });
+    const to = linkable.get(slugify(l.target_slug));
+    if (!from || !to || byId.get(from)?.type === 'news' || related.has([from, to].sort().join('|'))) continue;
+    add(`link|${from}|${to}`, { source: from, target: to, kind: 'link', label: 'mentions' });
   }
+  // Saved connections sharing two pages get lanes -n..n so they are drawn as separate curves, not on
+  // top of each other. (Wiki links never share a pair with a connection; see `related` above.)
+  const pairs = new Map<string, GraphEdge[]>();
+  for (const e of edges.values()) {
+    if (e.kind !== 'relation') continue;
+    const k = [e.source, e.target].sort().join('|');
+    pairs.set(k, [...(pairs.get(k) ?? []), e]);
+  }
+  for (const list of pairs.values()) list.forEach((e, i) => { e.lane = list.length > 1 ? i - (list.length - 1) / 2 : 0; });
   const degree = new Map<string, number>();
   for (const e of edges.values()) {
     degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
     degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
   }
   return {
-    nodes: [...byId.values()].map((p) => ({ ...p, degree: degree.get(p.id) ?? 0 })),
+    nodes: [...byId.values()].filter((p) => p.type !== 'news' || degree.has(p.id)).map((p) => ({ ...p, degree: degree.get(p.id) ?? 0 })),
     edges: [...edges.values()],
   };
+}
+
+
+/** Every saved connection in the current reader's graph, including custom descriptions.
+ * The caller supplies only RLS-authorized pages and relations, so missing/hidden
+ * endpoints can never appear in this directory. */
+export function connectionRows(g: Graph): { from: GraphNode; to: GraphNode; label: string; detail?: string }[] {
+  const byId = new Map(g.nodes.map((n) => [n.id, n]));
+  return g.edges.filter((e) => e.kind === 'relation').flatMap((e) => {
+    const from = byId.get(e.source);
+    const to = byId.get(e.target);
+    return from && to ? [{ from, to, label: e.label, detail: e.detail }] : [];
+  }).sort((a, b) =>
+    a.from.title.localeCompare(b.from.title) ||
+    a.to.title.localeCompare(b.to.title) ||
+    a.label.localeCompare(b.label) ||
+    (a.detail ?? '').localeCompare(b.detail ?? '')
+  );
 }
 
 /** The part of the graph within `depth` steps of a page (either direction). */
