@@ -14,7 +14,7 @@ import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 
 type SimNode = GraphNode & SimulationNodeDatum;
-type SimEdge = SimulationLinkDatum<SimNode> & { kind: 'relation' | 'link'; label: string };
+type SimEdge = SimulationLinkDatum<SimNode> & { kind: 'relation' | 'link'; label: string; detail?: string };
 
 const STORE = 'chronicle-graph-filters';
 const radius = (n: GraphNode) => 4 + Math.min(10, Math.sqrt(n.degree) * 2);
