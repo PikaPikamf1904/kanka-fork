@@ -14,7 +14,7 @@ import type { ArticleType } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 
 type SimNode = GraphNode & SimulationNodeDatum;
-type SimEdge = SimulationLinkDatum<SimNode> & { kind: 'relation' | 'link'; label: string; detail?: string };
+type SimEdge = SimulationLinkDatum<SimNode> & { kind: 'relation' | 'link'; label: string; detail?: string; lane?: number };
 
 const STORE = 'chronicle-graph-filters';
 const radius = (n: GraphNode) => 4 + Math.min(10, Math.sqrt(n.degree) * 2);
@@ -420,15 +420,25 @@ function GraphCanvas({ graph, centre, matches, selected, onSelect, cluster }: {
         ctx.strokeStyle = lit ? cssVar('--gold', '#b08a2e') : line;
         ctx.lineWidth = (lit ? 2.2 : 1.1) / Math.sqrt(k);
         ctx.setLineDash(e.kind === 'link' ? [4 / k, 4 / k] : []);
+        // Several lines between the same two pages bow apart, each with its own label and arrow.
+        // The bend is measured from a fixed page order so lanes keep their sides whichever way a line points.
+        const [p, q] = s.id < t.id ? [s, t] : [t, s];
+        const plen = Math.hypot(q.x! - p.x!, q.y! - p.y!) || 1;
+        const bow = (e.lane ?? 0) * 26;
+        const mx = (s.x + t.x) / 2 - ((q.y! - p.y!) / plen) * bow;
+        const my = (s.y! + t.y!) / 2 + ((q.x! - p.x!) / plen) * bow;
+        const cx = 2 * mx - (s.x + t.x) / 2;
+        const cy = 2 * my - (s.y! + t.y!) / 2;
         ctx.beginPath();
         ctx.moveTo(s.x, s.y!);
-        ctx.lineTo(t.x, t.y!);
+        if (bow) ctx.quadraticCurveTo(cx, cy, t.x, t.y!);
+        else ctx.lineTo(t.x, t.y!);
         ctx.stroke();
-        if (lit && k > 0.3) edgeLabels.push({ x: (s.x + t.x) / 2, y: (s.y! + t.y!) / 2, text: e.kind === 'link' ? 'mentions' : (e.detail ?? e.label) });
+        if (lit && k > 0.3) edgeLabels.push({ x: mx, y: my, text: e.kind === 'link' ? 'mentions' : (e.detail ?? e.label) });
         if (e.kind === 'relation' && k > 0.5) {
-          // Arrow head at the target's edge.
-          const dx = t.x - s.x;
-          const dy = t.y! - s.y!;
+          // Arrow head at the target's edge, along the line's direction where it arrives.
+          const dx = t.x - (bow ? cx : s.x);
+          const dy = t.y! - (bow ? cy : s.y!);
           const len = Math.hypot(dx, dy) || 1;
           const r = radius(t) + 2;
           const ax = t.x - (dx / len) * r;

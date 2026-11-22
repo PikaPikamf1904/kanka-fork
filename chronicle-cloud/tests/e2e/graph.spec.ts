@@ -143,6 +143,54 @@ test.describe('Knowledge graph', () => {
     for (const b of bodies) expect(b.body, b.url).not.toContain('Zzgraph Hidden Vault');
   });
 
+  test('every saved connection is in the graph, with its own words, and DM-only ones never reach a player', async ({ browser, page }) => {
+    const [a, b, h] = (await db<{ id: string }>(`select id from public.articles where slug = any($1) order by array_position($1, slug)`, [[S.a, S.b, S.h]])).map((r) => r.id);
+    // Two more saved connections between the same two pages, one with a custom description.
+    await db(`insert into public.relations (source_article_id, target_article_id, kind, label, visibility)
+      values ($1, $2, 'related_to', 'Zzgraph shared the ferry', 'players'), ($1, $2, 'ally_of', '', 'players'),
+             ($1, $3, 'related_to', 'Zzgraph secret tunnel', 'dm')`, [a, b, h]);
+    const ours = (rows: string[]) => rows.filter((t) => t.includes('Zzgraph'));
+
+    // The Connections page and the graph's directory list the same connections, for the DM...
+    await signInAsDm(page);
+    await page.goto('/connections');
+    await expect(page.locator('.relation-list li').filter({ hasText: 'Zzgraph' })).toHaveCount(5);
+    await page.goto(`/graph?focus=${S.a}&depth=1`);
+    await expect(page.getByTestId('graph-count')).toContainText('lines shown');
+    await page.getByRole('button', { name: /Browse saved connections/ }).click();
+    const directory = page.getByTestId('graph-connections-directory');
+    const dmRows = ours(await directory.locator('li').allTextContents());
+    expect(dmRows).toHaveLength(5);
+    expect(dmRows.some((t) => t.includes('(Zzgraph shared the ferry)'))).toBe(true);
+    expect(dmRows.some((t) => t.includes('(Zzgraph secret tunnel)'))).toBe(true);
+    // Each is a line in the focused graph too: three between Alder and Birch and two to the vault,
+    // plus Cedar's two wiki links (4 + 3 extra connections).
+    await expect(page.getByTestId('graph-count')).toHaveText('4 pages, 7 lines shown.');
+    // Focus in graph goes to the connection's page.
+    await directory.locator('li').filter({ hasText: 'Zzgraph shared the ferry' }).getByRole('button', { name: 'Focus in graph' }).click();
+    await expect(page).toHaveURL(new RegExp(`focus=${S.a}`));
+
+    // ...and for a player, who gets only the three visible ones and never the hidden words.
+    const context = await browser.newContext();
+    const bodies = recordApi(context);
+    const player = await context.newPage();
+    await enrollAsPlayer(player, 'Graph Parity Probe');
+    await player.goto('/connections');
+    await expect(player.locator('.relation-list li').filter({ hasText: 'Zzgraph' })).toHaveCount(3);
+    await player.goto('/graph');
+    await expect(player.getByTestId('graph-count')).toContainText('lines shown');
+    await player.getByRole('button', { name: /Browse saved connections/ }).click();
+    const playerRows = ours(await player.getByTestId('graph-connections-directory').locator('li').allTextContents());
+    expect(playerRows).toHaveLength(3);
+    expect(playerRows.some((t) => t.includes('(Zzgraph shared the ferry)'))).toBe(true);
+    for (const t of playerRows) expect(t).not.toContain('Hidden Vault');
+    for (const r of bodies) {
+      expect(r.body, r.url).not.toContain('Zzgraph secret tunnel');
+      expect(r.body, r.url).not.toContain('Zzgraph Hidden Vault');
+    }
+    await context.close();
+  });
+
   test('a large wiki (800 pages) lays out off the main thread and stays usable', async ({ page }) => {
     await db(`insert into public.articles (slug, type, title, summary, visibility, status)
       select 'zz-bulk-' || g, 'location', 'Zzbulk Place ' || g, '', 'players', 'published' from generate_series(1, 800) g`);

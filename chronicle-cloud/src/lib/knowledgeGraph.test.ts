@@ -132,6 +132,24 @@ describe('saved article connections in the graph', () => {
     expect(rows.map((r) => [r.from.id, r.to.id])).toEqual([['bob', 'eggs'], ['bob', 'eggs']]);
     expect(JSON.stringify(g)).not.toContain('DM-only unseen endpoint');
   });
+  it('keeps two identical saved connections as two lines, in separate lanes', () => {
+    const rel = { source_article_id: 'a', target_article_id: 'b', kind: 'knows', label: 'Old friends' };
+    const g = buildGraph({ pages: [page('a'), page('b'), page('c')], relations: [{ id: 'r1', ...rel }, { id: 'r2', ...rel }, { id: 'r3', source_article_id: 'b', target_article_id: 'c', kind: 'knows' }], links: [], redirects: [] });
+    expect(connectionRows(g)).toHaveLength(3);
+    expect(g.edges.map((e) => e.lane)).toEqual([-0.5, 0.5, 0]);
+    expect(g.nodes.find((n) => n.id === 'b')!.degree).toBe(3);
+  });
+  it('draws a Gazette story only when a saved connection names it, and never for its wiki links', () => {
+    const g = buildGraph({
+      pages: [page('a'), page('story', 'news'), page('other-story', 'news')],
+      relations: [{ id: 'r1', source_article_id: 'a', target_article_id: 'story', kind: 'appeared_in', label: '' }],
+      links: [{ article_id: 'other-story', target_slug: 'a' }, { article_id: 'a', target_slug: 'other-story' }],
+      redirects: [],
+    });
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(['a', 'story']);
+    expect(connectionRows(g)).toHaveLength(1);
+    expect(g.edges).toHaveLength(1);
+  });
   it('does not fabricate connections from plain wiki links', () => {
     const g = buildGraph({ pages: [page('a'), page('b')], relations: [], links: [{ article_id: 'a', target_slug: 'b' }], redirects: [] });
     expect(g.edges).toHaveLength(1);
