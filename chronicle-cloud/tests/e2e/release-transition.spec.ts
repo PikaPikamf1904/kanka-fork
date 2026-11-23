@@ -25,10 +25,17 @@ function makeReleaseB() {
   fs.rmSync(dirs.B, { recursive: true, force: true });
   fs.cpSync(dirs.A, dirs.B, { recursive: true });
   const assets = path.join(dirs.B, 'assets');
+  // Every file gets a name release A never had. (Keeping a name would let the browser reuse A's
+  // cached copy, which no real release can cause: Vite renames a file whenever anything it imports
+  // is renamed.)
   const renames = new Map<string, string>();
-  for (const f of fs.readdirSync(assets)) {
+  const taken = new Set(fs.readdirSync(assets));
+  for (const f of taken) {
     const m = /^(.+)-([\w-]{8})\.(\w+)$/.exec(f);
-    if (m) renames.set(f, `${m[1]}-B${m[2]!.slice(1)}.${m[3]}`);
+    if (!m) continue;
+    const to = `${m[1]}-${m[2]![0] === 'Z' ? 'Y' : 'Z'}${m[2]!.slice(1)}.${m[3]}`;
+    if (taken.has(to) || [...renames.values()].includes(to)) throw new Error(`release B: ${to} would reuse a name`);
+    renames.set(f, to);
   }
   for (const [from, to] of renames) fs.renameSync(path.join(assets, from), path.join(assets, to));
   const textFiles = [path.join(dirs.B, 'index.html'), ...fs.readdirSync(assets).filter((f) => /\.(js|css)$/.test(f)).map((f) => path.join(assets, f))];
@@ -44,10 +51,22 @@ const entryIn = (dir: string) => entryOf(fs.readFileSync(path.join(dir, 'index.h
 
 /** Deploy a release into the served folder, and wait until the server answers with it. */
 async function deploy(release: 'A' | 'B') {
-  fs.rmSync(dirs.live, { recursive: true, force: true });
-  fs.cpSync(dirs[release], dirs.live, { recursive: true });
-  const want = entryIn(dirs[release]);
-  await expect.poll(async () => entryOf(await (await fetch(`${ORIGIN}/`, { cache: 'no-store' })).text()), { timeout: 15_000 }).toBe(want);
+  // Like a real release: the new files are in place before the home page points at them. The served
+  // folder itself stays (deleting it can stop the server noticing changes on some file systems).
+  const from = dirs[release];
+  const liveAssets = path.join(dirs.live, 'assets');
+  fs.rmSync(liveAssets, { recursive: true, force: true });
+  fs.cpSync(path.join(from, 'assets'), liveAssets, { recursive: true });
+  for (const f of fs.readdirSync(from)) if (f !== 'assets' && f !== 'index.html') fs.cpSync(path.join(from, f), path.join(dirs.live, f), { recursive: true });
+  fs.copyFileSync(path.join(from, 'index.html'), path.join(dirs.live, 'index.html'));
+  // Done only when the server answers with the new home page AND serves every file of the release.
+  const want = entryIn(from);
+  const files = fs.readdirSync(path.join(from, 'assets')).filter((f) => f !== '404.html');
+  await expect.poll(async () => {
+    if (entryOf(await (await fetch(`${ORIGIN}/`, { cache: 'no-store' })).text()) !== want) return 'old home page';
+    const statuses = await Promise.all(files.map(async (f) => (await fetch(`${ORIGIN}/assets/${f}`, { method: 'HEAD', cache: 'no-store' })).status));
+    return statuses.every((st) => st === 200) ? 'ready' : `${statuses.filter((st) => st !== 200).length} files not served yet`;
+  }, { timeout: 30_000, intervals: [250, 500, 1000] }).toBe('ready');
 }
 
 test.use({ baseURL: ORIGIN });
@@ -66,11 +85,27 @@ test.afterAll(() => {
   fs.rmSync(work, { recursive: true, force: true });
 });
 
+const diagnostics: string[] = [];
 function watch(page: Page) {
   const seen = { documents: 0, missingAssets: [] as string[] };
+  diagnostics.length = 0;
   page.on('request', (r) => { if (r.resourceType() === 'document') seen.documents++; });
   page.on('response', (r) => { if (r.url().includes('/assets/') && r.status() === 404) seen.missingAssets.push(r.url().split('/assets/')[1]!); });
+  page.on('console', (m) => { if (m.type() === 'error') diagnostics.push(`console: ${m.text().slice(0, 200)}`); });
+  page.on('pageerror', (e) => diagnostics.push(`pageerror: ${String(e).slice(0, 200)}`));
   return seen;
+}
+
+// CI keeps no screenshots, so a failure prints what the page showed.
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus) return;
+  const text = await page.locator('body').innerText().catch(() => '(no page)');
+  console.log(`[release-transition] ${info.title}\n  url: ${page.url()}\n  page: ${text.replace(/\s+/g, ' ').slice(0, 300)}\n  ${diagnostics.slice(0, 8).join('\n  ')}`);
+});
+/** A tab that has been open a while: signed in, and done with what it loads in the background at start. */
+async function openTab(page: Page, name: string) {
+  await enrollAsPlayer(page, name);
+  await page.waitForLoadState('networkidle');
 }
 const graphLink = (page: Page) => page.getByRole('link', { name: 'Knowledge graph' }).first();
 /** What the tab does when it comes back to the front: it checks for a release. Waits for that check. */
@@ -103,7 +138,7 @@ test.describe('real release transitions', () => {
 
   test('prevention: a tab that has noticed the release loads the new one on the next click and never asks for a deleted file', async ({ page }) => {
     const seen = watch(page);
-    await enrollAsPlayer(page, 'Transition Reader');
+    await openTab(page, 'Transition Reader');
     expect(await runningEntry(page)).toContain(entryIn(dirs.A));
     await deploy('B');
     await comeBack(page);
@@ -118,7 +153,7 @@ test.describe('real release transitions', () => {
 
   test('recovery: a click before the tab noticed the release gets one 404, then one reload into the release', async ({ page }) => {
     const seen = watch(page);
-    await enrollAsPlayer(page, 'Quick Reader');
+    await openTab(page, 'Quick Reader');
     await deploy('B');
     const before = seen.documents;
     await graphLink(page).click(); // straight away: the five-minute check has not run
@@ -132,7 +167,7 @@ test.describe('real release transitions', () => {
   test('rollback: a tab on the newer release is carried back to the older one', async ({ page }) => {
     await deploy('B');
     const seen = watch(page);
-    await enrollAsPlayer(page, 'Rollback Reader');
+    await openTab(page, 'Rollback Reader');
     expect(await runningEntry(page)).toContain(entryIn(dirs.B));
     await deploy('A'); // roll back
     await comeBack(page);
@@ -144,7 +179,7 @@ test.describe('real release transitions', () => {
 
   test('a long-open tab moves through two releases in a row', async ({ page }) => {
     const seen = watch(page);
-    await enrollAsPlayer(page, 'Long Reader');
+    await openTab(page, 'Long Reader');
     await deploy('B');
     await graphLink(page).click();
     await expect(page.getByTestId('graph-canvas')).toBeVisible({ timeout: 20_000 });
