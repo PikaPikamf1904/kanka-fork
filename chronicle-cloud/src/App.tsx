@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router';
+import { AppErrorBoundary, RouteError } from './components/ErrorScreen.tsx';
 import { Layout } from './components/Layout.tsx';
 import { SessionProvider, useIsDm, useSession } from './lib/session.tsx';
 import { DmPasscode } from './components/DmPasscode.tsx';
@@ -104,12 +105,14 @@ function DmOnly({ children }: { children: ReactNode }) {
 const page = (el: ReactNode) => <Suspense fallback={<p className="muted">Loading…</p>}>{el}</Suspense>;
 
 const router = createBrowserRouter([
-  { path: '/sign-in', element: <SignInPage /> },
-  { path: '/join', element: <JoinPage /> },
-  { path: '/table', element: <TablePage /> },
+  { path: '/sign-in', element: <SignInPage />, errorElement: <RouteError /> },
+  { path: '/join', element: <JoinPage />, errorElement: <RouteError /> },
+  { path: '/table', element: <TablePage />, errorElement: <RouteError /> },
   {
     element: <Gate />,
-    children: [
+    errorElement: <RouteError />,
+    // A page that fails to load is replaced by the friendly screen inside the layout, so the menu stays.
+    children: [{ errorElement: <RouteError />, children: [
       { path: '/', element: <HomePage /> },
       { path: '/wiki/:slug', element: <ArticlePage /> },
       { path: '/browse/:type', element: <BrowsePage /> },
@@ -169,14 +172,16 @@ const router = createBrowserRouter([
         ],
       },
       { path: '*', element: <NotFound /> },
-    ],
+    ] }],
   },
 ]);
 
 export function App() {
   return (
-    <SessionProvider>
-      <RouterProvider router={router} />
-    </SessionProvider>
+    <AppErrorBoundary>
+      <SessionProvider>
+        <RouterProvider router={router} />
+      </SessionProvider>
+    </AppErrorBoundary>
   );
 }
