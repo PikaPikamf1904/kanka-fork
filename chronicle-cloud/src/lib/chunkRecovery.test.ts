@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { entryScriptOf, isChunkLoadError, RELOAD_WINDOW_MS, recoverFromStaleBuild, shouldReload } from './chunkRecovery.ts';
+import { entryScriptOf, fullLoadTarget, isChunkLoadError, RELOAD_WINDOW_MS, recoverFromStaleBuild, shouldReload } from './chunkRecovery.ts';
 
 describe('isChunkLoadError', () => {
   it.each([
@@ -116,5 +116,26 @@ describe('recoverFromStaleBuild', () => {
     const [a, b] = await Promise.all([recoverFromStaleBuild(reload), recoverFromStaleBuild(reload)]);
     expect([a, b]).toEqual(['reloading', 'reloading']);
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('fullLoadTarget (after a release, links load the new copy in full)', () => {
+  const here = new URL('https://chronicle.test/wiki/kaela?x=1');
+  const click = { button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, defaultPrevented: false };
+  const link = (href: string, extra: Partial<{ target: string; hasDownload: boolean }> = {}) => ({ href, target: '', hasDownload: false, ...extra });
+  it('loads an internal page in full', () => {
+    expect(fullLoadTarget(click, link('/graph'), here)).toBe('https://chronicle.test/graph');
+    expect(fullLoadTarget(click, link('https://chronicle.test/wiki/kaela?x=2'), here)).toBe('https://chronicle.test/wiki/kaela?x=2');
+  });
+  it('leaves new-tab, modified, downloaded, external, API and same-page links alone', () => {
+    expect(fullLoadTarget({ ...click, metaKey: true }, link('/graph'), here)).toBeNull();
+    expect(fullLoadTarget({ ...click, ctrlKey: true }, link('/graph'), here)).toBeNull();
+    expect(fullLoadTarget({ ...click, button: 1 }, link('/graph'), here)).toBeNull();
+    expect(fullLoadTarget({ ...click, defaultPrevented: true }, link('/graph'), here)).toBeNull();
+    expect(fullLoadTarget(click, link('/graph', { target: '_blank' }), here)).toBeNull();
+    expect(fullLoadTarget(click, link('/export.md', { hasDownload: true }), here)).toBeNull();
+    expect(fullLoadTarget(click, link('https://example.org/page'), here)).toBeNull();
+    expect(fullLoadTarget(click, link('/api/status'), here)).toBeNull();
+    expect(fullLoadTarget(click, link('/wiki/kaela?x=1#history'), here)).toBeNull();
   });
 });
