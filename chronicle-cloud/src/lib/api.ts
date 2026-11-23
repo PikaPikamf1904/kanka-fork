@@ -157,9 +157,10 @@ export async function latestHeadline(): Promise<NewsStory | null> {
 
 /** The archive's list: every printed story, with only the fields the list shows (no story text). */
 export async function listNewsIndex(): Promise<NewsStory[]> {
-  return newsInOrder(must(await supabase.from('articles')
+  // Paged: the hosted Data API returns at most 1000 rows per request.
+  return newsInOrder(await fetchAll((from, to) => supabase.from('articles')
     .select('id, slug, title, status, visibility, published_at, updated_at, news:news_stories!news_stories_article_id_fkey(section, reliability, reporter, issue_number, in_world_date)')
-    .eq('type', 'news').eq('status', 'published').eq('visibility', 'players').limit(2000)) as never);
+    .eq('type', 'news').eq('status', 'published').eq('visibility', 'players').order('id').range(from, to)) as never);
 }
 
 /** DM: stories not yet printed to players, with their review state (for the newsroom strip). */
@@ -372,13 +373,14 @@ export async function loadFacts(label: string, value: string): Promise<{ pages: 
   const [matches, values] = await Promise.all([
     supabase.from('infobox_fields').select('article_id, article:articles(id, slug, title, type, summary)')
       .ilike('label', likeLiteral(label.trim())).ilike('value', likeLiteral(value.trim())).limit(500),
-    supabase.from('infobox_fields').select('value').ilike('label', likeLiteral(label.trim())).limit(3000),
+    // Paged: the hosted Data API returns at most 1000 rows per request.
+    fetchAll<{ value: string }>((from, to) => supabase.from('infobox_fields').select('value').ilike('label', likeLiteral(label.trim())).order('id').range(from, to)),
   ]);
   const rows = must(matches) as unknown as { article: Pick<Article, 'id' | 'slug' | 'title' | 'type' | 'summary'> | null }[];
   const pages = new Map(rows.filter((r) => r.article && r.article.type !== 'news').map((r) => [r.article!.id, r.article!]));
   return {
     pages: [...pages.values()].sort((a, b) => a.title.localeCompare(b.title)),
-    values: (must(values) as { value: string }[]).map((v) => v.value),
+    values: values.map((v) => v.value),
   };
 }
 
@@ -579,10 +581,11 @@ export async function searchWithOperators(p: { text: string; types: ArticleType[
   if (p.types.length) hits = hits.filter((h) => p.types.includes(h.type));
   if (p.categories.length) {
     // Match by address or by name ("Silver Quill" and silver-quill both work).
-    const all = must(await supabase.from('categories').select('id, slug, name').limit(2000)) as { id: string; slug: string; name: string }[];
+    const all = await fetchAll<{ id: string; slug: string; name: string }>((from, to) => supabase.from('categories').select('id, slug, name').order('id').range(from, to));
     const cats = all.filter((c) => p.categories.includes(c.slug) || p.categories.includes(slugify(c.name)));
-    const inCats = cats.length
-      ? new Set((must(await supabase.from('article_categories').select('article_id').in('category_id', cats.map((c) => c.id)).limit(5000)) as { article_id: string }[]).map((r) => r.article_id))
+    // Only the found pages are checked (at most 100), so no category's full list is downloaded or cut short.
+    const inCats = cats.length && hits.length
+      ? new Set((must(await supabase.from('article_categories').select('article_id').in('category_id', cats.map((c) => c.id)).in('article_id', hits.map((h) => h.article_id))) as { article_id: string }[]).map((r) => r.article_id))
       : new Set<string>();
     hits = hits.filter((h) => inCats.has(h.article_id));
   }

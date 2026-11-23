@@ -16,6 +16,7 @@
 import type { ChangeOp, ChangeSet, ProvenanceKind } from './changeSetTypes.ts';
 import { PACKAGE_LIMITS, parsePackage, wikiLinkTargets, type PackageArticle, type PackageProblem, type PackageRelation } from './lorePackage.ts';
 import type { ArticleType } from './types.ts';
+import { slugify as slugAddress } from './slug.ts';
 
 export const IMPORT_LIMITS = {
   files: 200,
@@ -48,7 +49,8 @@ export interface StagedImport {
 }
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-export const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 160).replace(/-+$/, '');
+/** The site's address rule (slug.ts), cut to 160 characters for imported titles. */
+export const slugify = (s: string) => slugAddress(s).slice(0, 160).replace(/-+$/, '');
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const strList = (v: unknown): string[] => (Array.isArray(v) ? v : typeof v === 'string' ? v.split(',') : []).filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter(Boolean).slice(0, 20);
 

@@ -1,7 +1,10 @@
+// The one rule for page addresses, used by the website, the lore importer and the Kanka importer.
 // Must match private.slugify() in supabase/migrations (tests/db/functions.test.ts checks this).
+// Apostrophes are dropped ("Jenna's" -> "jennas"); anything else that is not a-z or 0-9 becomes "-".
 export function slugify(input: string): string {
   return input
     .toLowerCase()
+    .replace(/['’]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
