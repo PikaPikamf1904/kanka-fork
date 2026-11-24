@@ -41,6 +41,7 @@ const dm = (name: 'DmDesk' | 'NotesPage' | 'AccessAdmin' | 'SettingsPage' | 'Tim
 const DmDesk = dm('DmDesk');
 const ChangeReviewPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.ChangeReviewPage })));
 const OAuthConsentPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) => ({ default: m.OAuthConsentPage })));
+const KnowledgeExport = lazy(() => import('./pages/dm/KnowledgeExport.tsx').then((m) => ({ default: m.KnowledgeExport })));
 const WikiTidy = lazy(() => import('./pages/dm/WikiTidy.tsx').then((m) => ({ default: m.WikiTidy })));
 const VisibilityAudit = lazy(() => import('./pages/dm/VisibilityAudit.tsx').then((m) => ({ default: m.VisibilityAudit })));
 const MediaLibrary = lazy(() => import('./pages/dm/MediaLibrary.tsx').then((m) => ({ default: m.MediaLibrary })));
@@ -156,6 +157,7 @@ const router = createBrowserRouter([
           { path: 'news/new', element: page(<GazetteEditor />) },
           { path: 'news/edit/:slug', element: page(<GazetteEditor />) },
           { path: 'tidy', element: page(<WikiTidy />) },
+          { path: 'export', element: page(<KnowledgeExport />) },
           { path: 'visibility', element: page(<VisibilityAudit />) },
           { path: 'media', element: page(<MediaLibrary />) },
           { path: 'notes', element: page(<NotesPage />) },
