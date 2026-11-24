@@ -34,7 +34,7 @@ The party guards the road to [Kharolis Watchtower](https://chronicle.example/wik
 - **In Chronicle:** https://chronicle.example/wiki/ashes-at-the-ford
 
 #### Summary
-*Source: From session transcripts, not yet confirmed · Visibility: Known to players*
+*Source: From session transcripts, not yet confirmed · Reference: Session 1 transcript · Visibility: Known to players*
 
 The party crossed the ford at dusk; the inn burned.
 

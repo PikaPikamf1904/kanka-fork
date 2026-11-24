@@ -10,7 +10,7 @@ type Kind = 'archive' | 'notebook';
 type Choices = Omit<ExportOptions, 'siteUrl'>;
 
 const CHOICES: { key: keyof Choices; label: string; hint: string }[] = [
-  { key: 'dmSecrets', label: 'Include DM secrets', hint: 'DM-only pages, sections, facts and connections, drafts, mysteries and dossiers. Off: only what players can read.' },
+  { key: 'dmSecrets', label: 'Include DM secrets', hint: 'DM-only pages, sections, facts and connections, drafts, mysteries and dossiers. Off: those are left out; source labels and references remain, so the file is still for you only.' },
   { key: 'plans', label: 'Include future campaign plans', hint: 'Material marked “planned, not yet played”.' },
   { key: 'dmNotes', label: 'Include DM notes and research', hint: 'Your notes and your own Knowledge Studio collections. Chronicle does not label them, so they are marked “Unclassified”.' },
   { key: 'sessions', label: 'Include session history', hint: 'Session journals and the timeline.' },
@@ -110,7 +110,7 @@ export function KnowledgeExport() {
             {busy === 'archive' ? 'Preparing…' : 'Complete Chronicle archive (ZIP)'}
           </button>
         </div>
-        <p className="muted">The file is made in this browser and saved to this device only. It is not stored on Chronicle&apos;s servers{choices.dmSecrets ? ' and it contains DM secrets: keep it private' : ''}.</p>
+        <p className="muted">The file is made in this browser and saved to this device only. It is not stored on Chronicle&apos;s servers. It is for you only: keep it private.</p>
         <p role="status" aria-live="polite" className="export-progress">{progress}</p>
         {error && <p className="form-error" role="alert">{error}</p>}
         {done && (

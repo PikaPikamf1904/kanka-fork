@@ -56,7 +56,7 @@ describe('the complete DM export', () => {
     const text = nb(b);
     expect(text).toContain(`Source: ${PROVENANCE_LABEL.dm_confirmed} · Visibility: Known to players`);
     expect(text).toContain(`Source: ${PROVENANCE_LABEL.dm_confirmed} (a DM-approved secret) · Visibility: DM only (secret)`);
-    expect(text).toContain(`Source: ${PROVENANCE_LABEL.transcript_uncertain} · Visibility: Known to players`);
+    expect(text).toContain(`Source: ${PROVENANCE_LABEL.transcript_uncertain} · Reference: Session 1 transcript · Visibility: Known to players`);
     expect(text).toContain(`Source: ${PROVENANCE_LABEL.table_confirmed}`);
     expect(text).toContain(`Source: ${PROVENANCE_LABEL.official_reference}`);
     expect(text).toContain(`Source: ${PROVENANCE_LABEL.planned_unplayed} · Visibility: DM only (secret)`);
@@ -125,7 +125,7 @@ describe('content choices', () => {
     expect(b.stats.relationsOmitted).toBe(0); // Mirelle knows the envoy: hidden from players, so not theirs to miss
     expect(text).not.toContain('connection `r4`');
     expect(b.archive.some((f) => f.path.includes('DM-Secrets') || f.path.includes('Mysteries') || f.path.includes('Dossiers'))).toBe(false);
-    expect(text).toContain('contains only what players can read');
+    expect(text).toContain('DM-only pages, sections, facts and connections are left out, but the source labels, references and dates are still DM information');
   });
 
   it('without plans, notes, sessions or connections', () => {
@@ -196,6 +196,15 @@ describe('edge cases', () => {
     expect(fileName('a'.repeat(200), 'long', used)).toBe(`${'a'.repeat(80)}.md`);
     expect(fileName('Tail dots...', 'dots', used)).toBe('Tail dots.md');
     expect(fileName('tail dots', 'dots-2', used)).toBe('tail dots (dots-2).md'); // case-insensitive collision
+  });
+
+  it('keeps stored source references on connections, and survives a malformed hand-written link', () => {
+    const data = sampleData();
+    data.relations[0]!.source_ref = 'Kanka import, entity 42';
+    data.sections[3]!.body += ' See [the bridge](/wiki/bad%zz).';
+    const b = build({}, data);
+    expect(file(b, 'Relationships/Relationships.md')).toContain('· Source: Kanka import, entity 42 ·');
+    expect(nb(b)).toContain('See the bridge.');
   });
 
   it('demotes headings outside code blocks only', () => {

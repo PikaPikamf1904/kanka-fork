@@ -15,7 +15,7 @@ choices:
 
 | Choice (all on by default) | Off means |
 |---|---|
-| Include DM secrets | Only what players can read in the wiki: no DM-only or draft pages, sections, facts, connections, categories, former addresses, timeline entries or map pins; no mysteries, dossiers or DM notes. |
+| Include DM secrets | Leaves out DM-only and draft pages, sections, facts, connections, categories, former addresses, timeline entries and map pins, and all mysteries, dossiers and DM notes. The source labels, references and dates stay, so it is still a DM file, not something to hand to players. |
 | Include future campaign plans | Leaves out sections, facts and pages marked "planned, not yet played". |
 | Include DM notes and research | Leaves out DM notes, the DM notes on mysteries, and your own Knowledge Studio collections. |
 | Include session history | Leaves out session journals and the timeline. |
@@ -56,6 +56,10 @@ Each section and fact carries two labels, taken only from what Chronicle stores:
 | — | provenance `transcript_uncertain` | From session transcripts, not yet confirmed |
 | Planned future content | provenance `planned_unplayed` | Planned, not yet played |
 | Brainstorming / speculation | nothing stores this | not guessed: DM notes and anything without provenance are **Unclassified** |
+
+Each label also shows the **reference** stored with it (for example the transcript it came from);
+all 313 provenance records in production have one. Connections show their stored source reference
+when they have one (none do today).
 
 Visibility is "Known to players", "DM only (secret)" or "DM only (draft)", using the same rules as
 the database. Gazette stories keep their reliability ("rumor" and "satire" are flagged as not

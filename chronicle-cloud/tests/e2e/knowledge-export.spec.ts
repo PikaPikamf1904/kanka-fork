@@ -36,9 +36,13 @@ test('a player cannot see or open the export, even by its address', async ({ pag
   // A private journal entry by this player, which no export may contain.
   const [me] = await db<{ user_id: string }>(`select user_id from public.campaign_members where display_name = 'Export Probe Player' order by created_at desc limit 1`);
   await db(`insert into public.journal_entries (user_id, title, body) values ($1, 'Diary', $2)`, [me!.user_id, JOURNAL]);
+  // Wait for the page to settle on "not found" before checking what is absent.
+  const notFound = page.getByRole('heading', { name: 'Nothing written here yet' });
   await page.goto('/dm');
+  await expect(notFound).toBeVisible();
   await expect(page.getByRole('link', { name: /Export knowledge/ })).toHaveCount(0);
   await page.goto('/dm/export');
+  await expect(notFound).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Export Chronicle Knowledge' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /NotebookLM knowledge document/ })).toHaveCount(0);
 });
@@ -78,7 +82,7 @@ print(json.dumps({n: z.read(n).decode('utf-8') for n in z.namelist()}))
   expect(safe).toContain('Zzexport Haven’s Gate');
   expect(safe).not.toContain(SECRET);
   expect(safe).not.toContain(WORDS);
-  expect(safe).toContain('contains only what players can read');
+  expect(safe).toContain('DM-only pages, sections, facts and connections are left out');
 });
 
 test.describe('on a phone', () => {

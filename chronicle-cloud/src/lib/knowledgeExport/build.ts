@@ -119,9 +119,12 @@ export function buildExport(data: ExportData, options: ExportOptions): BuiltExpo
   const provBySection = new Map<string, Set<ProvenanceKind>>();
   const provByField = new Map<string, Set<ProvenanceKind>>();
   const provByArticle = new Map<string, Set<ProvenanceKind>>();
+  const refsBy = new Map<string, Set<string>>(); // section, field or article id -> stored references
   let orphanProvenance = 0;
   const add = (m: Map<string, Set<ProvenanceKind>>, k: string, v: ProvenanceKind) => m.set(k, (m.get(k) ?? new Set()).add(v));
   for (const p of data.provenance) {
+    const ref = p.reference.trim();
+    if (ref) { const key = p.section_id ?? p.field_id ?? p.article_id; refsBy.set(key, (refsBy.get(key) ?? new Set()).add(ref)); }
     if (p.section_id) {
       if (sectionIds.has(p.section_id)) add(provBySection, p.section_id, p.kind); else orphanProvenance++;
     } else if (p.field_id) {
@@ -171,10 +174,12 @@ export function buildExport(data: ExportData, options: ExportOptions): BuiltExpo
   };
   const visibilityLabel = (known: boolean, draft: boolean) => (known ? 'Known to players' : draft ? 'DM only (draft)' : 'DM only (secret)');
   /** A DM-confirmed fact the players do not know is, exactly, a DM-approved secret. */
-  const classification = (kinds: Set<ProvenanceKind> | undefined, known: boolean, draft: boolean) => {
+  const classification = (kinds: Set<ProvenanceKind> | undefined, known: boolean, draft: boolean, refKey?: string) => {
     const source = sourceLabel(kinds);
     const secret = !known && !draft && kinds?.has('dm_confirmed') ? ' (a DM-approved secret)' : '';
-    return `Source: ${source}${secret} · Visibility: ${visibilityLabel(known, draft)}`;
+    const refs = refKey ? refsBy.get(refKey) : undefined;
+    const reference = refs?.size ? ` · Reference: ${[...refs].sort().join('; ')}` : '';
+    return `Source: ${source}${secret}${reference} · Visibility: ${visibilityLabel(known, draft)}`;
   };
 
   // ---- Links -----------------------------------------------------------------------------------
@@ -194,7 +199,9 @@ export function buildExport(data: ExportData, options: ExportOptions): BuiltExpo
         return shown ? link(a, text) : text;
       })
       .replace(/\[([^\]]+)\]\(\/wiki\/([^)\s]+)\)/g, (_m, text: string, slug: string) => {
-        const a = bySlug.get(decodeURIComponent(slug));
+        let target = slug;
+        try { target = decodeURIComponent(slug); } catch { /* a stray % in hand-written text: keep it as written */ }
+        const a = bySlug.get(target);
         return a && included.has(a.id) ? link(a, text) : text;
       });
   const pageUrl = (a: Article) => `${site}/wiki/${encodeURIComponent(a.slug)}`;
@@ -247,7 +254,8 @@ export function buildExport(data: ExportData, options: ExportOptions): BuiltExpo
     const custom = r.label.trim() ? ` — ${quote(r.label.trim())}` : '';
     const known = relationKnown(r);
     const reading = incoming && relationKindFrom(r.kind, 'in') !== r.kind ? ` (read from this page: ${relationLabel(relationKindFrom(r.kind, 'in'))})` : '';
-    return `- ${link(s, nameOf(s))} → *${relationLabel(r.kind)}* → ${link(t, nameOf(t))}${custom}${reading} · ${visibilityLabel(known, false)} · IDs: \`${s.slug}\` → \`${t.slug}\`, kind \`${r.kind}\`, connection \`${r.id}\``;
+    const source = r.source_ref.trim() ? ` · Source: ${r.source_ref.trim()}` : '';
+    return `- ${link(s, nameOf(s))} → *${relationLabel(r.kind)}* → ${link(t, nameOf(t))}${custom}${reading} · ${visibilityLabel(known, false)}${source} · IDs: \`${s.slug}\` → \`${t.slug}\`, kind \`${r.kind}\`, connection \`${r.id}\``;
   };
 
   /** One page as Markdown, with its headings starting at `level`. */
@@ -262,7 +270,7 @@ export function buildExport(data: ExportData, options: ExportOptions): BuiltExpo
       `- **Visibility:** ${visibilityLabel(known, a.status === 'draft')}`,
     ];
     const pageKinds = provByArticle.get(a.id);
-    if (pageKinds?.size) meta.push(`- **Source:** ${sourceLabel(pageKinds)}`);
+    if (pageKinds?.size) meta.push(`- **Source:** ${sourceLabel(pageKinds)}${refsBy.get(a.id)?.size ? ` (reference: ${[...refsBy.get(a.id)!].sort().join('; ')})` : ''}`);
     if (a.type === 'session' && a.session_date) meta.push(`- **Played on:** ${a.session_date}`);
     const n = newsBy.get(a.id);
     if (n) {
@@ -283,11 +291,11 @@ export function buildExport(data: ExportData, options: ExportOptions): BuiltExpo
       out.push('', `${h(1)} Facts`);
       for (const f of fs) {
         const kinds = provByField.get(f.id);
-        out.push(`- **${f.label}:** ${renderText(f.value, link)} — *${classification(kinds, knownField(f), false)}*`);
+        out.push(`- **${f.label}:** ${renderText(f.value, link)} — *${classification(kinds, knownField(f), false, f.id)}*`);
       }
     }
     for (const s of (sectionsBy.get(a.id) ?? []).sort((x, y) => x.position - y.position)) {
-      out.push('', `${h(1)} ${s.heading.trim() || 'Text'}`, `*${classification(provBySection.get(s.id), knownSection(s), s.status === 'draft')}*`);
+      out.push('', `${h(1)} ${s.heading.trim() || 'Text'}`, `*${classification(provBySection.get(s.id), knownSection(s), s.status === 'draft', s.id)}*`);
       if (s.body.trim()) out.push('', demoteHeadings(renderText(s.body.trim(), link), level + 2));
     }
     const outgoing = outBy.get(a.id) ?? [];
@@ -485,7 +493,7 @@ export function buildExport(data: ExportData, options: ExportOptions): BuiltExpo
 function legendMarkdown(o: ExportOptions, s: ExportStats, generatedAt: string): string {
   const zero = Object.entries(s.labels).filter(([, n]) => n === 0).map(([l]) => l);
   return [
-    `*Exported from Chronicle on ${generatedAt.slice(0, 10)} by the DM. Private: ${o.dmSecrets ? 'contains DM-only secrets; do not share with players.' : 'contains only what players can read.'}*`,
+    `*Exported from Chronicle on ${generatedAt.slice(0, 10)} by the DM. Private: ${o.dmSecrets ? 'contains DM-only secrets; do not share with players.' : 'DM-only pages, sections, facts and connections are left out, but the source labels, references and dates are still DM information; do not share with players.'}*`,
     '',
     '**How to read the labels.** Every section and fact says where it came from and who knows it:',
     `- **${PROVENANCE_LABEL.official_reference}** — official Dragonlance setting material recorded in Chronicle.`,
@@ -520,7 +528,7 @@ function readmeMarkdown(o: ExportOptions, s: ExportStats, generatedAt: string, l
     s.orphanProvenance ? `- ${s.orphanProvenance} provenance record(s) point at a section or fact that no longer exists and were ignored.` : null,
     '',
     '## Options',
-    `- DM-only secrets and drafts: ${on(o.dmSecrets)}`,
+    `- DM-only secrets and drafts: ${on(o.dmSecrets)}${o.dmSecrets ? '' : ' (source labels, references and dates are kept: this is still a DM file)'}`,
     `- Planned, not yet played: ${on(o.plans)}`,
     `- DM notes and research: ${on(o.dmNotes && o.dmSecrets)}`,
     `- Session journals and timeline: ${on(o.sessions)}`,

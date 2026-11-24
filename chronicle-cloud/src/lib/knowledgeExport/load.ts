@@ -82,15 +82,16 @@ export async function loadExportData(client: SupabaseClient, opts: LoadOptions):
     if (counted.error) throw new Error(`${table}: ${counted.error.message}`);
     const expected = counted.count ?? 0;
     const rows: T[] = [];
-    for (let start = 0; start < expected; start += pageSize) {
+    // Advance by the rows actually received, so a server-side row cap below pageSize still reads everything.
+    while (rows.length < expected) {
       let q = from(table).select(columns) as unknown as Query;
       if (filter) q = filter(q);
       for (const o of order) q = q.order(o) as unknown as Query;
-      const page = await q.range(start, start + pageSize - 1);
+      const page = await q.range(rows.length, rows.length + pageSize - 1);
       if (page.error) throw new Error(`${table}: ${page.error.message}`);
       const batch = (page.data ?? []) as T[];
-      rows.push(...batch);
       if (batch.length === 0) break;
+      rows.push(...batch);
     }
     if (rows.length !== expected) {
       throw new Error(`Chronicle changed while exporting (${table}: expected ${expected} rows, read ${rows.length}). Please try again.`);
