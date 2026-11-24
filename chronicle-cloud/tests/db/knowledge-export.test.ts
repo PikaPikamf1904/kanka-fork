@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readLocalEnv } from '../../scripts/local-targets.mjs';
 import { buildExport } from '../../src/lib/knowledgeExport/build.ts';
 import { ExportRefused, loadExportData, TABLES_READ } from '../../src/lib/knowledgeExport/load.ts';
@@ -47,7 +47,20 @@ async function fingerprint() {
   return out;
 }
 
+/** This file's own rows in tables the shared fixture reset does not clear (other specs count them). */
+async function removeOwnRows() {
+  await admin(`delete from public.clues where body = 'CLUEWORD body'`);
+  await admin(`delete from public.mysteries where title = 'Synthetic mystery'`);
+  await admin(`delete from public.journal_entries where body = 'JOURNALWORD private'`);
+  await admin(`delete from public.scratchpad_notes where body = 'SCRATCHWORD private'`);
+  await admin(`delete from public.research_notes where body in ('DMRESEARCHWORD idea', 'PLAYERRESEARCHWORD shared')`);
+  await admin(`delete from public.research_collections where title in ('DM collection', 'Player collection') and user_id = any($1::uuid[])`, [[ids.dm, ids.player]]);
+}
+
+afterAll(removeOwnRows);
+
 beforeAll(async () => {
+  await removeOwnRows();
   await resetFixtures();
   await admin(`insert into public.provenance (article_id, section_id, kind) values ('a0000000-0000-4000-8000-00000000000a', '50000000-0000-4000-8000-000000000002', 'dm_confirmed')`);
   const m = await admin<{ id: string }>(`insert into public.mysteries (title, summary, dm_notes, status) values ('Synthetic mystery', 'A puzzle.', 'MYSTERYWORD notes', 'active') returning id`);
