@@ -40,6 +40,8 @@ export interface Reporter {
   sign: string;
   /** For the DM writing in this voice. */
   voice: string;
+  /** The same person under a different byline title: kept so each story prints its exact byline, listed once on the masthead. */
+  variantOf?: string;
 }
 
 /** The newsroom. Original characters; keep their voices consistent between stories. */
@@ -63,6 +65,23 @@ export const STAFF: Reporter[] = [
     key: 'pinchcheek', name: 'Madame Pinchcheek', title: 'Society & Gossip',
     sign: 'Knows everyone’s business. Understands very little of it.',
     voice: 'Warm, nosy, confidently confused. Gets names nearly right. Notices outfits, feuds and who left early, rarely why.',
+  },
+  // Added 2026-11-26 from the DM's approved package. Each distinct byline title is its own entry, so a story
+  // prints exactly the byline it was written with; variants are not listed again on the masthead.
+  {
+    key: 'gribble', name: 'Gribble Inkfinger', title: 'Senior Military Correspondent', sign: '',
+    voice: 'Reports Dragon Army and East Road matters. Rumors and investigations; the DM’s approved stories show the tone.',
+  },
+  { key: 'gribble-investigative', name: 'Gribble Inkfinger', title: 'Investigative Correspondent', sign: '', voice: '', variantOf: 'gribble' },
+  { key: 'gribble-senior-investigative', name: 'Gribble Inkfinger', title: 'Senior Investigative Correspondent', sign: '', voice: '', variantOf: 'gribble' },
+  {
+    key: 'snikkit', name: 'Snikkit Bellbottom', title: 'Military Affairs Editor', sign: '',
+    voice: 'Military affairs and, in lighter pieces, food and culture. The DM’s approved stories show the tone.',
+  },
+  { key: 'snikkit-food', name: 'Snikkit Bellbottom', title: 'Food and Cultural Affairs Correspondent', sign: '', voice: '', variantOf: 'snikkit' },
+  {
+    key: 'bogwart', name: 'Professor Bogwart', title: 'Department of Questionable Science', sign: '',
+    voice: 'Satirical investigations. The DM’s approved stories show the tone.',
   },
   {
     key: 'corrections', name: 'The Corrections Desk', title: 'Under Protest',
