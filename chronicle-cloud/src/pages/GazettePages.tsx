@@ -14,12 +14,12 @@ import { MarkdownField } from '../components/images/MarkdownField.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { useMediaUrl } from '../components/MediaImage.tsx';
 import {
-  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getNewsStory, listNews, listNewsIndex, listNewsPending, listNewsProposals, listPrintedNews, listUnprintedNews, newsTransition, saveNewsStory,
+  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getCampaignZone, getNewsStory, listLetters, listNews, listNewsIndex, listNewsPending, listNewsProposals, listPrintedNews, listScheduled, listUnprintedNews, newsTransition, releaseDueStories, saveNewsStory,
   type NewsAction, type NewsDetails, type NewsDraft, type NewsStory,
 } from '../lib/api.ts';
 import { ChronicleError } from '../lib/changeSetTypes.ts';
 import { longDate } from '../lib/dates.ts';
-import { GAZETTE, RELIABILITY, REVIEW_LABEL, reporter, SECTIONS, sectionLabel, STAFF, type NewsReliability, type NewsReviewState, type NewsSection } from '../lib/gazette.ts';
+import { GAZETTE, isLetter, RELIABILITY, REVIEW_LABEL, reporter, SECTIONS, sectionLabel, STAFF, type NewsReliability, type NewsReviewState, type NewsSection } from '../lib/gazette.ts';
 import { useIsDm } from '../lib/session.tsx';
 import { slugify, wikiLinkTargets } from '../lib/slug.ts';
 import { TEMPLATES } from '../lib/templates.ts';
@@ -27,6 +27,8 @@ import type { ArticleRef } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
 import { useUnsavedGuard } from '../lib/useUnsavedGuard.ts';
 import { NotFound } from './NotFound.tsx';
+import { ScheduleControl } from './dm/ScheduleControls.tsx';
+import { formatInZone } from '../lib/schedule.ts';
 
 /** Plain text from Markdown, for standfirsts and excerpts. */
 function plain(md: string): string {
@@ -81,6 +83,7 @@ export function Masthead({ issue, compact = false }: { issue?: number | null; co
       <nav className="gz-sections" aria-label="Gazette sections">
         <Link to="/news">Front page</Link>
         {SECTIONS.map((s) => <Link key={s.key} to={`/news?section=${s.key}`}>{s.short}</Link>)}
+        <Link to="/letters">Letters</Link>
         <Link to="/news/archive">Archive</Link>
       </nav>
     </header>
@@ -134,7 +137,8 @@ export function GazetteFront() {
   const section = params.get('section') as NewsSection | null;
   // The front page is what players see: the newest printed stories only, even for the DM. Older
   // stories stay in the archive and in search.
-  const news = useLoad(() => listPrintedNews({ section, limit: FRONT_PAGE_STORIES }), [isDm, section]);
+  const news = useLoad(async () => { await releaseDueStories(); return listPrintedNews({ section, limit: FRONT_PAGE_STORIES }); }, [isDm, section]);
+  const letters = useLoad(async () => (section ? [] : (await listLetters(3))), [isDm, section]);
   const desk = useLoad(() => (isDm ? listUnprintedNews() : Promise.resolve([])), [isDm]);
   useEffect(() => { document.title = `${GAZETTE.name} · Chronicle`; }, []);
 
@@ -189,6 +193,18 @@ export function GazetteFront() {
                   {corrections.map((s) => <StoryTeaser key={s.id} s={s} size="brief" />)}
                 </section>
               )}
+              {(letters.data?.length ?? 0) > 0 && (
+                <section className="gz-box">
+                  <h2 className="gz-box-title">Letters from Krynn</h2>
+                  <p className="gz-box-note">Correspondence that found its way to the party.</p>
+                  <ul className="gz-letter-list">
+                    {letters.data!.map((l) => (
+                      <li key={l.id}><Link to={`/news/${l.slug}`}>{l.title}</Link><span className="muted"> · from {l.news?.letter_from || 'someone'}</span></li>
+                    ))}
+                  </ul>
+                  <p className="gz-more"><Link to="/letters">All letters</Link></p>
+                </section>
+              )}
               <StaffBox />
             </aside>
           )}
@@ -213,7 +229,7 @@ function StaffBox() {
 
 export function GazetteArchive() {
   const isDm = useIsDm();
-  const news = useLoad(listNewsIndex, [isDm]);
+  const news = useLoad(async () => { await releaseDueStories(); return listNewsIndex(); }, [isDm]);
   const printed = news.data ?? [];
   const issues = new Map<string, NewsStory[]>();
   for (const s of printed) {
@@ -240,6 +256,57 @@ export function GazetteArchive() {
         </section>
       ))}
     </div>
+  );
+}
+
+/** Letters from Krynn: every printed letter, newest first. */
+export function GazetteLetters() {
+  const isDm = useIsDm();
+  const letters = useLoad(async () => { await releaseDueStories(); return listLetters(200); }, [isDm]);
+  useEffect(() => { document.title = `Letters from Krynn · ${GAZETTE.name}`; }, []);
+  return (
+    <div className="gazette">
+      <Masthead compact />
+      <h1 className="gz-section-title">Letters from Krynn</h1>
+      {letters.error && <p className="form-error">{letters.error}</p>}
+      {letters.loading && !letters.data && <p className="muted">Looking through the post…</p>}
+      {letters.data && letters.data.length === 0 && <p className="muted">No letters have arrived yet.</p>}
+      <ul className="lt-index">
+        {(letters.data ?? []).map((l) => (
+          <li key={l.id}>
+            <Link to={`/news/${l.slug}`} className="lt-index-title">{l.title}</Link>
+            <span className="lt-index-meta">From {l.news?.letter_from || 'an unknown hand'}{l.news?.letter_to ? ` to ${l.news.letter_to}` : ''}{l.news?.in_world_date ? ` · ${l.news.in_world_date}` : ''}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** One letter, set as correspondence rather than as a newspaper story. */
+function LetterView({ title, body, details, heroMediaId, date, toolbar }: {
+  title: string; body: string; details: NewsDetails | null; heroMediaId?: string | null; date?: string | null; toolbar?: ReactNode;
+}) {
+  const rel = RELIABILITY[details?.reliability ?? 'confirmed'];
+  return (
+    <article className="lt-letter">
+      {toolbar}
+      <header className="lt-head">
+        <p className="lt-place-date">
+          {details?.dateline && <span>{details.dateline}</span>}
+          {(details?.in_world_date || date) && <span>{details?.in_world_date || longDate(date)}</span>}
+        </p>
+        <h1 className="lt-subject">{title || 'Untitled letter'}</h1>
+        <p className="lt-route">
+          {details?.letter_from && <span>From <strong>{details.letter_from}</strong></span>}
+          {details?.letter_to && <span>To <strong>{details.letter_to}</strong></span>}
+        </p>
+      </header>
+      {details?.reliability && details.reliability !== 'confirmed' && <p className="lt-note"><strong>{rel.label}.</strong> {rel.note}</p>}
+      <LeadArt id={heroMediaId} alt="" />
+      <div className="lt-body"><Markdown text={body} /></div>
+      {details?.letter_signature && <p className="lt-signature">{details.letter_signature}</p>}
+    </article>
   );
 }
 
@@ -284,6 +351,7 @@ export function GazetteArticle() {
   const { slug = '' } = useParams();
   const isDm = useIsDm();
   const story = useLoad(async () => {
+    await releaseDueStories();
     const s = await getNewsStory(slug);
     if (!s) return null;
     const body = s.bundle.sections.map((x) => x.body).join('\n\n');
@@ -305,6 +373,22 @@ export function GazetteArticle() {
   if (!story.data) return <NotFound what="story" />;
   const { bundle, news, body, related, corrects } = story.data;
   const a = bundle.article;
+  if (isLetter(news)) {
+    return (
+      <div className="gazette">
+        <Masthead compact />
+        <LetterView title={a.title} body={[a.summary, body].filter(Boolean).join('\n\n')} details={news} heroMediaId={a.hero_media_id} date={a.published_at}
+          toolbar={isDm ? (
+            <div className="gz-dm-bar">
+              <span className={`badge ${isPublished(a) ? 'badge-ok' : 'badge-dm'}`}>{isPublished(a) ? 'Delivered: players can read this' : 'Not delivered: players cannot see this'}</span>
+              <span className="badge">{REVIEW_LABEL[news?.review_state ?? 'draft']}</span>
+              <Link className="button small" to={`/dm/news/edit/${a.slug}`}>Edit</Link>
+            </div>
+          ) : undefined} />
+        <p className="gz-back"><Link to="/letters">← All letters</Link></p>
+      </div>
+    );
+  }
   return (
     <div className="gazette">
       <Masthead compact issue={news?.issue_number} />
@@ -332,13 +416,18 @@ const STATE_ORDER = ['in_review', 'draft', 'approved'] as const;
 
 export function GazetteDesk() {
   const news = useLoad(async () => {
-    const [stories, pending] = await Promise.all([listNews(), listNewsPending()]);
-    return stories.map((s) => ({ ...s, pendingState: pending.get(s.id)?.review_state ?? null, pendingAt: pending.get(s.id)?.updated_at ?? null }));
+    await releaseDueStories(true);
+    const [stories, pending, scheduled, zone] = await Promise.all([listNews(), listNewsPending(), listScheduled(), getCampaignZone()]);
+    return {
+      zone,
+      stories: stories.map((s) => ({ ...s, pendingState: pending.get(s.id)?.review_state ?? null, pendingAt: pending.get(s.id)?.updated_at ?? null, scheduledAt: scheduled.get(s.id) ?? null })),
+    };
   }, []);
+  const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   async function act(id: string, action: NewsAction) {
-    const story = news.data?.find((s) => s.id === id);
+    const story = news.data?.stories.find((s) => s.id === id);
     if (!story) return;
     setBusy(id); setError('');
     try {
@@ -352,9 +441,11 @@ export function GazetteDesk() {
       setBusy('');
     }
   }
-  const all = news.data ?? [];
+  const all = news.data?.stories ?? [];
+  const zone = news.data?.zone ?? 'UTC';
   const printed = all.filter(isPublished);
-  const desk = all.filter((s) => !isPublished(s)).sort((a, b) => STATE_ORDER.indexOf((a.news?.review_state ?? 'draft') as never) - STATE_ORDER.indexOf((b.news?.review_state ?? 'draft') as never));
+  const scheduled = all.filter((s) => !isPublished(s) && s.scheduledAt).sort((a, b) => a.scheduledAt!.localeCompare(b.scheduledAt!));
+  const desk = all.filter((s) => !isPublished(s) && !s.scheduledAt).sort((a, b) => STATE_ORDER.indexOf((a.news?.review_state ?? 'draft') as never) - STATE_ORDER.indexOf((b.news?.review_state ?? 'draft') as never));
   return (
     <div className="gazette gz-desk">
       <Masthead compact />
@@ -362,13 +453,17 @@ export function GazetteDesk() {
         <h1 className="page-title">The news desk</h1>
         <div className="toolbar-actions"><Link className="button" to="/dm/news/new">Write a story</Link></div>
       </div>
-      <p className="muted">Every story goes Draft → In review → Approved → Printed. Players see nothing until you print it, and taking a story back to draft un-prints it at once. Editing a printed story makes a revision: players keep the printed version until you approve the revision. Assistants can draft stories; only you, here, can approve and print them. See <code>docs/chronicle/GOBLIN-GAZETTE.md</code>.</p>
+      <p className="muted">Every story goes Draft → In review → Approved → Printed (now, or on a date you choose). Players see nothing until it is printed, and taking a story back to draft un-prints it at once. Editing a printed story makes a revision: players keep the printed version until you approve the revision. Assistants can draft stories; only you, here, can approve and print them. See <code>docs/chronicle/GOBLIN-GAZETTE.md</code>.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
+      {notice && <p className="form-ok" role="status">{notice}</p>}
       <NewsProposals />
       <h2>On the desk</h2>
-      {desk.length === 0 ? <p className="muted">Nothing waiting.</p> : <DeskTable stories={desk} busy={busy} act={act} />}
+      {desk.length === 0 ? <p className="muted">Nothing waiting.</p> : <DeskTable stories={desk} busy={busy} act={act} zone={zone} onScheduled={(m) => { setNotice(m); news.reload(); }} />}
+      <h2>Scheduled</h2>
+      <p className="fine-print">Approved and waiting for their time, in the {zone} time zone. Players cannot see these. They print themselves when the time comes.</p>
+      {scheduled.length === 0 ? <p className="muted">Nothing scheduled.</p> : <DeskTable stories={scheduled} busy={busy} act={act} zone={zone} onScheduled={(m) => { setNotice(m); news.reload(); }} />}
       <h2>Printed</h2>
-      {printed.length === 0 ? <p className="muted">Nothing printed yet.</p> : <DeskTable stories={printed} busy={busy} act={act} />}
+      {printed.length === 0 ? <p className="muted">Nothing printed yet.</p> : <DeskTable stories={printed} busy={busy} act={act} zone={zone} onScheduled={() => undefined} />}
     </div>
   );
 }
@@ -433,8 +528,8 @@ function NewsProposals() {
   );
 }
 
-type DeskStory = NewsStory & { pendingState: NewsReviewState | null; pendingAt: string | null };
-function DeskTable({ stories, busy, act }: { stories: DeskStory[]; busy: string; act: (id: string, a: NewsAction) => void }) {
+type DeskStory = NewsStory & { pendingState: NewsReviewState | null; pendingAt: string | null; scheduledAt: string | null };
+function DeskTable({ stories, busy, act, zone, onScheduled }: { stories: DeskStory[]; busy: string; act: (id: string, a: NewsAction) => void; zone: string; onScheduled: (m: string) => void }) {
   return (
     <div className="table-scroll">
       <table className="table gz-desk-table">
@@ -448,8 +543,11 @@ function DeskTable({ stories, busy, act }: { stories: DeskStory[]; busy: string;
                 <td><Link to={`/dm/news/edit/${s.slug}`}>{s.title}</Link> <Stamp reliability={s.news?.reliability} /></td>
                 <td>{sectionLabel(s.news?.section)}</td>
                 <td>{reporter(s.news?.reporter).name}</td>
-                <td>{printed ? 'Printed' : REVIEW_LABEL[state]}{printed && s.pendingState && <><br /><span className="badge badge-dm">Revision: {REVIEW_LABEL[s.pendingState]}</span></>}</td>
-                <td><StoryActions id={s.id} state={state} printed={printed} pending={s.pendingState} busy={busy === s.id} act={act} /></td>
+                <td>{printed ? 'Printed' : s.scheduledAt ? <>Scheduled<br /><span className="fine-print">{formatInZone(s.scheduledAt, zone)}</span></> : REVIEW_LABEL[state]}{printed && s.pendingState && <><br /><span className="badge badge-dm">Revision: {REVIEW_LABEL[s.pendingState]}</span></>}</td>
+                <td>
+                  <StoryActions id={s.id} state={state} printed={printed} pending={s.pendingState} busy={busy === s.id} act={act} />
+                  {!printed && state === 'approved' && <ScheduleControl compact id={s.id} version={s.version} scheduledAt={s.scheduledAt} zone={zone} disabled={busy === s.id} onDone={onScheduled} />}
+                </td>
               </tr>
             );
           })}
@@ -473,6 +571,7 @@ function StoryActions({ id, state, printed, pending = null, busy, act }: { id: s
 
 const EMPTY_DETAILS: NewsDraft['details'] = {
   section: 'local', reliability: 'confirmed', reporter: 'mossbottom', dateline: '', in_world_date: '', issue_number: null, is_lead: false, corrects_article_id: null,
+  letter_from: '', letter_to: '', letter_signature: '',
 };
 
 export function GazetteEditor() {
@@ -492,6 +591,7 @@ type Loaded = NonNullable<Awaited<ReturnType<typeof getNewsStory>>>;
 function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload: () => void; flash: string | null; setFlash: (m: string | null) => void }) {
   const navigate = useNavigate();
   const others = useLoad(listNews, []);
+  const sched = useLoad(async () => ({ at: e ? (await listScheduled()).get(e.bundle.article.id) ?? null : null, zone: await getCampaignZone() }), [e?.bundle.article.id, e?.bundle.article.version]);
   // A printed story with a waiting revision opens the revision; the printed version stays as it is.
   const rev = e?.pending?.story ?? null;
   const [form, setForm] = useState(() => (rev ? {
@@ -589,13 +689,19 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
             {printed && e.pending && <p className="fine-print gz-revision-note">You are editing a revision ({REVIEW_LABEL[e.pending.review_state].toLowerCase()}). Players still see the printed version.</p>}
           </div>
           <StoryActions id={e.bundle.article.id} state={state} printed={printed} pending={e.pending?.review_state ?? null} busy={busy} act={(_id, a) => void act(a)} />
+          {!printed && state === 'approved' && sched.data && !dirty && (
+            <ScheduleControl id={e.bundle.article.id} version={e.bundle.article.version} scheduledAt={sched.data.at} zone={sched.data.zone} disabled={busy}
+              onDone={(m) => { setFlash(m); reload(); sched.reload(); }} />
+          )}
           {dirty && <p className="fine-print gz-unsaved" role="status"><span className="badge badge-draft">Unsaved changes</span> Save before sending for review, approving or printing.</p>}
         </section>
       )}
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
 
       {preview ? (
-        <StoryView title={form.title} kicker="" deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} heroMediaId={form.heroMediaId} />
+        isLetter(details)
+          ? <LetterView title={form.title} body={[form.summary, form.body].filter(Boolean).join('\n\n')} details={details} heroMediaId={form.heroMediaId} />
+          : <StoryView title={form.title} kicker="" deck={form.subtitle} summary={form.summary} body={form.body} details={details} related={[]} heroMediaId={form.heroMediaId} />
       ) : (
         <form className="form-grid gz-form" onSubmit={save}>
           <label className="span-2">Headline
@@ -607,8 +713,23 @@ function StoryEditor({ e, reload, flash, setFlash }: { e: Loaded | null; reload:
           <label>Section
             <select value={form.details.section} onChange={(ev) => setD({ section: ev.target.value as NewsSection })}>
               {SECTIONS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+              <option value="letters">Letter from Krynn (not a newspaper story)</option>
             </select>
           </label>
+          {isLetter(form.details) && (
+            <>
+              <label>Letter from (sender)
+                <input value={form.details.letter_from ?? ''} maxLength={120} placeholder="e.g. the person writing" onChange={(ev) => setD({ letter_from: ev.target.value })} />
+              </label>
+              <label>Letter to (recipient)
+                <input value={form.details.letter_to ?? ''} maxLength={120} placeholder="e.g. the party" onChange={(ev) => setD({ letter_to: ev.target.value })} />
+              </label>
+              <label className="span-2">Signature (optional)
+                <input value={form.details.letter_signature ?? ''} maxLength={200} onChange={(ev) => setD({ letter_signature: ev.target.value })} />
+                <span className="fine-print">The headline is the subject line; the dateline is the place it was written; the in-world date is its date. Only write what the party could know.</span>
+              </label>
+            </>
+          )}
           <label className="span-2">Deck (the line under the headline)
             <input value={form.subtitle} maxLength={200} onChange={(ev) => set({ subtitle: ev.target.value })} />
           </label>

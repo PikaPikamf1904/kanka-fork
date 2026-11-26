@@ -163,3 +163,29 @@
 
 /* Front page holds the newest stories; older ones are a link away. */
 .gz-more { text-align: center; font-style: italic; margin: 1.5rem 0 0; }
+
+/* ---------- Letters from Krynn ----------
+   Correspondence, not newsprint: one narrow column, generous margins, a handwritten-feeling serif
+   (the Gazette's own heading face), plain ink. No borders, no seals unless the DM supplies a picture. */
+.lt-index { list-style: none; margin: 0.5rem 0 0; padding: 0; max-width: 40rem; }
+.lt-index li { padding: 0.7rem 0; border-bottom: 1px solid color-mix(in srgb, var(--gz-rule) 25%, transparent); display: grid; gap: 0.15rem; }
+.lt-index-title { font-family: var(--gz-head); font-size: 1.25rem; }
+.lt-index-meta { color: var(--gz-ink-soft); font-size: 0.9rem; }
+.gz-letter-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+
+.lt-letter { max-width: 36rem; margin: 1rem auto 2rem; font-family: var(--gz-head); }
+.lt-place-date { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 0 0 1rem; color: var(--gz-ink-soft); font-style: italic; }
+.lt-subject { font-family: var(--gz-head); font-weight: 400; font-size: clamp(1.5rem, 4.5vw, 2rem); line-height: 1.2; margin: 0 0 0.5rem; }
+.lt-route { display: flex; gap: 1.25rem; flex-wrap: wrap; margin: 0 0 1.25rem; color: var(--gz-ink-soft); font-size: 0.95rem; }
+.lt-note { font-size: 0.9rem; color: var(--gz-ink-soft); border-left: 2px solid var(--gz-red); padding-left: 0.6rem; margin: 0 0 1rem; }
+.lt-letter .gz-art { max-width: 11rem; margin: 0 0 1.25rem auto; }
+.lt-body { font-size: 1.15rem; line-height: 1.75; }
+.lt-body p { margin: 0 0 1em; }
+.lt-signature { margin: 1.5rem 0 0; text-align: right; font-style: italic; font-size: 1.15rem; }
+
+/* ---------- Scheduling (DM) ---------- */
+.gz-schedule { display: grid; gap: 0.4rem; margin-top: 0.5rem; }
+.gz-schedule-field { display: grid; gap: 0.15rem; }
+.gz-schedule input[type='datetime-local'] { max-width: 15rem; }
+.gz-scheduled { margin: 0; }
+.gz-tz { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end; }

@@ -47,10 +47,11 @@ const MediaLibrary = lazy(() => import('./pages/dm/MediaLibrary.tsx').then((m) =
 const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
 const ImportBatchesPage = lazy(() => import('./pages/dm/ImportPages.tsx').then((m) => ({ default: m.ImportBatchesPage })));
 const ImportReviewPage = lazy(() => import('./pages/dm/ImportPages.tsx').then((m) => ({ default: m.ImportReviewPage })));
-const gazette = (name: 'GazetteFront' | 'GazetteArchive' | 'GazetteArticle' | 'GazetteDesk' | 'GazetteEditor') =>
+const gazette = (name: 'GazetteFront' | 'GazetteLetters' | 'GazetteArchive' | 'GazetteArticle' | 'GazetteDesk' | 'GazetteEditor') =>
   lazy(() => import('./pages/GazettePages.tsx').then((m) => ({ default: m[name] })));
 const GazetteFront = gazette('GazetteFront');
 const GazetteArchive = gazette('GazetteArchive');
+const GazetteLetters = gazette('GazetteLetters');
 const GazetteArticle = gazette('GazetteArticle');
 const GazetteDesk = gazette('GazetteDesk');
 const GazetteEditor = gazette('GazetteEditor');
@@ -125,6 +126,7 @@ const router = createBrowserRouter([
       { path: '/connections', element: <ConnectionsPage /> },
       { path: '/news', element: page(<GazetteFront />) },
       { path: '/news/archive', element: page(<GazetteArchive />) },
+      { path: '/letters', element: page(<GazetteLetters />) },
       { path: '/news/:slug', element: page(<GazetteArticle />) },
       { path: '/maps', element: page(<MapsPage />) },
       { path: '/maps/:slug', element: page(<MapPage />) },

@@ -8,6 +8,8 @@ import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, t
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
 import { slugify } from './slug.ts';
+import { pickDaily } from './discovery.ts';
+import { safeZone } from './schedule.ts';
 import type { AuditData } from './visibilityAudit.ts';
 import type { OrgRel } from './orgChart.ts';
 import type { GraphInput } from './knowledgeGraph.ts';
@@ -122,15 +124,24 @@ export interface NewsDetails {
   corrects_article_id: string | null;
   review_state: NewsReviewState;
   reviewed_at: string | null;
+  /** Letters from Krynn only (section 'letters'). */
+  letter_from?: string;
+  letter_to?: string;
+  letter_signature?: string;
 }
 export type NewsStory = Article & { news: NewsDetails | null };
 
 const NEWS_SELECT = `${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey(*)`;
 
-/** Newest issue first, then newest printing; one story row per page (PostgREST may return it as a list). */
+/**
+ * Newest printing first; the issue number only breaks ties (stories printed together). A story
+ * scheduled for today must read as the newest even when its issue number is blank. One story row per
+ * page (PostgREST may return it as a list).
+ */
 function newsInOrder(raw: (Article & { news: NewsDetails | NewsDetails[] | null })[]): NewsStory[] {
   const rows: NewsStory[] = raw.map((r) => ({ ...r, news: Array.isArray(r.news) ? r.news[0] ?? null : r.news }));
-  return rows.sort((a, b) => (b.news?.issue_number ?? 0) - (a.news?.issue_number ?? 0) || (b.published_at ?? b.updated_at).localeCompare(a.published_at ?? a.updated_at));
+  const when = (r: NewsStory) => new Date(r.published_at ?? r.updated_at).getTime();
+  return rows.sort((a, b) => when(b) - when(a) || (b.news?.issue_number ?? 0) - (a.news?.issue_number ?? 0));
 }
 
 /** Every story the reader may see: players get published stories only (Row Level Security). */
@@ -144,10 +155,13 @@ export async function listNews(): Promise<NewsStory[]> {
  * front page and the home headline instead of downloading every story.
  */
 export async function listPrintedNews(opts: { section?: NewsSection | null; limit: number }): Promise<NewsStory[]> {
+  // Letters from Krynn have their own page: they are not newspaper stories.
   const select = opts.section ? `${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey!inner(*)` : NEWS_SELECT;
   let q = supabase.from('articles').select(select).eq('type', 'news').eq('status', 'published').eq('visibility', 'players');
+  // (Filtered here rather than in the query, so a database without the 'letters' value still works.)
   if (opts.section) q = q.eq('news.section', opts.section);
-  return newsInOrder(must(await q.order('published_at', { ascending: false, nullsFirst: false }).limit(opts.limit)) as never);
+  const rows = newsInOrder(must(await q.order('published_at', { ascending: false, nullsFirst: false }).limit(opts.limit)) as never);
+  return opts.section ? rows : rows.filter((r) => r.news?.section !== 'letters');
 }
 
 /** The home page's headline: the first story of the front page's order. */
@@ -159,7 +173,19 @@ export async function latestHeadline(): Promise<NewsStory | null> {
 export async function listNewsIndex(): Promise<NewsStory[]> {
   return newsInOrder(must(await supabase.from('articles')
     .select('id, slug, title, status, visibility, published_at, updated_at, news:news_stories!news_stories_article_id_fkey(section, reliability, reporter, issue_number, in_world_date)')
-    .eq('type', 'news').eq('status', 'published').eq('visibility', 'players').limit(2000)) as never);
+    .eq('type', 'news').eq('status', 'published').eq('visibility', 'players').limit(2000)) as never).filter((r) => r.news?.section !== 'letters');
+}
+
+/** Printed Letters from Krynn, newest first (only what this reader may read). */
+export async function listLetters(limit = 100): Promise<NewsStory[]> {
+  // Before the Living World migration the 'letters' value does not exist: there are simply no letters.
+  const res = await supabase.from('articles')
+    .select(`${ARTICLE_COLUMNS}, news:news_stories!news_stories_article_id_fkey!inner(*)`)
+    .eq('type', 'news').eq('status', 'published').eq('visibility', 'players').eq('news.section', 'letters')
+    .order('published_at', { ascending: false, nullsFirst: false }).limit(limit);
+  if (res.error) return [];
+  const rows = res.data as never as (Article & { news: NewsDetails | NewsDetails[] | null })[];
+  return rows.map((r) => ({ ...r, news: Array.isArray(r.news) ? r.news[0] ?? null : r.news }));
 }
 
 /** DM: stories not yet printed to players, with their review state (for the newsroom strip). */
@@ -234,6 +260,71 @@ export async function newsTransition(articleId: string, action: NewsAction, seen
   });
   if (error) throw toChronicleError(error);
   return data as { review_state: NewsReviewState; status: Article['status']; visibility: Article['visibility']; pending: NewsReviewState | null };
+}
+
+// ---------- Scheduled publication (Living World) ----------
+let lastRelease = 0;
+/**
+ * Asks the database to print every approved story or letter whose scheduled time has passed. The
+ * database clock decides; this only prompts it. Throttled, tolerant of a database that does not have
+ * the function yet, and never throws: a failure just means the next visit tries again.
+ */
+export async function releaseDueStories(force = false): Promise<number> {
+  if (!force && Date.now() - lastRelease < 30_000) return 0;
+  lastRelease = Date.now();
+  try {
+    const { data, error } = await supabase.rpc('release_due_stories');
+    return error ? 0 : Number(data ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** DM: the scheduled time of each approved, unprinted story (empty before the migration). */
+export async function listScheduled(): Promise<Map<string, string>> {
+  const { data, error } = await supabase.from('articles').select('id, publish_at').eq('type', 'news').not('publish_at', 'is', null);
+  if (error) return new Map();
+  return new Map((data as { id: string; publish_at: string }[]).map((r) => [r.id, r.publish_at]));
+}
+
+/** DM, website only: schedule (future time) or cancel (null) an approved, unprinted story. */
+export async function scheduleStory(articleId: string, at: Date | null, version?: number): Promise<void> {
+  const { error } = await supabase.rpc('news_schedule', { p_article: articleId, p_at: at ? at.toISOString() : null, p_expected_version: version === undefined ? null : `v${version}` });
+  if (error) throw toChronicleError(error);
+}
+
+/** The campaign's time zone (IANA name); 'UTC' until the DM sets one or before the migration. */
+let zoneCache: Promise<string> | null = null;
+export function getCampaignZone(): Promise<string> {
+  zoneCache ??= (async () => {
+    const { data, error } = await supabase.from('campaign_settings').select('timezone').maybeSingle();
+    return error ? 'UTC' : safeZone((data as { timezone?: string } | null)?.timezone);
+  })();
+  return zoneCache;
+}
+export function clearCampaignZone() { zoneCache = null; }
+/** DM: set the campaign's time zone. */
+export async function setCampaignZone(tz: string) {
+  must(await supabase.from('campaign_settings').update({ timezone: tz }).eq('id', true).select('title'));
+  zoneCache = null;
+}
+
+// ---------- Daily Discovery ----------
+const DISCOVERY_TYPES = ['lore', 'character', 'location', 'faction', 'item', 'quest', 'session', 'event', 'news'] as const;
+
+/**
+ * Today's highlighted page, or null. Only pages players can read (published, for players) count,
+ * even for the DM, so what the DM sees is what players see. Row Level Security still applies.
+ */
+export async function dailyDiscovery(day: string): Promise<{ slug: string; title: string; type: ArticleType; summary: string; hero_media_id: string | null; news: boolean } | null> {
+  const rows = must(await supabase.from('articles')
+    .select('id, news:news_stories!news_stories_article_id_fkey(section)')
+    .eq('status', 'published').eq('visibility', 'players').in('type', DISCOVERY_TYPES as never).limit(3000)) as never as { id: string; news: { section: string } | { section: string }[] | null }[];
+  const ids = rows.filter((r) => { const n = Array.isArray(r.news) ? r.news[0] : r.news; return n?.section !== 'letters'; }).map((r) => r.id);
+  const pick = pickDaily(ids, day);
+  if (!pick) return null;
+  const a = must(await supabase.from('articles').select('slug, title, type, summary, hero_media_id').eq('id', pick).maybeSingle());
+  return a ? { ...(a as { slug: string; title: string; type: ArticleType; summary: string; hero_media_id: string | null }), news: (a as { type: string }).type === 'news' } : null;
 }
 
 export async function listArticles(opts: {

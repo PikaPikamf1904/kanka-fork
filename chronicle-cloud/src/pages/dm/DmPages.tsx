@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { TimezoneField } from './ScheduleControls.tsx';
 import { MysteriesPanel } from './MysteryStudio.tsx';
 import { InvitationsPanel } from './Invitations.tsx';
 import { MaintenanceSwitch } from '../../components/MaintenanceSwitch.tsx';
@@ -10,7 +11,7 @@ import { Markdown } from '../../components/Markdown.tsx';
 import { ImageField } from '../../components/images/ImageField.tsx';
 import { MediaImage } from '../../components/MediaImage.tsx';
 import {
-  createAccessCode, deleteNote, deleteTimelineEvent, getMap, getSettings, listAccessCodes, listAllArticleRefs, listDrafts,
+  createAccessCode, getCampaignZone, deleteNote, deleteTimelineEvent, getMap, getSettings, listAccessCodes, listAllArticleRefs, listDrafts,
   listMaps, listMembers, listNotes, renameMember, revokeAccessCode, revokeAllPlayers, revokeMember, saveMap, saveNote,
   saveTimelineEvent, timeline, updateSettings, uploadMedia,
 } from '../../lib/api.ts';
@@ -413,6 +414,7 @@ export function SettingsPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
       {dirty && <p className="fine-print"><span className="badge badge-draft">Unsaved changes</span></p>}
     </form>
+    <TimezonePanel />
     <MaintenanceSwitch />
     <TwoStepPanel />
     </>
@@ -623,4 +625,11 @@ export function MapEditor() {
       <button type="submit" className="button" disabled={uploading || saving}>{uploading ? 'Uploading picture…' : 'Save map'}</button>
     </form>
   );
+}
+
+function TimezonePanel() {
+  const zone = useLoad(getCampaignZone, []);
+  const [saved, setSaved] = useState<string | null>(null);
+  if (zone.data === undefined) return null;
+  return <TimezoneField key={saved ?? zone.data} zone={saved ?? zone.data} onSaved={setSaved} />;
 }

@@ -1,7 +1,7 @@
 // The Goblin Gazette: fixed, original staff and vocabulary. No campaign content lives here; the
 // stories themselves are pages in the wiki (type 'news') with their newspaper details.
 
-export type NewsSection = 'breaking' | 'war' | 'local' | 'rumors' | 'interviews' | 'corrections';
+export type NewsSection = 'breaking' | 'war' | 'local' | 'rumors' | 'interviews' | 'corrections' | 'letters';
 export type NewsReliability = 'confirmed' | 'rumor' | 'satire' | 'correction';
 export type NewsReviewState = 'draft' | 'in_review' | 'approved';
 
@@ -20,7 +20,9 @@ export const SECTIONS: { key: NewsSection; label: string; short: string }[] = [
   { key: 'interviews', label: 'Interviews', short: 'Interviews' },
   { key: 'corrections', label: 'Corrections', short: 'Corrections' },
 ];
-export const sectionLabel = (s: NewsSection | string | undefined) => SECTIONS.find((x) => x.key === s)?.label ?? 'Local News';
+export const sectionLabel = (s: NewsSection | string | undefined) =>
+  s === 'letters' ? 'Letters from Krynn' : SECTIONS.find((x) => x.key === s)?.label ?? 'Local News';
+export const isLetter = (n: { section?: string } | null | undefined) => n?.section === 'letters';
 
 /** What kind of reporting a story is. Shown to readers on every story. */
 export const RELIABILITY: Record<NewsReliability, { label: string; stamp: string | null; note: string }> = {
