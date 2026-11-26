@@ -4,7 +4,8 @@ import { BannerArt } from '../components/Banner.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { SearchBox } from '../components/SearchBox.tsx';
-import { getSettings, latestDatedSession, latestHeadline, listArticles, listCharacterFacts, listMaps } from '../lib/api.ts';
+import { dailyDiscovery, getCampaignZone, getSettings, latestDatedSession, latestHeadline, listArticles, listCharacterFacts, listLetters, listMaps, releaseDueStories } from '../lib/api.ts';
+import { campaignDay } from '../lib/schedule.ts';
 import { longDate } from '../lib/dates.ts';
 import { GAZETTE, reporter, sectionLabel } from '../lib/gazette.ts';
 import { useIsDm } from '../lib/session.tsx';
@@ -28,7 +29,10 @@ const QUICK: { to: string; label: string; glyph: string }[] = [
 export function HomePage() {
   const isDm = useIsDm();
   const home = useLoad(async () => {
-    const [settings, featured, recent, party, latestSession, quests, maps, headline] = await Promise.all([
+    // Print anything scheduled whose time has come before reading the page (the database clock decides).
+    await releaseDueStories();
+    const zone = await getCampaignZone();
+    const [settings, featured, recent, party, latestSession, quests, maps, headline, letters, discovery] = await Promise.all([
       getSettings(),
       listArticles({ featured: true, order: 'importance', limit: 6 }),
       listArticles({ order: 'updated', limit: 8 }),
@@ -37,9 +41,11 @@ export function HomePage() {
       listArticles({ type: 'quest', order: 'updated', limit: 6 }),
       listMaps(),
       latestHeadline(),
+      listLetters(1),
+      dailyDiscovery(campaignDay(new Date(), zone)),
     ]);
     const facts = await listCharacterFacts(party.map((p) => p.id));
-    return { settings, featured, hasContent: recent.length > 0, recent: recent.filter((a) => a.type !== 'news'), party, facts, latestSession, quests, maps, headline };
+    return { settings, featured, hasContent: recent.length > 0, recent: recent.filter((a) => a.type !== 'news'), party, facts, latestSession, quests, maps, headline, letter: letters[0] ?? null, discovery };
   }, [isDm]);
 
   if (home.error) return <p className="form-error">{home.error}</p>;
@@ -114,7 +120,18 @@ export function HomePage() {
                   <p className="now-big now-headline"><Link to={`/news/${d.headline.slug}`}>{d.headline.title}</Link></p>
                 </>
               ) : <p className="muted">{GAZETTE.tagline} Nothing printed yet.</p>}
+              {d.letter && (
+                <p className="now-letter"><span className="now-kicker">Latest letter</span> <Link to={`/news/${d.letter.slug}`}>{d.letter.title}</Link>{d.letter.news?.letter_from ? <span className="muted"> · from {d.letter.news.letter_from}</span> : null}</p>
+              )}
             </section>
+            {d.discovery && (
+              <section className="now-card now-discovery" aria-labelledby="now-discovery">
+                <h2 id="now-discovery">From the archive today</h2>
+                <p className="now-kicker">{d.discovery.news ? GAZETTE.name : TEMPLATES[d.discovery.type]?.label ?? d.discovery.type}</p>
+                <p className="now-big"><Link to={d.discovery.news ? `/news/${d.discovery.slug}` : `/wiki/${d.discovery.slug}`}>{d.discovery.title}</Link></p>
+                {d.discovery.summary && <p className="now-summary">{plain(d.discovery.summary)}</p>}
+              </section>
+            )}
           </div>
 
           {d.party.length > 0 && (

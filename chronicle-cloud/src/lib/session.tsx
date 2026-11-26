@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { releaseDueStories } from './api.ts';
 import { forgetAccount, rememberAccount, savedAccounts } from './accounts.ts';
 import { clearMediaUrlCache, clearSettingsRequest } from './api.ts';
 import { lockDmGate } from './dmGate.ts';
@@ -52,6 +53,8 @@ async function loadAccess(session: Session | null): Promise<AccessState> {
   }
   // Query builders only run when awaited or then()-ed.
   void supabase.rpc('touch_member').then(() => undefined);
+  // Print any scheduled story or letter whose time has come (the database clock decides).
+  void releaseDueStories(true);
   return { kind: 'member', role: data.role, displayName: data.display_name, userId: session.user.id };
 }
 

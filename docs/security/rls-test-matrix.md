@@ -10,6 +10,9 @@ Legend: ✔ allowed and tested, ✘ refused and tested.
 | Data / action | Anon | Signed-in non-member | Revoked device | Player | DM (no MFA) | DM with MFA, aal1 | DM with MFA, aal2 |
 |---|---|---|---|---|---|---|---|
 | Published player articles | ✘ | ✘ | ✘ | ✔ | ✔ | ✔ | ✔ |
+| Scheduled Gazette story or letter before its time (page, details, text, search, suggestions, links, picture) | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✔ |
+| `release_due_stories()` | ✘ (no execute) | ✘ (prints nothing) | ✘ (prints nothing) | ✔ (only approved, due) | ✔ | — | ✔ |
+| `news_schedule()` | ✘ | ✘ | ✘ | ✘ | ✔ (web only) | ✘ | ✔ (web only) |
 | DM-only / draft articles | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✔ |
 | DM-only / draft sections of a visible article | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✔ |
 | DM-only infobox fields | ✘ | ✘ | ✘ | ✘ | ✔ | — | ✔ |
@@ -119,3 +122,5 @@ results). Paste it into the SQL Editor. Expected values in the error message:
 | `p_media_published_hero` / `p_media_unpublished_hero` | `1` / `0` (needs migration 6) |
 
 Verified on the local stack (all values as above, nothing left behind).
+
+Living World (scheduled Gazette stories, letters): `chronicle-cloud/tests/db/living-world.test.ts`.

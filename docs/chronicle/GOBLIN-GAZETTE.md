@@ -40,6 +40,8 @@ the humor should come from *how* they report, not from a punchline at the end of
      linked pages that players may read appear under *In the Chronicle*.
 3. **Save story.** It is a private draft. **Preview as printed** shows exactly how it will look.
 
+> **Scheduling, Letters from Krynn and the home page's daily items:** see `docs/chronicle/LIVING-WORLD.md`.
+
 ## Review and printing
 
 Every story goes **Draft → In review → Approved → Printed**. The buttons on the story and on the
