@@ -25,6 +25,29 @@ approve can never go out by itself. Taking a story back to draft also clears it.
 (default UTC; use a place name such as `America/Chicago`). "Today" for Daily Discovery changes at midnight in
 the same zone.
 
+### Import a Gazette package (no ChatGPT connection needed)
+
+**DM → News desk → Import Gazette package**, choose the Markdown file. Each story in it starts with a heading and a
+short block of labels; anything before the first story (instructions) is ignored:
+
+```
+## 2026-11-26 05:45 MST — Headline
+*Subtitle*
+**By Gribble Inkfinger, Senior Military Correspondent**
+**Reliability: Rumor**
+**Section: War**            (optional; otherwise choose it on screen)
+…the story, in Markdown…
+---
+```
+
+- The text is kept exactly as written. The byline must match a Gazette staff entry exactly (name and title); otherwise
+  the story is flagged, not guessed. Reliability is Rumor, Satire (shown as Editorial), Confirmed or Correction.
+- `MST` (Arizona) times are read as America/Phoenix, so 05:45 stays 05:45 all year; with no zone label the campaign
+  time zone is used.
+- Headlines already on the desk or in the Gazette, or repeated in the file, are refused before anything is added.
+- Choose a section for each story, then **Add … for approval**. The stories go to **Waiting for your approval**, where you
+  read, approve and schedule them in one step (next section). A date that has passed can be changed to **Print now** there.
+
 ### The faster way: ChatGPT submits, you approve together
 
 1. ChatGPT writes the stories and sends each one, complete and unchanged, with

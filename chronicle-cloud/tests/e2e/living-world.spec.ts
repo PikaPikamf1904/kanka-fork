@@ -49,7 +49,7 @@ test.describe('Living World', () => {
     await expect(player.getByText(headline)).toHaveCount(0);
 
     // ---- time passes (moved on the database, as the clock would): the next visit prints it
-    await db("update public.articles set publish_at = now() - interval '2 minutes' where slug = $1", [slug]);
+    await db("update public.articles set publish_at = now() - interval '1 second' where slug = $1", [slug]);
     await player.goto('/news');
     await expect(player.getByRole('link', { name: headline })).toBeVisible();
     await player.goto(`/news/${slug}`);
