@@ -31,6 +31,7 @@ const COMMANDS: PaletteCommand[] = [
   { id: 'new', label: 'New article', to: '/dm/new', keywords: 'create page write', dmOnly: true },
   { id: 'newsdesk', label: 'News desk', to: '/dm/news', keywords: 'gazette', dmOnly: true },
   { id: 'media', label: 'Media library', to: '/dm/media', keywords: 'pictures photos images', dmOnly: true },
+  { id: 'stl', label: 'STL workshop', to: '/dm/stl', keywords: 'miniature 3d print resin hero forge model', dmOnly: true },
   { id: 'tidy', label: 'Tidy up the wiki', to: '/dm/tidy', keywords: 'broken links stubs', dmOnly: true },
   { id: 'visibility', label: 'What players can see', to: '/dm/visibility', keywords: 'leaks hidden secrets', dmOnly: true },
   { id: 'studio', label: 'Mystery Studio', to: '/dm/mysteries', keywords: 'clues release hints', dmOnly: true },

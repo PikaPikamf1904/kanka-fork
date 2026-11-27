@@ -7,7 +7,9 @@ if (!supabase) throw new Error('VITE_SUPABASE_URL is required to write security 
 const origin = new URL(supabase).origin;
 const csp = [
   "default-src 'self'",
-  "script-src 'self' https://challenges.cloudflare.com",
+  // 'wasm-unsafe-eval' lets the DM's STL Workshop compile its geometry library (WebAssembly, served from
+  // this site). It does NOT allow eval() or new Function() for JavaScript.
+  "script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${origin}`,
   "font-src 'self'",

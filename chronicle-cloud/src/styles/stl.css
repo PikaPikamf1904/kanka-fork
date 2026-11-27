@@ -1,0 +1,27 @@
+/* STL Workshop (DM). Loaded only with the workshop page. */
+.stl-workshop { display: grid; gap: 1rem; max-width: 1200px; }
+.stl-drop { text-align: center; border: 2px dashed var(--line); padding: 1.5rem 1rem; }
+.stl-drop-active { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 8%, var(--surface)); }
+.stl-busy { display: grid; gap: 0.5rem; justify-items: start; }
+.stl-busy progress { width: 100%; height: 0.75rem; }
+.stl-stats { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0.5rem 0; }
+.stl-stats dt { color: var(--muted); }
+.stl-stats dd { margin: 0; }
+.stl-range, .stl-number { display: grid; gap: 0.25rem; max-width: 28rem; margin: 0.5rem 0; }
+.stl-number input { max-width: 7rem; }
+.stl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.6rem 1rem; margin: 0.75rem 0; }
+.stl-grid label { display: grid; gap: 0.2rem; font-size: 0.92rem; }
+.stl-table td, .stl-table th { white-space: nowrap; }
+.stl-note { padding: 0.6rem 0.8rem; border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, transparent); }
+.stl-compare { position: relative; container-type: inline-size; }
+.stl-canvas { height: min(70vh, 34rem); border-radius: var(--radius); overflow: hidden; touch-action: none; background: #1d1a17; }
+.stl-compare-labels { position: absolute; inset: 0.5rem 0.75rem auto; display: flex; z-index: 1; pointer-events: none; color: #f1ead8; font-size: 0.85rem; }
+.stl-compare-labels span { flex: 1; }
+@container (max-width: 639px) {
+  .stl-canvas-pair { height: min(110vh, 44rem); }
+  .stl-compare-labels { flex-direction: column; height: calc(100% - 1rem); }
+}
+.stl-key { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 2px; vertical-align: -1px; margin: 0 0.2rem 0 0.6rem; }
+.stl-key-thin { background: #e0a43a; }
+.stl-key-red { background: #c8463b; }
+.stl-unit { display: flex; align-items: center; gap: 0.4rem; }

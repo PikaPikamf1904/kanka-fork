@@ -245,6 +245,7 @@ export function Layout() {
               <NavLink to="/dm/new">New article</NavLink>
               <NavLink to="/dm/news">News desk</NavLink>
               <NavLink to="/dm/media">Media library</NavLink>
+              <NavLink to="/dm/stl">STL workshop</NavLink>
               <NavLink to="/dm/tidy">Tidy up the wiki</NavLink>
               <NavLink to="/dm/visibility">What players can see</NavLink>
               <NavLink to="/dm/import">Import lore</NavLink>
