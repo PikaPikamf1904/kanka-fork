@@ -14,7 +14,7 @@ import { MarkdownField } from '../components/images/MarkdownField.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { useMediaUrl } from '../components/MediaImage.tsx';
 import {
-  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getCampaignZone, getNewsStory, listLetters, listNews, listNewsIndex, listNewsPending, listNewsProposals, listPrintedNews, listScheduled, listUnprintedNews, newsTransition, releaseDueStories, saveNewsStory, scheduleNewsProposals,
+  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getCampaignZone, getNewsStory, listLetters, listNews, listNewsIndex, importGazetteStories, listGazetteHeadlines, listNewsPending, listNewsProposals, listPrintedNews, listScheduled, listUnprintedNews, newsTransition, releaseDueStories, saveNewsStory, scheduleNewsProposals,
   type NewsAction, type NewsDetails, type NewsDraft, type NewsProposal, type NewsStory,
 } from '../lib/api.ts';
 import { ChronicleError } from '../lib/changeSetTypes.ts';
@@ -29,6 +29,7 @@ import { useUnsavedGuard } from '../lib/useUnsavedGuard.ts';
 import { NotFound } from './NotFound.tsx';
 import { ScheduleControl } from './dm/ScheduleControls.tsx';
 import { formatInZone, utcToZoned, zonedToUtc } from '../lib/schedule.ts';
+import { duplicateHeadlines, parseGazettePackage, type PackageStory } from '../lib/gazettePackage.ts';
 
 /** Plain text from Markdown, for standfirsts and excerpts. */
 function plain(md: string): string {
@@ -424,6 +425,7 @@ export function GazetteDesk() {
     };
   }, []);
   const [notice, setNotice] = useState('');
+  const [proposalsKey, setProposalsKey] = useState(0);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   async function act(id: string, action: NewsAction) {
@@ -456,7 +458,8 @@ export function GazetteDesk() {
       <p className="muted">Every story goes Draft → In review → Approved → Printed (now, or on a date you choose). Players see nothing until it is printed, and taking a story back to draft un-prints it at once. Editing a printed story makes a revision: players keep the printed version until you approve the revision. Assistants can draft stories; only you, here, can approve and print them. See <code>docs/chronicle/GOBLIN-GAZETTE.md</code>.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       {notice && <p className="form-ok" role="status">{notice}</p>}
-      <NewsProposals onDone={(m) => { setNotice(m); news.reload(); }} />
+      <GazetteImport onImported={(m) => { setNotice(m); setProposalsKey((k) => k + 1); }} />
+      <NewsProposals key={proposalsKey} onDone={(m) => { setNotice(m); news.reload(); }} />
       <h2>On the desk</h2>
       {desk.length === 0 ? <p className="muted">Nothing waiting.</p> : <DeskTable stories={desk} busy={busy} act={act} zone={zone} onScheduled={(m) => { setNotice(m); news.reload(); }} />}
       <h2>Scheduled</h2>
@@ -472,6 +475,96 @@ export function GazetteDesk() {
  * Stories an assistant proposed. Accepting saves one as a private draft (it then follows the normal
  * review and printing); dismissing drops it. Assistants can do neither.
  */
+/**
+ * Import a Gazette package (one Markdown file, several complete stories). Stories are checked here, then
+ * added to "Waiting for your approval" exactly as written; reading, approving and scheduling happen there.
+ */
+function GazetteImport({ onImported }: { onImported: (message: string) => void }) {
+  const [file, setFile] = useState<{ name: string; stories: PackageStory[]; notes: string[]; zone: string; dup: Map<number, string> } | null>(null);
+  const [include, setInclude] = useState<Set<number>>(new Set());
+  const [section, setSection] = useState<Record<number, NewsSection | ''>>({});
+  const [open, setOpen] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function read(f: File | undefined) {
+    setError(''); setFile(null);
+    if (!f) return;
+    if (f.size > 1_000_000) { setError('That file is larger than 1 MB.'); return; }
+    try {
+      const [text, zone, existing] = await Promise.all([f.text(), getCampaignZone(), listGazetteHeadlines()]);
+      const parsed = parseGazettePackage(text, zone);
+      const dup = duplicateHeadlines(parsed.stories, existing);
+      setFile({ name: f.name, ...parsed, zone, dup });
+      setInclude(new Set(parsed.stories.filter((s) => s.problems.length === 0 && !dup.has(s.index)).map((s) => s.index)));
+      setSection(Object.fromEntries(parsed.stories.map((s) => [s.index, s.section ?? ''])));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read that file.');
+    }
+  }
+  const chosen = (file?.stories ?? []).filter((s) => include.has(s.index));
+  const missingSection = chosen.filter((s) => !section[s.index]);
+  async function add() {
+    if (!file || busy || chosen.length === 0 || missingSection.length > 0) return;
+    setBusy(true); setError('');
+    try {
+      const n = await importGazetteStories(chosen.map((s) => ({
+        title: s.headline, subtitle: s.subtitle, body: s.body, section: section[s.index] as NewsSection, reliability: s.reliability!, reporter: s.reporter!, suggested_publish_at: s.suggestedAt,
+      })));
+      setFile(null);
+      onImported(`${n} ${n === 1 ? 'story' : 'stories'} added to “Waiting for your approval”. Read them there, then approve and schedule.`);
+    } catch (e) {
+      setError(e instanceof Error ? `Nothing was added. ${e.message}` : 'Nothing was added. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <details className="panel gz-import">
+      <summary><strong>Import Gazette package</strong> <span className="fine-print">— a Markdown file with several finished stories</span></summary>
+      <p className="fine-print">Each story starts with <code>## 2026-11-26 05:45 MST — Headline</code>, then an italic subtitle, <code>**By Name, Title**</code> and <code>**Reliability: Rumor**</code> (optional <code>**Section: War**</code>). Stories are added exactly as written; nothing is published until you approve it below.</p>
+      <label className="gz-import-file">Choose a file
+        <input type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" onChange={(ev) => { const f = ev.target.files?.[0]; ev.target.value = ''; void read(f); }} />
+      </label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {file && (
+        <>
+          {file.notes.map((n) => <p key={n} className="form-error">{n}</p>)}
+          {file.stories.length > 0 && <p className="fine-print">{file.name}: {file.stories.length} {file.stories.length === 1 ? 'story' : 'stories'} found. Times read in {file.zone}.</p>}
+          <ul className="gz-import-list">
+            {file.stories.map((s) => {
+              const blocked = s.problems.length > 0 || file.dup.has(s.index);
+              return (
+                <li key={s.index} className="gz-proposal" data-testid="package-story">
+                  <label className="checkbox"><input type="checkbox" disabled={blocked} checked={include.has(s.index)} aria-label={`Import “${s.headline}”`}
+                    onChange={() => setInclude((c) => { const n = new Set(c); if (n.has(s.index)) n.delete(s.index); else n.add(s.index); return n; })} /> <strong>{s.headline}</strong></label>
+                  {s.subtitle && <p className="fine-print"><em>{s.subtitle}</em></p>}
+                  <p className="fine-print">By {s.byline || '?'}{s.reporter ? '' : ' (not on the staff list)'} · {s.reliability ? RELIABILITY[s.reliability].label : 'no reliability'} · {s.suggestedAt ? formatInZone(s.suggestedAt, file.zone) : 'no time given'}</p>
+                  {s.problems.map((p) => <p key={p} className="form-error">{p}</p>)}
+                  {file.dup.has(s.index) && <p className="form-error">Duplicate: {file.dup.get(s.index)} It will not be imported.</p>}
+                  {!blocked && (
+                    <label>Section
+                      <select value={section[s.index] ?? ''} onChange={(ev) => setSection({ ...section, [s.index]: ev.target.value as NewsSection })}>
+                        <option value="">Choose a section</option>
+                        {SECTIONS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <button type="button" className="button small secondary" aria-expanded={open === s.index} onClick={() => setOpen(open === s.index ? null : s.index)}>{open === s.index ? 'Hide text' : 'Show text'}</button>
+                  {open === s.index && <div className="gz-import-text"><Markdown text={s.body} /></div>}
+                </li>
+              );
+            })}
+          </ul>
+          {chosen.length > 0 && missingSection.length > 0 && <p className="fine-print">Choose a section for {missingSection.length === 1 ? 'one story' : `${missingSection.length} stories`}.</p>}
+          <button type="button" className="button" disabled={busy || chosen.length === 0 || missingSection.length > 0} onClick={() => void add()}>
+            {busy ? 'Adding…' : `Add ${chosen.length} ${chosen.length === 1 ? 'story' : 'stories'} for approval`}
+          </button>
+        </>
+      )}
+    </details>
+  );
+}
+
 function NewsProposals({ onDone }: { onDone: (message: string) => void }) {
   const navigate = useNavigate();
   const proposals = useLoad(async () => ({ list: await listNewsProposals(), zone: await getCampaignZone() }), []);
@@ -539,8 +632,8 @@ function NewsProposals({ onDone }: { onDone: (message: string) => void }) {
   }
   return (
     <section className="panel gz-proposals" id="proposals" aria-labelledby="gz-proposals-title">
-      <h2 id="gz-proposals-title">Proposed by an assistant</h2>
-      <p className="fine-print">Nothing here is a story yet. Read each one, tick the ones you want, and approve them together: they are accepted, approved and scheduled in one step, at the times below ({zone}). Assistants can propose and suggest a time; only you can approve and schedule. Nothing is printed unless you choose to.</p>
+      <h2 id="gz-proposals-title">Waiting for your approval</h2>
+      <p className="fine-print">Stories filed by an assistant or imported from a Gazette package. Nothing here is a story yet. Read each one, tick the ones you want, and approve them together: they are accepted, approved and scheduled in one step, at the times below ({zone}). Assistants can propose and suggest a time; only you can approve and schedule. Nothing is printed unless you choose to.</p>
       {proposals.error && <p className="form-error" role="alert">{proposals.error}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <ul className="gz-proposal-list">
@@ -552,7 +645,7 @@ function NewsProposals({ onDone }: { onDone: (message: string) => void }) {
               <div className="gz-proposal-head">
                 <label className="checkbox"><input type="checkbox" checked={isChosen} onChange={() => toggle(p.id)} aria-label={`Choose “${p.title}”`} /> <strong>{p.title}</strong></label>{' '}
                 <Stamp reliability={p.reliability} />
-                <span className="muted fine-print"> · {sectionLabel(p.section)} · {reporter(p.reporter).name}, {reporter(p.reporter).title} · filed {new Date(p.created_at).toLocaleDateString()} by an assistant ({p.created_via})</span>
+                <span className="muted fine-print"> · {sectionLabel(p.section)} · {reporter(p.reporter).name}, {reporter(p.reporter).title} · {p.created_via === 'web' ? `imported by the DM ${new Date(p.created_at).toLocaleDateString()}` : `filed ${new Date(p.created_at).toLocaleDateString()} by an assistant (${p.created_via})`}</span>
               </div>
               <p className="fine-print">
                 {p.suggested_publish_at ? <>Suggested time: <strong>{formatInZone(p.suggested_publish_at, zone)}</strong>{suggestedPast && <span className="gz-late"> · this time has passed</span>}</> : 'No time suggested.'}

@@ -245,6 +245,26 @@ export async function listNewsProposals(): Promise<NewsProposal[]> {
   if (error) return error.code === '42P01' || error.code === 'PGRST205' ? [] : Promise.reject(new Error(error.message));
   return (data as unknown as NewsProposal[]).map((p) => ({ ...p, suggested_publish_at: p.suggested_publish_at ?? null }));
 }
+/** Every headline already on the news desk (waiting proposals) or in the Gazette, for duplicate checks (DM). */
+export async function listGazetteHeadlines(): Promise<string[]> {
+  const [props, arts] = await Promise.all([
+    supabase.from('news_proposals').select('title').eq('status', 'pending').limit(200),
+    supabase.from('articles').select('title').eq('type', 'news').limit(2000),
+  ]);
+  return [...((props.data ?? []) as { title: string }[]), ...(must(arts) as { title: string }[])].map((r) => r.title);
+}
+export interface ImportedStory {
+  title: string; subtitle: string; body: string; section: NewsSection; reliability: NewsReliability; reporter: string; suggested_publish_at: string | null;
+}
+/**
+ * The DM imports stories from a Gazette package: they become waiting proposals (one statement, all or
+ * nothing), then go through the same read, approve and schedule step as an assistant's. Nothing is
+ * published here. Only the DM can insert proposals (Row Level Security).
+ */
+export async function importGazetteStories(stories: ImportedStory[]): Promise<number> {
+  const rows = must(await supabase.from('news_proposals').insert(stories.map((s) => ({ ...s, summary: '', dateline: '', in_world_date: '' }))).select('id')) as { id: string }[];
+  return rows.length;
+}
 export interface ProposalDecision { id: string; at: string | null; print_now: boolean }
 /**
  * The DM, on the website: accept, approve and schedule (or print) the chosen proposals in one step. All
