@@ -189,3 +189,10 @@
 .gz-schedule input[type='datetime-local'] { max-width: 15rem; }
 .gz-scheduled { margin: 0; }
 .gz-tz { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end; }
+
+/* ---------- Batch approval of assistant proposals (DM) ---------- */
+.gz-proposal-plan { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: flex-end; margin: 0.5rem 0; }
+.gz-batch { position: sticky; bottom: 0; display: grid; gap: 0.5rem; margin-top: 1rem; padding: 0.75rem 0; background: var(--gz-paper); border-top: 1px solid color-mix(in srgb, var(--gz-rule) 40%, transparent); }
+.gz-batch p { margin: 0; }
+
+.gz-late { color: var(--gz-red); font-weight: 700; }

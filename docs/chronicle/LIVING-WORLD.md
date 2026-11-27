@@ -25,8 +25,33 @@ approve can never go out by itself. Taking a story back to draft also clears it.
 (default UTC; use a place name such as `America/Chicago`). "Today" for Daily Discovery changes at midnight in
 the same zone.
 
-There is no bulk import. Pasting seven stories into the editor is a few minutes of work and keeps each
-one under your review. (A batch importer was considered and left out to avoid a second publishing path.)
+### The faster way: ChatGPT submits, you approve together
+
+1. ChatGPT writes the stories and sends each one, complete and unchanged, with
+   `chronicle_draft_gazette_story` (headline, deck, opening, body, section, reporter, kind of reporting,
+   and `suggested_publish_at`, for example `2026-12-01T05:45:00-07:00`). The tool refuses a headline that is
+   already on the desk or in the Gazette. It cannot approve, schedule or print anything.
+2. **DM → News desk → Proposed by an assistant.** Every proposal shows who filed it, its suggested time in the
+   campaign time zone, and a **Read the whole story** button.
+3. Tick the stories you want (or **Choose all**), and read each one. The approve button stays off until every
+   chosen story has been read and you tick *I have read these stories in full and approve them*.
+4. For each story choose **Schedule for the time below** (the suggestion, which you can change), **Print now**, or
+   **Approve only**. A suggested time that has already passed is never used silently: it defaults to
+   *Approve only*, and you pick a new time or Print now.
+5. **Accept, approve and schedule** does it all in one step, or nothing at all if any story fails (a duplicate
+   headline, a time already past). It runs the same accept, approve and schedule steps as doing it by hand,
+   each of which only works for the DM on the website.
+
+Audit trail: the proposal records which assistant connection filed it (`created_via`), the account it acted for,
+the DM who decided and when (`decided_by`, `decided_at`), and the story it became; the story records its approval
+time. There is no new table.
+
+Bylines: Gribble Inkfinger, Snikkit Bellbottom and Professor Bogwart are in the roster, with one key per distinct
+byline title (for example `gribble-senior-investigative`), so each story prints exactly the byline it was written with.
+The tool's description lists every key.
+
+For a week of stories already written, paste `docs/chronicle/templates/chatgpt-submit-gazette-package.md` and the
+package into ChatGPT.
 
 ## What players see
 
@@ -76,3 +101,9 @@ one under your review. (A batch importer was considered and left out to avoid a 
 Apply `20261126000100_living_world.sql` to the hosted project **before** deploying the website build, in the
 usual way (SQL editor, or `supabase db push`). It only adds columns, one enum value and two functions. The
 website tolerates the migration being missing (scheduling controls will not work, the rest of the site does).
+
+## Applying the batch migration (owner step)
+
+`20261127000100_gazette_batch_proposals.sql` adds two columns to `news_proposals` (`suggested_publish_at`, `decided_by`),
+replaces one trigger function, and adds `schedule_news_proposals`. Apply it before deploying the website that contains
+the batch panel (the site tolerates it being missing: the panel then simply has no suggested times). Rollback is in its header.

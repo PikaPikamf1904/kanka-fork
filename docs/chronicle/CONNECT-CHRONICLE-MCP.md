@@ -1,6 +1,20 @@
 # Connecting an assistant to Chronicle (MCP)
 
-**Status (2026-11-11): deployed, not yet connected.**
+**Status (2026-11-27): Worker 0.4.0 deployed.**
+
+- **What was wrong:** the live Worker was still the build deployed on 2026-11-11 (version 0.2.0, Cloudflare version `bc8e2fe5`,
+  19 tools). Everything added since (the Gazette, journal, import and campaign tools, 29 in all, and clearer error
+  reporting) existed only in the repository. That is why ChatGPT saw 19 tools and no `chronicle_draft_gazette_story`.
+  Deploys of this Worker are manual (`npx wrangler deploy` from `chronicle-cloud/mcp/`) and nothing reminded anyone to run one.
+- **After every change under `chronicle-cloud/mcp/` or `chronicle-cloud/src/lib/gazette.ts`, redeploy the Worker**, then check
+  `GET /health` shows the new version.
+- **Reconnecting ChatGPT:** ChatGPT keeps its own copy of the tool list. After a Worker deploy, open the Chronicle connection in
+  ChatGPT's settings and use its refresh / reconnect option; if the tool list does not change, remove the connection and add it
+  again (steps 6 and 7 below), then start a new chat. Menu names change; the end result to look for is a list that includes
+  `chronicle_draft_gazette_story`.
+- **Reading the Worker's logs:** every request is logged in Cloudflare (Workers & Pages → chronicle-mcp → Logs).
+
+**Earlier status (2026-11-11): deployed, not yet connected.**
 - The Worker is live at the endpoint below.
 - Hosted migrations `…0900` and `…1000` are applied.
 - Supabase's OAuth server is on, with authorization path `/dm/connect` and Site URL `https://chronicle-wiki-preview.pages.dev`.

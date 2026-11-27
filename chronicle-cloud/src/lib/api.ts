@@ -232,12 +232,28 @@ export async function saveNewsStory(draft: NewsDraft, expectedVersion?: string):
 export interface NewsProposal {
   id: string; title: string; subtitle: string; summary: string; body: string; section: NewsSection; reliability: NewsReliability; reporter: string;
   dateline: string; in_world_date: string; based_on: string[]; warnings: string[]; created_at: string; created_via: string;
+  /** When the assistant suggested it should appear. Only a suggestion: the DM decides. */
+  suggested_publish_at: string | null;
 }
+const PROPOSAL_COLUMNS = 'id, title, subtitle, summary, body, section, reliability, reporter, dateline, in_world_date, based_on, warnings, created_at, created_via';
 export async function listNewsProposals(): Promise<NewsProposal[]> {
-  const { data, error } = await supabase.from('news_proposals').select('id, title, subtitle, summary, body, section, reliability, reporter, dateline, in_world_date, based_on, warnings, created_at, created_via').eq('status', 'pending').order('created_at', { ascending: false }).limit(50);
+  const ask = (cols: string) => supabase.from('news_proposals').select(cols).eq('status', 'pending').order('created_at', { ascending: true }).limit(50);
+  let { data, error } = await ask(`${PROPOSAL_COLUMNS}, suggested_publish_at`);
+  // Before migration 20261127000100 there is no suggested time: read the rest.
+  if (error && (error.code === '42703' || error.code === 'PGRST204')) ({ data, error } = await ask(PROPOSAL_COLUMNS));
   // Before migration 20261116000200 the table does not exist: there are simply no proposals.
   if (error) return error.code === '42P01' || error.code === 'PGRST205' ? [] : Promise.reject(new Error(error.message));
-  return data as NewsProposal[];
+  return (data as unknown as NewsProposal[]).map((p) => ({ ...p, suggested_publish_at: p.suggested_publish_at ?? null }));
+}
+export interface ProposalDecision { id: string; at: string | null; print_now: boolean }
+/**
+ * The DM, on the website: accept, approve and schedule (or print) the chosen proposals in one step. All
+ * or nothing. Each step is the existing DM-only function; nothing here can run for an assistant.
+ */
+export async function scheduleNewsProposals(items: ProposalDecision[]): Promise<{ proposal_id: string; slug: string; state: 'scheduled' | 'printed' | 'approved'; publish_at: string | null }[]> {
+  const { data, error } = await supabase.rpc('schedule_news_proposals', { p_items: items });
+  if (error) throw toChronicleError(error);
+  return data as never;
 }
 export async function acceptNewsProposal(id: string): Promise<{ id: string; slug: string }> {
   const { data, error } = await supabase.rpc('accept_news_proposal', { p_id: id });

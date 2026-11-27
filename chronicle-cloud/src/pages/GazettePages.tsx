@@ -14,8 +14,8 @@ import { MarkdownField } from '../components/images/MarkdownField.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { useMediaUrl } from '../components/MediaImage.tsx';
 import {
-  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getCampaignZone, getNewsStory, listLetters, listNews, listNewsIndex, listNewsPending, listNewsProposals, listPrintedNews, listScheduled, listUnprintedNews, newsTransition, releaseDueStories, saveNewsStory,
-  type NewsAction, type NewsDetails, type NewsDraft, type NewsStory,
+  acceptNewsProposal, articlesBySlugs, dismissNewsProposal, getCampaignZone, getNewsStory, listLetters, listNews, listNewsIndex, listNewsPending, listNewsProposals, listPrintedNews, listScheduled, listUnprintedNews, newsTransition, releaseDueStories, saveNewsStory, scheduleNewsProposals,
+  type NewsAction, type NewsDetails, type NewsDraft, type NewsProposal, type NewsStory,
 } from '../lib/api.ts';
 import { ChronicleError } from '../lib/changeSetTypes.ts';
 import { longDate } from '../lib/dates.ts';
@@ -28,7 +28,7 @@ import { useLoad } from '../lib/useLoad.ts';
 import { useUnsavedGuard } from '../lib/useUnsavedGuard.ts';
 import { NotFound } from './NotFound.tsx';
 import { ScheduleControl } from './dm/ScheduleControls.tsx';
-import { formatInZone } from '../lib/schedule.ts';
+import { formatInZone, utcToZoned, zonedToUtc } from '../lib/schedule.ts';
 
 /** Plain text from Markdown, for standfirsts and excerpts. */
 function plain(md: string): string {
@@ -456,7 +456,7 @@ export function GazetteDesk() {
       <p className="muted">Every story goes Draft → In review → Approved → Printed (now, or on a date you choose). Players see nothing until it is printed, and taking a story back to draft un-prints it at once. Editing a printed story makes a revision: players keep the printed version until you approve the revision. Assistants can draft stories; only you, here, can approve and print them. See <code>docs/chronicle/GOBLIN-GAZETTE.md</code>.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       {notice && <p className="form-ok" role="status">{notice}</p>}
-      <NewsProposals />
+      <NewsProposals onDone={(m) => { setNotice(m); news.reload(); }} />
       <h2>On the desk</h2>
       {desk.length === 0 ? <p className="muted">Nothing waiting.</p> : <DeskTable stories={desk} busy={busy} act={act} zone={zone} onScheduled={(m) => { setNotice(m); news.reload(); }} />}
       <h2>Scheduled</h2>
@@ -472,14 +472,34 @@ export function GazetteDesk() {
  * Stories an assistant proposed. Accepting saves one as a private draft (it then follows the normal
  * review and printing); dismissing drops it. Assistants can do neither.
  */
-function NewsProposals() {
+function NewsProposals({ onDone }: { onDone: (message: string) => void }) {
   const navigate = useNavigate();
-  const proposals = useLoad(listNewsProposals, []);
+  const proposals = useLoad(async () => ({ list: await listNewsProposals(), zone: await getCampaignZone() }), []);
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const pending = proposals.data ?? [];
+  // The batch: which proposals are chosen, how each one is handled, and what the DM has read.
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [read, setRead] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<Record<string, 'schedule' | 'print' | 'hold'>>({});
+  const [when, setWhen] = useState<Record<string, string>>({});
+  const [confirmed, setConfirmed] = useState(false);
+  // When the panel was loaded; the click re-checks the real time, and the database refuses a past time anyway.
+  const [now] = useState(() => Date.now());
+  const zone = proposals.data?.zone ?? 'UTC';
+  const pending = proposals.data?.list ?? [];
   if (!proposals.loading && pending.length === 0 && !proposals.error) return null;
+  // A suggestion in the future is the default; one that has passed is never used silently.
+  const modeOf = (p: NewsProposal) => mode[p.id] ?? (p.suggested_publish_at && new Date(p.suggested_publish_at).getTime() > now ? 'schedule' : 'hold');
+  const whenOf = (p: NewsProposal) => when[p.id] ?? (p.suggested_publish_at ? utcToZoned(p.suggested_publish_at, zone) : '');
+  const picked = pending.filter((p) => chosen.has(p.id));
+  const unread = picked.filter((p) => !read.has(p.id));
+  const instants = new Map(picked.map((p) => [p.id, modeOf(p) === 'schedule' ? zonedToUtc(whenOf(p), zone) : null]));
+  const badTime = picked.filter((p) => modeOf(p) === 'schedule' && !(instants.get(p.id)!.getTime() > now));
+  const ready = picked.length > 0 && unread.length === 0 && badTime.length === 0 && confirmed;
+  const toggle = (id: string) => { setConfirmed(false); setChosen((c) => { const n = new Set(c); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
+  const openStory = (id: string) => { setOpen(open === id ? null : id); setRead((r) => new Set(r).add(id)); };
+
   async function decide(id: string, accept: boolean) {
     setBusy(id); setError('');
     try {
@@ -497,33 +517,94 @@ function NewsProposals() {
       setBusy('');
     }
   }
+  async function approveBatch() {
+    if (!ready || busy) return;
+    if (picked.some((p) => modeOf(p) === 'schedule' && !(instants.get(p.id)!.getTime() > Date.now()))) { setError('A chosen time has passed. Choose a new time, or print it now.'); return; }
+    const printNow = picked.filter((p) => modeOf(p) === 'print');
+    if (printNow.length > 0 && !window.confirm(`Print ${printNow.length} ${printNow.length === 1 ? 'story' : 'stories'} for players right now? They will be visible at once.`)) return;
+    setBusy('batch'); setError('');
+    try {
+      const done = await scheduleNewsProposals(picked.map((p) => ({
+        id: p.id, at: modeOf(p) === 'schedule' ? instants.get(p.id)!.toISOString() : null, print_now: modeOf(p) === 'print',
+      })));
+      const n = (state: string) => done.filter((d) => d.state === state).length;
+      setChosen(new Set()); setRead(new Set()); setConfirmed(false);
+      proposals.reload();
+      onDone(`Approved ${done.length}: ${n('scheduled')} scheduled, ${n('printed')} printed now, ${n('approved')} approved and waiting. Players see nothing until a story’s time comes.`);
+    } catch (e) {
+      setError(e instanceof Error ? `Nothing was changed. ${e.message}` : 'Nothing was changed. Try again.');
+    } finally {
+      setBusy('');
+    }
+  }
   return (
     <section className="panel gz-proposals" id="proposals" aria-labelledby="gz-proposals-title">
       <h2 id="gz-proposals-title">Proposed by an assistant</h2>
-      <p className="fine-print">Nothing here is saved as a story yet. <strong>Accept</strong> saves it as a private draft you can edit; you still send it for review and print it yourself.</p>
+      <p className="fine-print">Nothing here is a story yet. Read each one, tick the ones you want, and approve them together: they are accepted, approved and scheduled in one step, at the times below ({zone}). Assistants can propose and suggest a time; only you can approve and schedule. Nothing is printed unless you choose to.</p>
       {proposals.error && <p className="form-error" role="alert">{proposals.error}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <ul className="gz-proposal-list">
-        {pending.map((p) => (
-          <li key={p.id} className="gz-proposal" data-testid="news-proposal">
-            <div className="gz-proposal-head">
-              <strong>{p.title}</strong> <Stamp reliability={p.reliability} />
-              <span className="muted fine-print"> · {sectionLabel(p.section)} · {reporter(p.reporter).name} · {new Date(p.created_at).toLocaleDateString()}</span>
-            </div>
-            {p.warnings.length > 0 && <ul className="fine-print form-error">{p.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
-            {p.based_on.length > 0 && <p className="fine-print">Based on: {p.based_on.map((slug, i) => <span key={slug}>{i > 0 && ', '}<Link to={`/wiki/${slug}`}>{slug}</Link></span>)}</p>}
-            {open === p.id && (
-              <StoryView title={p.title} kicker="" deck={p.subtitle} summary={p.summary} body={p.body} related={[]} heroMediaId={null}
-                details={{ section: p.section, reliability: p.reliability, reporter: p.reporter, dateline: p.dateline, in_world_date: p.in_world_date, issue_number: null, is_lead: false, corrects_article_id: null, review_state: 'draft', reviewed_at: null }} />
-            )}
-            <div className="row-wrap">
-              <button type="button" className="button small secondary" aria-expanded={open === p.id} onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? 'Hide' : 'Read it'}</button>
-              <button type="button" className="button small" disabled={busy !== ''} onClick={() => void decide(p.id, true)}>{busy === p.id ? 'Saving…' : 'Accept as a private draft'}</button>
-              <button type="button" className="button small secondary" disabled={busy !== ''} onClick={() => void decide(p.id, false)}>Dismiss</button>
-            </div>
-          </li>
-        ))}
+        {pending.map((p) => {
+          const isChosen = chosen.has(p.id);
+          const suggestedPast = p.suggested_publish_at !== null && new Date(p.suggested_publish_at).getTime() <= now;
+          return (
+            <li key={p.id} className="gz-proposal" data-testid="news-proposal">
+              <div className="gz-proposal-head">
+                <label className="checkbox"><input type="checkbox" checked={isChosen} onChange={() => toggle(p.id)} aria-label={`Choose “${p.title}”`} /> <strong>{p.title}</strong></label>{' '}
+                <Stamp reliability={p.reliability} />
+                <span className="muted fine-print"> · {sectionLabel(p.section)} · {reporter(p.reporter).name}, {reporter(p.reporter).title} · filed {new Date(p.created_at).toLocaleDateString()} by an assistant ({p.created_via})</span>
+              </div>
+              <p className="fine-print">
+                {p.suggested_publish_at ? <>Suggested time: <strong>{formatInZone(p.suggested_publish_at, zone)}</strong>{suggestedPast && <span className="gz-late"> · this time has passed</span>}</> : 'No time suggested.'}
+                {' '}{read.has(p.id) ? '· Read.' : '· Not read yet.'}
+              </p>
+              {p.warnings.length > 0 && <ul className="fine-print form-error">{p.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
+              {p.based_on.length > 0 && <p className="fine-print">Based on: {p.based_on.map((slug, i) => <span key={slug}>{i > 0 && ', '}<Link to={`/wiki/${slug}`}>{slug}</Link></span>)}</p>}
+              {open === p.id && (
+                <StoryView title={p.title} kicker="" deck={p.subtitle} summary={p.summary} body={p.body} related={[]} heroMediaId={null}
+                  details={{ section: p.section, reliability: p.reliability, reporter: p.reporter, dateline: p.dateline, in_world_date: p.in_world_date, issue_number: null, is_lead: false, corrects_article_id: null, review_state: 'draft', reviewed_at: null }} />
+              )}
+              {isChosen && (
+                <div className="gz-proposal-plan">
+                  <label>What happens
+                    <select value={modeOf(p)} onChange={(ev) => { setConfirmed(false); setMode({ ...mode, [p.id]: ev.target.value as 'schedule' | 'print' | 'hold' }); }}>
+                      <option value="schedule">Schedule for the time below</option>
+                      <option value="print">Print now (players see it at once)</option>
+                      <option value="hold">Approve only (no time yet)</option>
+                    </select>
+                  </label>
+                  {modeOf(p) === 'schedule' && (
+                    <label>Release on ({zone})
+                      <input type="datetime-local" step={300} value={whenOf(p)} onChange={(ev) => { setConfirmed(false); setWhen({ ...when, [p.id]: ev.target.value }); }} />
+                    </label>
+                  )}
+                  {badTime.includes(p) && <p className="form-error" role="alert">Choose a time in the future, or print it now.</p>}
+                  {suggestedPast && modeOf(p) !== 'print' && <p className="fine-print">The suggested time has passed. Pick a new time, or choose Print now.</p>}
+                </div>
+              )}
+              <div className="row-wrap">
+                <button type="button" className="button small secondary" aria-expanded={open === p.id} onClick={() => openStory(p.id)}>{open === p.id ? 'Hide' : 'Read the whole story'}</button>
+                <button type="button" className="button small secondary" disabled={busy !== ''} onClick={() => void decide(p.id, true)}>{busy === p.id ? 'Saving…' : 'Accept as a draft only'}</button>
+                <button type="button" className="button small secondary" disabled={busy !== ''} onClick={() => void decide(p.id, false)}>Dismiss</button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
+      <div className="gz-batch" role="group" aria-label="Approve the chosen stories">
+        <p>
+          <strong>{picked.length}</strong> chosen
+          {pending.length > 1 && <> · <button type="button" className="link-button" onClick={() => { setConfirmed(false); setChosen(new Set(pending.map((x) => x.id))); }}>Choose all</button> · <button type="button" className="link-button" onClick={() => { setConfirmed(false); setChosen(new Set()); }}>Clear</button></>}
+        </p>
+        {unread.length > 0 && <p className="fine-print">Read every chosen story first (“Read the whole story”): {unread.length} not read yet.</p>}
+        <label className="checkbox">
+          <input type="checkbox" checked={confirmed} disabled={picked.length === 0 || unread.length > 0} onChange={(ev) => setConfirmed(ev.target.checked)} />
+          {' '}I have read {picked.length === 1 ? 'this story' : `these ${picked.length} stories`} in full and approve {picked.length === 1 ? 'it' : 'them'} for the Gazette.
+        </label>
+        <button type="button" className="button" disabled={!ready || busy !== ''} onClick={() => void approveBatch()}>
+          {busy === 'batch' ? 'Approving…' : `Accept, approve and schedule ${picked.length || ''}`.trim()}
+        </button>
+      </div>
     </section>
   );
 }
