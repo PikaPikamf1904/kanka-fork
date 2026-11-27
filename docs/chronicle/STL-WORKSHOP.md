@@ -46,17 +46,21 @@ own faceting explains (see **Checks**), and a fine part's limit stayed small.
 
 | | Original (repaired) | Optimised |
 |---|---|---|
-| Triangles | 84,540 | 531,970 |
-| Faceting on curves, worst / 95 % of edges | 129 µm / 18.7 µm | 31 µm / 3.1 µm |
+| Triangles | 84,540 | 648,649 |
+| Faceting on curves, worst / 95 % of edges | 129 µm / 18.7 µm | 25 µm / 2.4 µm |
 | Original vertices moved | — | 0 µm |
-| Surface moved, max / mean | — | 122 µm / 7.8 µm |
-| Volume | — | +0.81 % |
+| Surface moved, max / mean | — | 121 µm / 7.8 µm |
+| Volume | — | +0.84 % |
 | Size (mm) | 27.276 × 29.394 × 44.158 | 27.279 × 29.394 × 44.210 |
+| Zero-area triangles | 0 | 0 |
 | Parts refined / already smooth / kept | — | 34 / 158 / 0 |
-| Methods chosen | — | curved PN on 33 parts, the gentler PN on 1; manifold-3d was tried on every closed part and refused or not chosen by the checks |
-| Time (read to verified file) | | 5.4–7.7 s |
+| Methods chosen | — | curved PN on all 34; manifold-3d was tried on every closed part and refused by the checks (below) |
+| Time (read to sliced, verified file) | | 6.8–8.3 s |
 
-The surface moved most (122 µm) on the coarsest accessories, which is what rounding out their 129 µm
+The first released version reached 31 µm / 3.1 µm: its gap check refused curved PN on the body (see
+**Corrections**), so the body fell back to the gentler setting.
+
+The surface moved most (121 µm) on the coarsest accessories, which is what rounding out their 129 µm
 facets requires. Volume rises slightly because flat facets lie inside convex curves. After writing, the
 file reads back as 191 parts rather than 192. Two overlapping accessories gained points within 0.06 µm of
 each other, which the STL's 32-bit coordinates make identical. The shape is the same; only the count of
@@ -77,11 +81,29 @@ subdivision cannot fake; much of it is the figure's fine sculpted detail, which 
 | Hybrid: midpoint + selective smoothing | 338,160 | 50 / 5.4 | 1623 | 175 | 133 | −0.51 % |
 | manifold-3d (closed parts only) | 290,568 | 77 / 5.4 | 1827 | 0 | 474 ‡ | +0.75 % |
 | Curved PN, unguarded | 648,649 | 25 / 2.4 | 1479 | 0 | 121 | +0.84 % |
-| **Automatic pipeline (chosen)** | 531,970 | 31 / 3.1 | 1533 | **0** | 116 | +0.81 % |
+| **Automatic pipeline (chosen)** | 648,649 | 25 / 2.4 | not re-measured § | **0** | 121 | +0.84 % |
 
 † Midpoint subdivision changes nothing (0 µm moved, same energy); its lower faceting figure is an artefact
-of measuring on smaller triangles. ‡ manifold-3d's result has 68,469 sharp edges where splitting alone gives
-about 21,500 (midpoint row): it creates new creases on these export meshes, which the checks refuse.
+of measuring on smaller triangles. ‡ manifold-3d's output on these parts contains thousands of zero-area
+triangles (7,242 on one part; the input has none), and on most parts it moves the surface further than the
+part's facets explain (up to 332 µm against a 249 µm limit). § Same triangle count as the curved PN row;
+the pipeline now gives every faceted part curved PN, so the two are expected to match.
+
+### Corrections to the first released version
+
+- It said manifold-3d "creates new sharp edges" on this file. That was a measurement error: the sharp-edge
+  measure gave each zero-area triangle a 90° angle. Zero-area faces are now skipped by that measure. The
+  real reasons manifold-3d is refused here are the zero-area triangles themselves (a broken triangle in
+  the printed file) and its movement.
+- Its gap check required the open-edge length of an open part to stay exactly the same. On the body,
+  curved PN placed new points exactly on top of a neighbouring sheet's edge (a T-junction in the export);
+  they were merged, so 0.34 mm of open edge became joined (non-manifold) edge. Nothing moved. The check now
+  refuses only a growth of open-edge length, which is what an opened gap looks like.
+- Tested and rejected for more smoothing: relaxing only the new points between patches (original vertices,
+  creases and open edges pinned). It improved the true sphere (15 → 6 µm at 20 rounds), but made the
+  cylinder worse (7.9 → 10.1 µm) and did not lower this file's worst facet, so it is not used. The
+  remaining 25 µm is the small kink where curved PN patches meet (they share their edges but not their
+  tangent there). It is under one 34 µm pixel, and 95 % of edges are under 2.4 µm.
 
 What it says: the smoothing filters (Taubin, HC, bilateral, selective) lower the energy only by moving
 original vertices by a third of a millimetre, which blurs exactly the detail that matters (faces, fingers,
@@ -251,15 +273,60 @@ vertices; learned "upscaling" invents detail that is not in the design.
    - no original vertex moved by more than 5 µm
    - surface movement, both ways, at most 1.25 × the part's largest face sagitta + 10 µm (cubic patches
      may bulge slightly past a circular arc; more is an artefact)
-   - closed parts stay closed; on open parts the total length of open edges is unchanged (no gap opened
-     or closed)
-   - no new sharp edges (total crease length may not grow by more than 5 %)
+   - closed parts stay closed; on open parts the total length of open edges may not grow (no gap opened;
+     it may fall when new points merge with an exactly coincident neighbouring edge)
+   - no new zero-area (broken) triangles
+   - no new sharp edges (total crease length may not grow by more than 5 %; zero-area faces are not counted)
    - a closed part's volume changes only as much as its measured surface movement explains
    - size grows only by the curvature gained
    - finite coordinates, triangle budget
 6. **Fragile check**: walls thinner than 0.5 mm are shown amber; thinner than one pixel (34 µm) red.
 7. **Write** a binary STL in millimetres, re-read and re-analyse it, and only then offer the download.
    If nothing improved, the download is the original geometry with only the safe repairs.
+8. **Print check** (`src/lib/stl/slice.ts`), on the written file and on the repaired original, at the same
+   240 planes through the model's height:
+   - It cuts each plane like a resin slicer and chains the cuts into outlines.
+   - An outline that does not close has loose ends. A loose end is fine when it is inside another solid
+     part (by winding number, so overlapping parts and holes are handled) or within one 34 µm pixel of
+     other surface.
+   - Otherwise it is an exposed gap, reported with its width and height, and compared with the upload.
+   - The result page also shows the build-volume fit and walls thinner than one pixel.
+   - These are checks, not a guarantee of a successful print.
+
+## Print check on the Hero Forge file
+
+Hero Forge exports the body as an open surface. It is open where clothing or armour covers it, and has
+1,116 non-manifold edges. About 150 tiny 1–3 triangle fragments are also open; every other part is closed.
+
+| | Original (repaired) | Optimised |
+|---|---|---|
+| Layers with an open outline (240 sampled) | 175 | 175 |
+| Exposed gaps, 240 sampled layers | 65 in 27 layers | 72 in 30 layers |
+| Exposed gaps, every 50 µm layer (884) | 225 in 107 layers | 230 in 113 layers |
+| Median / widest gap (50 µm layers) | 49 / 269 µm | 47 / 269 µm |
+| Where | body 223, fragments 2 | body 227, fragments 3 |
+
+- **Nearly every open outline closes properly.** Its ends are buried inside the clothing or armour, or
+  within a pixel of it.
+- **The exposed ends are hairline gaps** of 1–8 pixels, where the body's open rim meets the clothing.
+  They are the same gaps in both files. 194 of them sit at the same points (open edges never move), and
+  their width changed by a median of −1.6 µm (between −180 and +32 µm). The smoothing nudges a few across
+  the one-pixel line in each direction.
+- **A slicer's repair option** can close gaps this narrow; check its layer preview around the reported
+  height.
+
+Walls, measured at the same 60,000 points on the original surface through both files:
+- **Thinner than 0.5 mm:** 22.53 % of the surface before, 22.55 % after. That is 0.45 % newly thin and
+  0.43 % no longer thin.
+- **Thinner than one pixel:** 4.91 % before, 5.30 % after.
+- **What "thin" means here:** the measure counts any two surfaces closer than the limit, including clothing
+  lying microns above the body. The small rise is probably such layers being moved closer by the
+  smoothing; that is not proven.
+
+**Not done:** closing the body into one watertight solid. Its openings run along the clothing for up to
+1,800 vertices, partly outside every other part, and its non-manifold edges stop both a hole filler and
+manifold-3d's union from accepting it as is. A generic cap could cut across visible surface, and without
+a render that cannot be ruled out.
 
 ## Printer: Anycubic Photon Mono 2
 
@@ -291,11 +358,16 @@ vertices; learned "upscaling" invents detail that is not in the design.
     - per-part checks, triangle limit
     - written file re-read
   - curved PN: watertight results with no cracks, crease rims kept, flat models unchanged, triangle budget
+  - print check: closed sphere, a hole in the open (exposed ends, gap measured, height found), the same
+    hole covered by another solid (sealed), same planes for two versions
+  - structural checks: a clean result passes; an opened closed part, a grown open edge and a zero-area
+    sliver are refused; a fallen open-edge length (joined T-junction) is allowed; a zero-area face is never
+    counted as a crease
   - facet-deviation estimate; manifold-3d never sent an over-size part
 - **Browser** (`tests/e2e/stl-workshop.spec.ts`):
   - damaged file refused
-  - upload alone produces the optimised result, with no button or slider; 3D comparison; optional print
-    estimate; downloaded file re-read
+  - upload alone produces the optimised result, with no button or slider; 3D comparison; the print check
+    reports closed layers and no sub-pixel walls; optional print estimate; downloaded file re-read
   - cancel, then re-upload, of a fine model: kept exactly, with the reason; its download is re-read
   - tablet width with no sideways scrolling
   - players cannot open the workshop
@@ -307,6 +379,9 @@ vertices; learned "upscaling" invents detail that is not in the design.
 - Interpolating refinement cannot remove a facet whose own vertices are wrong. It rounds the faces between
   vertices; it does not move the vertices.
 - Wall thickness is measured straight through each surface, sampled on large meshes.
-- Overlapping parts are processed separately and not merged.
-- Memory: refining multiplies triangles (6× on the Hero Forge file). The output is capped at 6 million
+- Overlapping parts are processed separately and not merged, and open surfaces are not closed into a
+  solid: an export's hairline gaps stay in the file and are reported by the print check.
+- The print check samples 240 planes and checks outlines; it does not simulate exposure, supports or peel
+  forces.
+- Memory: refining multiplies triangles (7.7× on the Hero Forge file). The output is capped at 6 million
   triangles for a browser tab, and the coarsest parts are served first.

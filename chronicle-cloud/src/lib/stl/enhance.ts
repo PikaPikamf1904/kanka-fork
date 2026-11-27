@@ -20,7 +20,7 @@
 // The other methods at the end of this file (midpoint, Loop, Taubin) and in alternatives.ts exist so
 // the choice can be re-measured; the workshop does not use them.
 import type { Mesh } from './mesh.ts';
-import { buildEdges, components, signedVolume, surfaceArea, triangleCount } from './mesh.ts';
+import { buildEdges, components, degenerateTriangles, signedVolume, surfaceArea, triangleCount } from './mesh.ts';
 import { compare, type Comparison } from './metrics.ts';
 import { pnRefine } from './pn.ts';
 
@@ -246,12 +246,17 @@ export function partDegradation(c: Comparison, faceSagMm: number, areaMm2: numbe
   return null;
 }
 
-/** Total length of open (single-face) edges: refinement must not open or close any gap. */
-function openEdgeLength(m: Mesh): number {
+/** Total length of open (one-face) and non-manifold (three or more faces) edges. */
+export function gapEdgeLength(m: Mesh): { open: number; nonManifold: number } {
   const e = buildEdges(m);
-  let L = 0;
-  for (let i = 0; i < e.count; i++) if (e.uses[i] === 1) { const a = e.a[i]! * 3, b = e.b[i]! * 3; L += Math.hypot(m.pos[a]! - m.pos[b]!, m.pos[a + 1]! - m.pos[b + 1]!, m.pos[a + 2]! - m.pos[b + 2]!); }
-  return L;
+  let open = 0, nonManifold = 0;
+  for (let i = 0; i < e.count; i++) {
+    if (e.uses[i] === 2) continue;
+    const a = e.a[i]! * 3, b = e.b[i]! * 3;
+    const l = Math.hypot(m.pos[a]! - m.pos[b]!, m.pos[a + 1]! - m.pos[b + 1]!, m.pos[a + 2]! - m.pos[b + 2]!);
+    if (e.uses[i] === 1) open += l; else nonManifold += l;
+  }
+  return { open, nonManifold };
 }
 
 /** Total length of sharp edges (faces meeting at more than the crease angle). */
@@ -262,19 +267,44 @@ export function creaseLength(m: Mesh, creaseDeg = CREASE_ANGLE_DEG): number {
     const a = m.tri[t * 3]! * 3, b = m.tri[t * 3 + 1]! * 3, c = m.tri[t * 3 + 2]! * 3;
     const ux = m.pos[b]! - m.pos[a]!, uy = m.pos[b + 1]! - m.pos[a + 1]!, uz = m.pos[b + 2]! - m.pos[a + 2]!;
     const vx = m.pos[c]! - m.pos[a]!, vy = m.pos[c + 1]! - m.pos[a + 1]!, vz = m.pos[c + 2]! - m.pos[a + 2]!;
-    const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx, l = Math.hypot(x, y, z) || 1;
-    n[t * 3] = x / l; n[t * 3 + 1] = y / l; n[t * 3 + 2] = z / l;
+    const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx, l = Math.hypot(x, y, z);
+    if (l > 0) { n[t * 3] = x / l; n[t * 3 + 1] = y / l; n[t * 3 + 2] = z / l; }
   }
   const lim = Math.cos((creaseDeg * Math.PI) / 180);
+  const flat = (t: number) => n[t * 3] === 0 && n[t * 3 + 1] === 0 && n[t * 3 + 2] === 0;
   let L = 0;
   for (let i = 0; i < e.count; i++) {
     if (e.uses[i] !== 2) continue;
     const f = e.f0[i]!, g = e.f1[i]!;
+    // A zero-area face has no direction: it is a broken triangle (refused separately), not a crease.
+    if (flat(f) || flat(g)) continue;
     if (n[f * 3]! * n[g * 3]! + n[f * 3 + 1]! * n[g * 3 + 1]! + n[f * 3 + 2]! * n[g * 3 + 2]! >= lim) continue;
     const a = e.a[i]! * 3, b = e.b[i]! * 3;
     L += Math.hypot(m.pos[a]! - m.pos[b]!, m.pos[a + 1]! - m.pos[b + 1]!, m.pos[a + 2]! - m.pos[b + 2]!);
   }
   return L;
+}
+
+/**
+ * Structural reasons to refuse a refined part, before its shape is measured. `before` describes the part
+ * as it was: whether it was a closed solid, its open and non-manifold edge lengths, its sharp-edge length
+ * and its number of zero-area triangles.
+ * - A closed part must stay closed. On an open part no gap may open: the open-edge length may not grow.
+ *   It may fall: a new point that lands exactly on an unconnected neighbouring sheet's edge (an export's
+ *   T-junction) is merged with it, which joins the two sheets there as a non-manifold edge, like the
+ *   export's own. Merging points that already coincide moves nothing.
+ * - No new zero-area (broken) triangles.
+ * - No new sharp edges (sharp-edge length may grow by at most 5 %): smoothing that creates creases is an
+ *   artefact, not detail.
+ */
+export function topologyDefect(result: Mesh, before: { closed: boolean; gaps: { open: number; nonManifold: number }; sharp: number; broken: number }): string | null {
+  if (before.closed) { if (!isClosedManifold(result)) return 'would have opened a gap'; }
+  else {
+    if (gapEdgeLength(result).open - before.gaps.open > Math.max(1e-6, before.gaps.open * 1e-6)) return 'would have opened a gap';
+  }
+  if (degenerateTriangles(result).length > before.broken) return 'produced zero-area triangles';
+  if (creaseLength(result) > before.sharp * 1.05 + 0.05) return 'would have created new sharp edges';
+  return null;
 }
 
 const finite = (m: Mesh) => { for (let i = 0; i < m.pos.length; i++) if (!Number.isFinite(m.pos[i]!)) return false; return true; };
@@ -297,8 +327,8 @@ export function enhance(M: ManifoldModule | null, input: Mesh, settings: Enhance
     if (f.max < TOLERANCE_MM) { result[i] = p; alreadyFine++; return; }
     const closed = isClosedManifold(p);
     const area = surfaceArea(p), volume = closed ? signedVolume(p) : 0;
-    const open = closed ? 0 : openEdgeLength(p);
-    const sharp = creaseLength(p);
+    const gaps = closed ? { open: 0, nonManifold: 0 } : gapEdgeLength(p);
+    const sharp = creaseLength(p), broken = degenerateTriangles(p).length;
     // Candidates, best measured first. Closed parts get both refiners and keep whichever result is
     // smoother; the gentler setting is the fallback when neither passes.
     type Run = () => { mesh: Mesh; creaseMax: number } | null;
@@ -321,10 +351,8 @@ export function enhance(M: ManifoldModule | null, input: Mesh, settings: Enhance
         if (rt === nt) continue; // nothing to refine with this method
         if (!finite(r)) { reason = `${METHOD_LABEL[name]} produced invalid coordinates`; fallbacks++; continue; }
         if (rt - nt > budget) { reason = `refining it would exceed the ${settings.maxTriangles.toLocaleString()}-triangle limit for a browser tab`; fallbacks++; continue; }
-        // Gaps may neither open nor close.
-        if (closed ? !isClosedManifold(r) : Math.abs(openEdgeLength(r) - open) > Math.max(1e-6, open * 1e-6)) { reason = `${METHOD_LABEL[name]} would have opened or closed a gap`; fallbacks++; continue; }
-        // No new sharp edges: smoothing that creates creases is an artefact, not detail.
-        if (creaseLength(r) > sharp * 1.05 + 0.05) { reason = `${METHOD_LABEL[name]} was refused: it would have created new sharp edges`; fallbacks++; continue; }
+        const defect = topologyDefect(r, { closed, gaps, sharp, broken });
+        if (defect) { reason = `${METHOD_LABEL[name]} was refused: it ${defect}`; fallbacks++; continue; }
         const bad = partDegradation(compare(p, r, 4000), Math.max(f.faceMax, out.creaseMax), area, volume, closed);
         if (bad) { reason = `${METHOD_LABEL[name]} was refused: ${bad}`; fallbacks++; continue; }
         const faceting = facetDeviation(r, CREASE_ANGLE_DEG).faceMax;

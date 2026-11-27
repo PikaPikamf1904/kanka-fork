@@ -39,6 +39,10 @@ test('uploading a coarse model optimises it automatically; the DM compares it in
   await expect(result).toContainText('Faceting reduced', { timeout: 60_000 });
   await expect(result).toContainText('Every original vertex is unchanged');
   await expect(result).toContainText('Original vertices moved');
+  // The print check runs on its own: the written file is sliced into layers like a resin slicer does.
+  const check = result.getByLabel('Print check');
+  await expect(check).toContainText('Slices into closed layers');
+  await expect(check).toContainText('No walls thinner than one printer pixel');
   await expect(page.getByRole('img', { name: /3D view: Original \(repaired\) and Optimised/ })).toBeVisible();
   // The optional print estimate follows the oriented height.
   await page.getByText(/Print estimate for the Anycubic Photon Mono 2/).click();

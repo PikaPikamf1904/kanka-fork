@@ -4,7 +4,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import Module from 'manifold-3d';
 import { parseStl, StlError, writeBinaryStl } from '../../src/lib/stl/stlIO.ts';
 import { analyze, repair, toSoup, weld, type Mesh } from '../../src/lib/stl/mesh.ts';
-import { CREASE_ANGLE_DEG, enhance, facetDeviation, joinParts, MAX_REFINE_PART_TRIANGLES, partDegradation, type ManifoldModule } from '../../src/lib/stl/enhance.ts';
+import { CREASE_ANGLE_DEG, creaseLength, enhance, facetDeviation, gapEdgeLength, joinParts, MAX_REFINE_PART_TRIANGLES, partDegradation, topologyDefect, type ManifoldModule } from '../../src/lib/stl/enhance.ts';
+import { sliceCheck } from '../../src/lib/stl/slice.ts';
 import { pnRefine } from '../../src/lib/stl/pn.ts';
 import { buildEdges } from '../../src/lib/stl/mesh.ts';
 import { compare, samplePoints } from '../../src/lib/stl/metrics.ts';
@@ -330,3 +331,81 @@ describe('joined parts', () => {
     expect(analyze(j)).toMatchObject({ parts: 2, triangles: 24, vertices: 16 });
   });
 });
+
+/** A sphere with a window cut in its side: open outlines whose ends hang in the open. */
+function windowed(): Mesh {
+  const sp = uvSphere(10, 24, 12), keep: number[] = [];
+  for (let t = 0; t < sp.tri.length / 3; t++) {
+    const c = [0, 1, 2].map((k) => [0, 1, 2].reduce((a, j) => a + sp.pos[sp.tri[t * 3 + j]! * 3 + k]!, 0) / 3);
+    if (!(c[0]! > 6 && Math.abs(c[2]!) < 3)) keep.push(sp.tri[t * 3]!, sp.tri[t * 3 + 1]!, sp.tri[t * 3 + 2]!);
+  }
+  return weld(toSoup({ pos: sp.pos, tri: Uint32Array.from(keep) }));
+}
+
+describe('print check (slicing into layers)', () => {
+  it('a closed solid slices into closed layers', () => {
+    const r = sliceCheck(uvSphere(10, 24, 12));
+    expect(r.layersWithOpenOutlines).toBe(0);
+    expect(r.exposedEnds).toBe(0);
+  });
+  it('a hole in the open leaves loose ends in every layer it crosses, with the gap measured', () => {
+    const r = sliceCheck(windowed());
+    expect(r.exposedEnds).toBeGreaterThan(0);
+    expect(r.layersWithExposedEnds).toBeGreaterThan(0);
+    expect(r.widestGapMm).toBeGreaterThan(1); // the window is several millimetres wide
+    expect(r.worstLayerZ).not.toBeNull();
+    expect(Math.abs(r.worstLayerZ!)).toBeLessThan(3); // the window spans z = -3 … 3
+  });
+  it('the same hole covered by another solid part is sealed (as in exports where clothing covers the body)', () => {
+    const r = sliceCheck(joinParts([windowed(), box(10, 20, 10, [8, 0, 0])]));
+    expect(r.layersWithOpenOutlines).toBeGreaterThan(0);
+    expect(r.exposedEnds).toBe(0);
+  });
+  it('two versions are compared on the same planes', () => {
+    const a = sliceCheck(uvSphere(10, 24, 12), { zRange: [-10, 10], maxLayers: 40 });
+    expect(a.layers).toBe(40);
+    expect(a.layerStepMm).toBeCloseTo(0.5, 9);
+  });
+});
+
+describe('structural checks on a refined part', () => {
+  const before = (m: Mesh, closed: boolean) => ({ closed, gaps: gapEdgeLength(m), sharp: creaseLength(m), broken: 0 });
+  it('accepts a clean refinement', () => {
+    const s = uvSphere(10, 16, 8);
+    expect(topologyDefect(enhance(M, s, LIMIT).mesh, before(s, true))).toBeNull();
+  });
+  it('refuses a closed part that is no longer closed', () => {
+    const s = uvSphere(10, 16, 8);
+    expect(topologyDefect({ pos: s.pos, tri: s.tri.slice(3) }, before(s, true))).toMatch(/opened a gap/);
+  });
+  it('on an open part, open-edge length may fall (coincident edges joined) but never grow (a new gap)', () => {
+    const b = { closed: false, gaps: { open: 10, nonManifold: 2 }, sharp: 0, broken: 0 };
+    // Same result mesh measured against different "before" states: the rule compares lengths.
+    const s = hemisphereFixture();
+    const g = gapEdgeLength(s);
+    expect(topologyDefect(s, { ...b, gaps: g, sharp: creaseLength(s) })).toBeNull();
+    // Open length grew: a gap opened.
+    expect(topologyDefect(s, { ...b, gaps: { open: g.open - 1, nonManifold: g.nonManifold }, sharp: creaseLength(s) })).toMatch(/opened a gap/);
+    // Open length fell by 1 mm (a T-junction was joined to its neighbour): allowed.
+    expect(topologyDefect(s, { ...b, gaps: { open: g.open + 1, nonManifold: g.nonManifold - 1 }, sharp: creaseLength(s) })).toBeNull();
+  });
+  it('refuses zero-area triangles, without mistaking them for sharp edges', () => {
+    // A closed box with one edge split by a zero-area sliver: still a closed solid, but broken.
+    const cube = box(20, 20, 20);
+    const a = cube.tri[0]!, b = cube.tri[1]!, c = cube.tri[2]!;
+    const pos = new Float64Array([...cube.pos, ...[0, 1, 2].map((k) => (cube.pos[a * 3 + k]! + cube.pos[b * 3 + k]!) / 2)]);
+    const mid = cube.pos.length / 3;
+    const tri = [a, mid, c, mid, b, c, a, b, mid, ...cube.tri.slice(3)];
+    const sliver = { pos, tri: Uint32Array.from(tri) };
+    expect(analyze(sliver).watertight).toBe(true);
+    // A zero-area face has no direction: it must never be counted as a crease (it used to read as 90°).
+    expect(creaseLength(sliver)).toBeLessThanOrEqual(creaseLength(cube) + 1e-9);
+    expect(topologyDefect(sliver, before(cube, true))).toMatch(/zero-area triangles/);
+  });
+});
+
+function hemisphereFixture(): Mesh {
+  const sp = uvSphere(10, 16, 8), keep: number[] = [];
+  for (let t = 0; t < sp.tri.length / 3; t++) if ([0, 1, 2].reduce((a, k) => a + sp.pos[sp.tri[t * 3 + k]! * 3 + 2]!, 0) > 0) keep.push(sp.tri[t * 3]!, sp.tri[t * 3 + 1]!, sp.tri[t * 3 + 2]!);
+  return weld(toSoup({ pos: sp.pos, tri: Uint32Array.from(keep) }));
+}

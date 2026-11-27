@@ -30,6 +30,28 @@ function download(name: string, data: ArrayBuffer) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/** How the file the DM downloads slices, compared with the upload, and whether it fits the printer. */
+function PrintCheck({ result, optimised, fits, fitNote }: { result: EnhanceOutput; optimised: boolean; fits: boolean | null; fitNote: string }) {
+  const s = optimised ? result.slices.optimised : result.slices.original, o = result.slices.original;
+  const sliced = s.exposedEnds === 0
+    ? (s.layersWithOpenOutlines === 0
+      ? `Slices into closed layers (${n(s.layers)} layers checked).`
+      : `Slices into closed layers (${n(s.layers)} layers checked): every open edge in the export is buried inside another part or within one printer pixel of other surface.`)
+    : `${n(s.layersWithExposedEnds)} of ${n(s.layers)} checked layers have hairline gaps (widest ${um(s.widestGapMm)}) where an open edge in the export meets nearby surface${optimised ? `; the uploaded file has ${n(o.layersWithExposedEnds)} such layers (widest ${um(o.widestGapMm)})` : ''}. A slicer's repair option can close gaps this narrow; check its layer preview around ${mm(s.worstLayerZ ?? 0, 1)} height.`;
+  const walls = optimised ? result.fragile.enhanced : result.fragile.original;
+  return (
+    <div className="stl-print-check" aria-label="Print check">
+      <h3>Print check</h3>
+      <ul>
+        <li className={s.exposedEnds === 0 ? 'form-ok' : 'stl-note'}>{sliced}</li>
+        {fits !== null && <li className={fits ? 'form-ok' : 'form-error'}>{fitNote}</li>}
+        <li className={walls.subPixelTriangles === 0 ? 'form-ok' : 'stl-note'}>{walls.subPixelTriangles === 0 ? 'No walls thinner than one printer pixel were found.' : `${n(walls.subPixelTriangles)} triangles sit on walls thinner than one printer pixel (34 µm); those spots will not print. They are shown in red in the 3D view.`}</li>
+      </ul>
+      <p className="fine-print">These are checks, not a guarantee: supports, orientation and exposure are set in your slicer.</p>
+    </div>
+  );
+}
+
 export function StlWorkshop() {
   const worker = useRef<Worker | null>(null);
   const [fileName, setFileName] = useState('');
@@ -170,6 +192,7 @@ export function StlWorkshop() {
             {result.result.partsUnchanged.length > 0 && ` Left exactly as they were: ${result.result.partsUnchanged.length} part(s) — ${[...new Set(result.result.partsUnchanged.map((p) => p.reason))].join('; ')}.`}
             {' '}Holes are never filled and no part is removed.
           </p>
+          <PrintCheck result={result} optimised={useEnhanced} fits={estimate?.fits ?? null} fitNote={estimate?.fitNote ?? ''} />
           <div className="button-row">
             {useEnhanced
               ? <button type="button" className="button" onClick={() => download(`${base}-optimised.stl`, result.stl)}>Download optimised STL</button>
