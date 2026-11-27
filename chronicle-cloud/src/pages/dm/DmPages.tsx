@@ -38,7 +38,7 @@ export function DmDesk() {
       <DmOverview />
       <section className="panel">
         <h2>Create</h2>
-        <p className="button-row"><Link className="button secondary small" to="/dm/import">Import a lore package</Link> <Link className="button secondary small" to="/dm/tidy">Tidy up the wiki</Link> <Link className="button secondary small" to="/dm/visibility">What players can see</Link></p>
+        <p className="button-row"><Link className="button secondary small" to="/dm/import">Import a lore package</Link> <Link className="button secondary small" to="/dm/tidy">Tidy up the wiki</Link> <Link className="button secondary small" to="/dm/visibility">What players can see</Link> <Link className="button secondary small" to="/dm/export">Export knowledge (NotebookLM)</Link></p>
         <div className="chip-cloud">
           {TYPE_ORDER.map((t) => (
             <Link key={t} className="chip" to={`/dm/new?type=${t}`}><span aria-hidden="true">{TEMPLATES[t].glyph} </span>New {TEMPLATES[t].label.toLowerCase()}</Link>

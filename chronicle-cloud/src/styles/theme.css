@@ -1123,3 +1123,17 @@ fieldset { min-width: 0; }
 /* The maintenance notice above the first screen; nothing at all when there is no notice. */
 .access-notice { position: relative; width: min(640px, 100%); }
 .access-notice:empty { display: none; }
+
+/* ---------- DM knowledge export ---------- */
+.export-page .lede { max-width: 40rem; }
+.export-choices { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.export-choice { align-items: flex-start; }
+.export-choice input { margin-top: 0.25rem; flex: none; }
+.export-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.export-progress:empty { display: none; }
+.export-done { margin-top: 0.75rem; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .export-actions .button { flex: 1 1 100%; }
+  .export-choice { min-height: 44px; }
+  .export-choice input { min-width: 44px; min-height: 44px; margin-top: 0; }
+}
