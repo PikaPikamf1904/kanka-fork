@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // Module workers (created with { type: 'module' }) may load code on demand, like the STL Workshop's
+  // geometry library.
+  worker: { format: 'es' },
   build: {
     sourcemap: false,
     rollupOptions: {
@@ -13,6 +16,7 @@ export default defineConfig({
           if (/\/node_modules\/(react|react-dom|scheduler|react-router)\//.test(id)) return 'react';
           if (id.includes('/node_modules/@supabase/')) return 'supabase';
           if (id.includes('/node_modules/leaflet/')) return 'leaflet';
+          if (id.includes('/node_modules/three/')) return 'three';
           return undefined;
         },
       },

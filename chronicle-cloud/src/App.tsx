@@ -44,6 +44,7 @@ const OAuthConsentPage = lazy(() => import('./pages/dm/McpPages.tsx').then((m) =
 const WikiTidy = lazy(() => import('./pages/dm/WikiTidy.tsx').then((m) => ({ default: m.WikiTidy })));
 const VisibilityAudit = lazy(() => import('./pages/dm/VisibilityAudit.tsx').then((m) => ({ default: m.VisibilityAudit })));
 const MediaLibrary = lazy(() => import('./pages/dm/MediaLibrary.tsx').then((m) => ({ default: m.MediaLibrary })));
+const StlWorkshop = lazy(() => import('./pages/dm/StlWorkshop.tsx').then((m) => ({ default: m.StlWorkshop })));
 const BulkLoreImport = lazy(() => import('./pages/dm/BulkLoreImport.tsx').then((m) => ({ default: m.BulkLoreImport })));
 const ImportBatchesPage = lazy(() => import('./pages/dm/ImportPages.tsx').then((m) => ({ default: m.ImportBatchesPage })));
 const ImportReviewPage = lazy(() => import('./pages/dm/ImportPages.tsx').then((m) => ({ default: m.ImportReviewPage })));
@@ -160,6 +161,7 @@ const router = createBrowserRouter([
           { path: 'tidy', element: page(<WikiTidy />) },
           { path: 'visibility', element: page(<VisibilityAudit />) },
           { path: 'media', element: page(<MediaLibrary />) },
+          { path: 'stl', element: page(<StlWorkshop />) },
           { path: 'notes', element: page(<NotesPage />) },
           { path: 'theories', element: page(<Theories />) },
           { path: 'mysteries', element: page(<MysteryStudio />) },
