@@ -1,20 +1,28 @@
-// Geometry enhancement for printing. The chosen method (see docs/chronicle/STL-WORKSHOP.md for the
-// measurements behind it): curvature-adaptive, interpolating refinement from manifold-3d.
+// Fully automatic geometry enhancement for resin printing (see docs/chronicle/STL-WORKSHOP.md for the
+// measurements behind every choice). No settings: each part of the model is measured and treated on
+// its own.
 //
-//   smoothOut(minSharpAngle)  — fits a G1-continuous curved surface through the EXISTING vertices;
-//                               edges sharper than the angle stay sharp; flat faces stay flat.
-//   refineToTolerance(tol)    — splits edges only where the facets are further than `tol` from that
-//                               curved surface, so curved areas gain resolution and flat ones do not.
+//   1. Measure the part's faceting (how far its flat facets lie from a smooth surface through the same
+//      vertices). Already finer than the tolerance: keep it exactly as it is.
+//   2. Refine it, and check every result against the part itself (no vertex moved, movement explained
+//      by the part's own faceting, no gap opened or closed, no new sharp edge, volume and size explained):
+//        a. curved PN triangles (pn.ts): works on open and non-manifold surfaces, keeps creases sharp;
+//        b. manifold-3d smoothOut + refineToTolerance (closed parts only; the most accurate on clean
+//           solids, but it can fail or create creases on export meshes);
+//      of the results that pass, the smoother one is kept. If neither passes:
+//        c. curved PN triangles with a lower crease angle, keeping more edges sharp (gentler).
+//   3. If nothing passes, keep the part exactly as it was and say why.
 //
-// Every original vertex stays exactly where it was: no detail is moved, invented or "recovered". What
-// changes is the faceting between vertices on curved surfaces. Parts that are not closed manifolds are
-// passed through unchanged. Every result is measured against the original and refused if it degrades.
+// Every method here INTERPOLATES: original vertices never move, so no detail is moved, invented or
+// "recovered". Only the facets between vertices on curved surfaces become curved. Creases (sharper
+// than CREASE_ANGLE_DEG), open edges and non-manifold edges stay straight.
 //
-// The other methods here (midpoint, Loop, Taubin) exist so the choice can be re-measured; the workshop
-// does not offer them.
+// The other methods at the end of this file (midpoint, Loop, Taubin) and in alternatives.ts exist so
+// the choice can be re-measured; the workshop does not use them.
 import type { Mesh } from './mesh.ts';
 import { buildEdges, components, signedVolume, surfaceArea, triangleCount } from './mesh.ts';
 import { compare, type Comparison } from './metrics.ts';
+import { pnRefine } from './pn.ts';
 
 // ---------- manifold-3d (loaded lazily by the caller: browser worker or test) ----------
 export interface ManifoldModule {
@@ -34,26 +42,21 @@ export interface ManifoldObject {
 }
 
 export interface EnhanceSettings {
-  /** 0 (gentle) … 1 (strong). Higher keeps fewer edges sharp and refines further. */
-  strength: number;
   /** Triangle limit for the result (memory safety in a browser tab). */
   maxTriangles: number;
-  /** Largest part sent to the geometry library (default MAX_REFINE_PART_TRIANGLES). */
+  /** Largest part sent to manifold-3d (default MAX_REFINE_PART_TRIANGLES). */
   maxPartTriangles?: number;
 }
 
+/** Edges whose faces meet at more than this are intended creases (armour edges, folds) and stay sharp. */
+export const CREASE_ANGLE_DEG = 40;
+/** The gentler retry keeps edges above this sharp as well. */
+export const GENTLE_CREASE_ANGLE_DEG = 28;
+/** Maximum distance of the printed facets from the smooth surface (mm): under a quarter of a 34 µm pixel. */
+export const TOLERANCE_MM = 0.0075;
+
 /** Largest single part sent to the geometry library (memory: ~1.5 kB per triangle, measured). */
 export const MAX_REFINE_PART_TRIANGLES = 750_000;
-
-export function settingsFor(strength: number) {
-  const s = Math.min(1, Math.max(0, strength));
-  return {
-    // Edges whose faces meet at more than this angle stay sharp (manifold-3d's default is 52.5°).
-    minSharpAngle: 40 + s * 25, // 40° … 65°
-    // Maximum distance of the printed facets from the smooth surface, mm. 34 µm is one printer pixel.
-    toleranceMm: 0.012 - s * 0.009, // 12 µm … 3 µm
-  };
-}
 
 /** Split a mesh into its connected parts (each with its own compact vertex list). Typed arrays only. */
 export function splitParts(m: Mesh): Mesh[] {
@@ -101,27 +104,55 @@ export function joinParts(parts: Mesh[]): Mesh {
 }
 
 /**
- * How far the flat facets lie from a smooth surface through the same vertices, estimated per edge: an
- * edge of length L between faces turned by θ is a chord of an arc of angle θ, whose sagitta is
- * L/2 · tan(θ/4). Edges sharper than `minSharpAngle` are intended creases and are skipped. This is the
- * most a smoothing refinement could move the surface: if it is below the printer's resolution, there is
- * nothing printable to gain.
+ * How far the flat facets lie from a smooth surface through the same vertices.
+ *
+ * Per edge: two faces meeting at angle θ are chords of an arc that turns by θ across the edge. The
+ * chord's length is the faces' width ACROSS the edge (their height over it, h = 2·area / L), not the
+ * edge's own length, so the facet sags about h/2 · tan(θ/4) from the arc. (On a cylinder's side the
+ * edges run along the straight axis; their length says nothing about the curve around it.)
+ *
+ * Per face: a face curved in two directions (a sphere) sags in both at once, so its deepest point lies
+ * about as far as its two most-curved edges' sagittas added together. `faceMax` is the largest such sum:
+ * the furthest a smooth surface through the vertices can be from the original facets.
+ *
+ * Edges sharper than `minSharpAngle` are intended creases and are skipped. If `max` is below the
+ * printer's resolution there is nothing printable to gain.
  */
-export function facetDeviation(m: Mesh, minSharpAngleDeg: number): { max: number; p95: number; smoothEdges: number } {
+export function facetDeviation(m: Mesh, minSharpAngleDeg: number): { max: number; p95: number; faceMax: number; smoothEdges: number } {
   const e = buildEdges(m);
+  const sagOf = edgeSagitta(m, e, minSharpAngleDeg);
+  const sag: number[] = [];
+  let max = 0;
+  for (let i = 0; i < e.count; i++) {
+    const s = sagOf[i]!;
+    if (s < 0) continue;
+    if (s > max) max = s;
+    if (sag.length < 400_000 || i % 7 === 0) sag.push(s);
+  }
+  let faceMax = 0;
+  for (let t = 0; t < m.tri.length / 3; t++) {
+    const v = [sagOf[e.ofCorner[t * 3]!]!, sagOf[e.ofCorner[t * 3 + 1]!]!, sagOf[e.ofCorner[t * 3 + 2]!]!].map((x) => Math.max(0, x)).sort((x, y) => y - x);
+    if (v[0]! + v[1]! > faceMax) faceMax = v[0]! + v[1]!;
+  }
+  sag.sort((x, y) => x - y);
+  return { max, p95: sag[Math.floor(sag.length * 0.95)] ?? 0, faceMax, smoothEdges: sag.length };
+}
+
+/** Facet sagitta of every edge (mm), or -1 for open, non-manifold and crease edges. */
+export function edgeSagitta(m: Mesh, e: ReturnType<typeof buildEdges>, minSharpAngleDeg: number): Float64Array {
   const nt = m.tri.length / 3;
-  const n = new Float64Array(nt * 3);
+  const n = new Float64Array(nt * 3), area2 = new Float64Array(nt);
   for (let t = 0; t < nt; t++) {
     const a = m.tri[t * 3]! * 3, b = m.tri[t * 3 + 1]! * 3, c = m.tri[t * 3 + 2]! * 3;
     const ux = m.pos[b]! - m.pos[a]!, uy = m.pos[b + 1]! - m.pos[a + 1]!, uz = m.pos[b + 2]! - m.pos[a + 2]!;
     const vx = m.pos[c]! - m.pos[a]!, vy = m.pos[c + 1]! - m.pos[a + 1]!, vz = m.pos[c + 2]! - m.pos[a + 2]!;
     const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
-    const l = Math.hypot(x, y, z) || 1;
-    n[t * 3] = x / l; n[t * 3 + 1] = y / l; n[t * 3 + 2] = z / l;
+    const l = Math.hypot(x, y, z);
+    area2[t] = l;
+    if (l > 0) { n[t * 3] = x / l; n[t * 3 + 1] = y / l; n[t * 3 + 2] = z / l; }
   }
   const limit = (minSharpAngleDeg * Math.PI) / 180;
-  const sag: number[] = [];
-  let max = 0;
+  const out = new Float64Array(e.count).fill(-1);
   for (let i = 0; i < e.count; i++) {
     if (e.uses[i] !== 2) continue;
     const f = e.f0[i]!, g = e.f1[i]!;
@@ -130,12 +161,10 @@ export function facetDeviation(m: Mesh, minSharpAngleDeg: number): { max: number
     if (th >= limit) continue;
     const a = e.a[i]! * 3, b = e.b[i]! * 3;
     const L = Math.hypot(m.pos[a]! - m.pos[b]!, m.pos[a + 1]! - m.pos[b + 1]!, m.pos[a + 2]! - m.pos[b + 2]!);
-    const s = (L / 2) * Math.tan(th / 4);
-    if (s > max) max = s;
-    if (sag.length < 400_000 || i % 7 === 0) sag.push(s);
+    const h = L > 0 ? (area2[f]! + area2[g]!) / (2 * L) : 0; // mean height of the two faces over the edge
+    out[i] = (h / 2) * Math.tan(th / 4);
   }
-  sag.sort((x, y) => x - y);
-  return { max, p95: sag[Math.floor(sag.length * 0.95)] ?? 0, smoothEdges: sag.length };
+  return out;
 }
 
 function isClosedManifold(m: Mesh): boolean {
@@ -144,8 +173,8 @@ function isClosedManifold(m: Mesh): boolean {
   return true;
 }
 
-/** One part through manifold-3d. Returns null when the library refuses the part. */
-function refinePart(M: ManifoldModule, part: Mesh, minSharpAngle: number, toleranceMm: number): Mesh | null {
+/** One closed part through manifold-3d (smoothOut + refineToTolerance). Returns null when the library refuses it. */
+export function refinePart(M: ManifoldModule, part: Mesh, minSharpAngle: number, toleranceMm: number): Mesh | null {
   const mesh = new M.Mesh({ numProp: 3, vertProperties: Float32Array.from(part.pos), triVerts: part.tri });
   let base: ManifoldObject | null = null, smooth: ManifoldObject | null = null, fine: ManifoldObject | null = null;
   try {
@@ -167,94 +196,170 @@ function refinePart(M: ManifoldModule, part: Mesh, minSharpAngle: number, tolera
   }
 }
 
+export type PartMethod = 'curved-pn' | 'manifold' | 'curved-pn-gentle';
+export const METHOD_LABEL: Record<PartMethod, string> = {
+  'curved-pn': 'curved PN triangles',
+  manifold: 'manifold-3d smoothing',
+  'curved-pn-gentle': 'curved PN triangles, more edges kept sharp',
+};
+
 export interface EnhanceResult {
   mesh: Mesh;
-  /** Which parts were refined, and which were left as they were (with the reason). */
+  /** Parts refined, by the method that passed their checks. */
   partsRefined: number;
+  methods: Partial<Record<PartMethod, number>>;
+  /** Parts already finer than the tolerance (kept exactly). */
+  partsAlreadyFine: number;
+  /** Parts left exactly as they were for any other reason (with the reason). */
   partsUnchanged: { reason: string; triangles: number }[];
-  settings: { minSharpAngle: number; toleranceMm: number };
+  /** Times a method was tried and refused before another one passed or the part was kept. */
+  fallbacks: number;
+  /** Faceting of the whole model before and after (mm). */
+  faceting: { before: { max: number; p95: number }; after: { max: number; p95: number } };
+  settings: { creaseAngleDeg: number; toleranceMm: number };
   comparison: Comparison;
   verdict: 'improved' | 'no-visible-change' | 'rejected';
   message: string;
 }
 
 /**
- * Reasons to refuse a result. Generous enough for real curvature, strict enough to catch artefacts:
- * - no original vertex may move (this method only adds vertices between them);
- * - the surface may not move further than half a typical edge (a facet's curvature cannot justify more);
- * - the volume may only change as much as the measured surface movement explains.
+ * Reasons to refuse one part's result. The limits come from the part's own measured faceting, not from
+ * a figure for the whole model: a smooth curve through the vertices lies no further from a facet than
+ * that facet's sagitta, so a coarse accessory may legitimately move more than a fine face.
+ * - no original vertex may move (these methods only add vertices between them);
+ * - the surface may not move further than the part's largest face sagitta (facetDeviation's faceMax)
+ *   × 1.25 + 10 µm: cubic patches can bulge slightly beyond a circular arc; anything more is an artefact;
+ * - a closed part's volume may only change as much as the measured surface movement explains;
+ * - the part's size may only grow by the curvature it gained.
  */
-export function degradation(c: Comparison, medianEdgeMm: number, areaMm2 = 0, volumeMm3 = 0): string | null {
-  const maxMove = Math.max(0.05, medianEdgeMm * 0.5);
+export function partDegradation(c: Comparison, faceSagMm: number, areaMm2: number, volumeMm3: number, closed: boolean): string | null {
+  const maxMove = 1.25 * faceSagMm + 0.01;
   if (!Number.isFinite(c.hausdorff)) return 'the result could not be measured';
-  if (c.originalVerticesToEnhanced && c.originalVerticesToEnhanced.max > 0.005) return `original vertices moved by up to ${(c.originalVerticesToEnhanced.max * 1000).toFixed(0)} µm: original detail would change`;
-  if (c.enhancedToOriginal.max > maxMove) return `the surface moved up to ${(c.enhancedToOriginal.max * 1000).toFixed(0)} µm from the original (limit ${(maxMove * 1000).toFixed(0)} µm), which would change the design`;
+  if (c.originalVerticesToEnhanced.max > 0.005) return `original vertices moved by up to ${(c.originalVerticesToEnhanced.max * 1000).toFixed(0)} µm: original detail would change`;
+  if (c.enhancedToOriginal.max > maxMove) return `the surface moved up to ${(c.enhancedToOriginal.max * 1000).toFixed(0)} µm, more than this part's facets explain (${(maxMove * 1000).toFixed(0)} µm)`;
   if (c.originalToEnhanced.max > maxMove) return `original surface points ended up ${(c.originalToEnhanced.max * 1000).toFixed(0)} µm from the result: detail could be lost`;
-  const explained = areaMm2 > 0 ? (1.5 * areaMm2 * c.enhancedToOriginal.mean + 0.002 * Math.abs(volumeMm3)) / Math.max(Math.abs(volumeMm3), 1e-9) * 100 : 3;
-  if (Math.abs(c.volumeChangePct) > explained) return `the volume changed by ${c.volumeChangePct.toFixed(1)} %, more than the surface movement explains (${explained.toFixed(1)} %)`;
-  if (c.sizeChangeMm > Math.max(0.05, medianEdgeMm)) return `the overall size changed by ${(c.sizeChangeMm * 1000).toFixed(0)} µm`;
+  if (closed && Math.abs(volumeMm3) > 1e-9) {
+    const explained = (1.5 * areaMm2 * c.enhancedToOriginal.mean + 0.002 * Math.abs(volumeMm3)) / Math.abs(volumeMm3) * 100;
+    if (Math.abs(c.volumeChangePct) > explained) return `the volume changed by ${c.volumeChangePct.toFixed(1)} %, more than the surface movement explains (${explained.toFixed(1)} %)`;
+  }
+  if (c.sizeChangeMm > maxMove) return `the part's size changed by ${(c.sizeChangeMm * 1000).toFixed(0)} µm`;
   return null;
 }
 
-/**
- * Enhance a (repaired) mesh. Tries the requested strength; if the result degrades the geometry, tries a
- * gentler setting once; if that also fails, returns the original unchanged with the reason.
- */
-export function enhance(M: ManifoldModule, input: Mesh, settings: EnhanceSettings, medianEdgeMm: number, onProgress?: (fraction: number, label: string) => void): EnhanceResult {
-  const parts = splitParts(input);
-  const area = surfaceArea(input), volume = signedVolume(input);
-  const attempt = (strength: number) => {
-    const s = settingsFor(strength);
-    const out: Mesh[] = [];
-    const unchanged: { reason: string; triangles: number }[] = [];
-    let refined = 0, alreadyFine = 0;
-    parts.forEach((p, i) => {
-      onProgress?.(i / parts.length, `Refining part ${i + 1} of ${parts.length}`);
-      const nt = p.tri.length / 3;
-      if (!isClosedManifold(p)) { out.push(p); unchanged.push({ reason: 'not a closed surface (open or non-manifold edges)', triangles: nt }); return; }
-      // Already finer than the tolerance everywhere: refinement would add nothing (and would cost memory).
-      if (facetDeviation(p, s.minSharpAngle).max < s.toleranceMm * 0.5) { out.push(p); alreadyFine++; return; }
-      // The geometry library needs roughly 1.5 kB of memory per triangle; a browser tab cannot spare more.
-      const partLimit = settings.maxPartTriangles ?? MAX_REFINE_PART_TRIANGLES;
-      if (nt > partLimit) { out.push(p); unchanged.push({ reason: `too large to refine safely in a browser tab (${nt.toLocaleString()} triangles; limit ${partLimit.toLocaleString()} per part)`, triangles: nt }); return; }
-      const r = refinePart(M, p, s.minSharpAngle, s.toleranceMm);
-      if (!r) { out.push(p); unchanged.push({ reason: 'the geometry library could not process this part', triangles: nt }); return; }
-      out.push(r); refined++;
-    });
-    return { mesh: refined > 0 ? joinParts(out) : input, refined, alreadyFine, unchanged, s };
-  };
-  let strength = settings.strength;
-  for (let tryNo = 0; tryNo < 3; tryNo++) {
-    const r = attempt(strength);
-    const nt = triangleCount(r.mesh);
-    if (nt > settings.maxTriangles) {
-      if (tryNo < 2) { strength = Math.max(0, strength - 0.5); continue; }
-      return { mesh: input, partsRefined: 0, partsUnchanged: [], settings: r.s, comparison: compare(input, input, 2000), verdict: 'rejected', message: `The enhanced model would have ${nt.toLocaleString()} triangles, more than this tab can safely handle (${settings.maxTriangles.toLocaleString()}). The original is kept. Try a lower strength.` };
-    }
-    onProgress?.(1, 'Measuring the result against the original');
-    if (r.refined === 0) {
-      // Nothing was changed: the measurements are zero by construction.
-      const z = { mean: 0, rms: 0, p95: 0, max: 0 };
-      return { mesh: input, partsRefined: 0, partsUnchanged: r.unchanged, settings: r.s, comparison: { enhancedToOriginal: z, originalToEnhanced: z, originalVerticesToEnhanced: z, hausdorff: 0, volumeChangePct: 0, sizeChangeMm: 0 }, verdict: 'no-visible-change',
-        message: r.alreadyFine > 0 && r.unchanged.length === 0
-          ? `The model's curved surfaces are already within ${(r.s.toleranceMm * 500).toFixed(0)} µm of a smooth surface, far finer than the printer's ${'34'} µm pixel: there is nothing printable to gain, so the original is recommended.`
-          : 'No part could be refined; the original is recommended.' };
-    }
-    const c = compare(input, r.mesh);
-    const bad = degradation(c, medianEdgeMm, area, volume);
-    if (bad && tryNo === 0 && strength > 0) { strength = 0; continue; }
-    if (bad) {
-      return { mesh: input, partsRefined: 0, partsUnchanged: r.unchanged, settings: r.s, comparison: c, verdict: 'rejected', message: `Enhancement was refused and the original kept: ${bad}.` };
-    }
-    // Below a few microns the change cannot be printed (one pixel is 34 µm, one layer 20–50 µm).
-    if (c.enhancedToOriginal.max < 0.002 || r.refined === 0) {
-      return { mesh: r.mesh, partsRefined: r.refined, partsUnchanged: r.unchanged, settings: r.s, comparison: c, verdict: 'no-visible-change',
-        message: r.refined === 0 ? 'No part could be refined; the original is recommended.' : `The original is already finer than the printer can reproduce: the enhanced surface differs by at most ${(c.enhancedToOriginal.max * 1000).toFixed(1)} µm. The original is recommended.` };
-    }
-    return { mesh: r.mesh, partsRefined: r.refined, partsUnchanged: r.unchanged, settings: r.s, comparison: c, verdict: 'improved',
-      message: `Curved surfaces were refined by up to ${(c.enhancedToOriginal.max * 1000).toFixed(0)} µm (average ${(c.enhancedToOriginal.mean * 1000).toFixed(1)} µm); every original vertex is unchanged.${strength !== settings.strength ? ' A gentler setting was used because the requested one changed the shape too much.' : ''}` };
+/** Total length of open (single-face) edges: refinement must not open or close any gap. */
+function openEdgeLength(m: Mesh): number {
+  const e = buildEdges(m);
+  let L = 0;
+  for (let i = 0; i < e.count; i++) if (e.uses[i] === 1) { const a = e.a[i]! * 3, b = e.b[i]! * 3; L += Math.hypot(m.pos[a]! - m.pos[b]!, m.pos[a + 1]! - m.pos[b + 1]!, m.pos[a + 2]! - m.pos[b + 2]!); }
+  return L;
+}
+
+/** Total length of sharp edges (faces meeting at more than the crease angle). */
+export function creaseLength(m: Mesh, creaseDeg = CREASE_ANGLE_DEG): number {
+  const e = buildEdges(m);
+  const nt = m.tri.length / 3, n = new Float64Array(nt * 3);
+  for (let t = 0; t < nt; t++) {
+    const a = m.tri[t * 3]! * 3, b = m.tri[t * 3 + 1]! * 3, c = m.tri[t * 3 + 2]! * 3;
+    const ux = m.pos[b]! - m.pos[a]!, uy = m.pos[b + 1]! - m.pos[a + 1]!, uz = m.pos[b + 2]! - m.pos[a + 2]!;
+    const vx = m.pos[c]! - m.pos[a]!, vy = m.pos[c + 1]! - m.pos[a + 1]!, vz = m.pos[c + 2]! - m.pos[a + 2]!;
+    const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx, l = Math.hypot(x, y, z) || 1;
+    n[t * 3] = x / l; n[t * 3 + 1] = y / l; n[t * 3 + 2] = z / l;
   }
-  throw new Error('unreachable');
+  const lim = Math.cos((creaseDeg * Math.PI) / 180);
+  let L = 0;
+  for (let i = 0; i < e.count; i++) {
+    if (e.uses[i] !== 2) continue;
+    const f = e.f0[i]!, g = e.f1[i]!;
+    if (n[f * 3]! * n[g * 3]! + n[f * 3 + 1]! * n[g * 3 + 1]! + n[f * 3 + 2]! * n[g * 3 + 2]! >= lim) continue;
+    const a = e.a[i]! * 3, b = e.b[i]! * 3;
+    L += Math.hypot(m.pos[a]! - m.pos[b]!, m.pos[a + 1]! - m.pos[b + 1]!, m.pos[a + 2]! - m.pos[b + 2]!);
+  }
+  return L;
+}
+
+const finite = (m: Mesh) => { for (let i = 0; i < m.pos.length; i++) if (!Number.isFinite(m.pos[i]!)) return false; return true; };
+
+/** Enhance a (repaired) mesh, part by part, with no settings. Never returns a damaged part. */
+export function enhance(M: ManifoldModule | null, input: Mesh, settings: EnhanceSettings, onProgress?: (fraction: number, label: string) => void): EnhanceResult {
+  const parts = splitParts(input);
+  const before = facetDeviation(input, CREASE_ANGLE_DEG);
+  const unchanged: { reason: string; triangles: number }[] = [];
+  const methods: Partial<Record<PartMethod, number>> = {};
+  let refined = 0, alreadyFine = 0, fallbacks = 0, budget = settings.maxTriangles - triangleCount(input);
+  const partLimit = settings.maxPartTriangles ?? MAX_REFINE_PART_TRIANGLES;
+  // Work on the coarsest parts first, so the triangle budget goes where it shows most.
+  const order = parts.map((p, i) => ({ i, f: facetDeviation(p, CREASE_ANGLE_DEG) })).sort((x, y) => y.f.max - x.f.max);
+  const result: Mesh[] = new Array(parts.length);
+  order.forEach(({ i, f }, n) => {
+    const p = parts[i]!;
+    const nt = p.tri.length / 3;
+    onProgress?.(n / parts.length, `Enhancing part ${n + 1} of ${parts.length}`);
+    if (f.max < TOLERANCE_MM) { result[i] = p; alreadyFine++; return; }
+    const closed = isClosedManifold(p);
+    const area = surfaceArea(p), volume = closed ? signedVolume(p) : 0;
+    const open = closed ? 0 : openEdgeLength(p);
+    const sharp = creaseLength(p);
+    // Candidates, best measured first. Closed parts get both refiners and keep whichever result is
+    // smoother; the gentler setting is the fallback when neither passes.
+    type Run = () => { mesh: Mesh; creaseMax: number } | null;
+    const viaPn = (crease: number, maxLevel: number): Run => () => {
+      const r = pnRefine(p, { creaseAngleDeg: crease, toleranceMm: TOLERANCE_MM, maxLevel, maxTriangles: budget + nt });
+      return r ? { mesh: r.mesh, creaseMax: r.creaseMaxMm } : null;
+    };
+    const tiers: [PartMethod, Run][][] = [
+      [['curved-pn', viaPn(CREASE_ANGLE_DEG, 6)], ...(M && closed && nt <= partLimit ? [['manifold', () => { const r = refinePart(M, p, CREASE_ANGLE_DEG, TOLERANCE_MM); return r ? { mesh: r, creaseMax: 0 } : null; }] as [PartMethod, Run]] : [])],
+      [['curved-pn-gentle', viaPn(GENTLE_CREASE_ANGLE_DEG, 4)]],
+    ];
+    let reason = 'no method could refine this part';
+    for (const tier of tiers) {
+      let best: { name: PartMethod; mesh: Mesh; faceting: number } | null = null;
+      for (const [name, run] of tier) {
+        let out: ReturnType<Run>;
+        try { out = run(); } catch { out = null; }
+        if (!out) continue;
+        const r = out.mesh, rt = r.tri.length / 3;
+        if (rt === nt) continue; // nothing to refine with this method
+        if (!finite(r)) { reason = `${METHOD_LABEL[name]} produced invalid coordinates`; fallbacks++; continue; }
+        if (rt - nt > budget) { reason = `refining it would exceed the ${settings.maxTriangles.toLocaleString()}-triangle limit for a browser tab`; fallbacks++; continue; }
+        // Gaps may neither open nor close.
+        if (closed ? !isClosedManifold(r) : Math.abs(openEdgeLength(r) - open) > Math.max(1e-6, open * 1e-6)) { reason = `${METHOD_LABEL[name]} would have opened or closed a gap`; fallbacks++; continue; }
+        // No new sharp edges: smoothing that creates creases is an artefact, not detail.
+        if (creaseLength(r) > sharp * 1.05 + 0.05) { reason = `${METHOD_LABEL[name]} was refused: it would have created new sharp edges`; fallbacks++; continue; }
+        const bad = partDegradation(compare(p, r, 4000), Math.max(f.faceMax, out.creaseMax), area, volume, closed);
+        if (bad) { reason = `${METHOD_LABEL[name]} was refused: ${bad}`; fallbacks++; continue; }
+        const faceting = facetDeviation(r, CREASE_ANGLE_DEG).faceMax;
+        // Both within twice the target: equally smooth in print, so the lighter file wins. Otherwise the
+        // smoother one does.
+        const meets = (x: number) => x <= 2 * TOLERANCE_MM;
+        if (!best || (meets(faceting) && meets(best.faceting) ? rt < best.mesh.tri.length / 3 : faceting < best.faceting)) best = { name, mesh: r, faceting };
+      }
+      if (best) {
+        result[i] = best.mesh; refined++; budget -= best.mesh.tri.length / 3 - nt; methods[best.name] = (methods[best.name] ?? 0) + 1;
+        return;
+      }
+    }
+    result[i] = p; unchanged.push({ reason, triangles: nt });
+  });
+  onProgress?.(1, 'Measuring the result against the original');
+  const settingsUsed = { creaseAngleDeg: CREASE_ANGLE_DEG, toleranceMm: TOLERANCE_MM };
+  const fb = { max: before.max, p95: before.p95 };
+  const base = { partsAlreadyFine: alreadyFine, partsUnchanged: unchanged, fallbacks, methods, settings: settingsUsed };
+  if (refined === 0) {
+    const z = { mean: 0, rms: 0, p95: 0, max: 0 };
+    return { ...base, mesh: input, partsRefined: 0, faceting: { before: fb, after: fb }, comparison: { enhancedToOriginal: z, originalToEnhanced: z, originalVerticesToEnhanced: z, hausdorff: 0, volumeChangePct: 0, sizeChangeMm: 0 }, verdict: unchanged.length ? 'rejected' : 'no-visible-change',
+      message: unchanged.length === 0
+        ? `Already optimal: every curved surface is within ${(TOLERANCE_MM * 1000).toFixed(1)} µm of a smooth surface (largest facet deviation ${(before.max * 1000).toFixed(1)} µm), far finer than the printer's 34 µm pixel. Changing it could not improve the print, so the original is kept exactly as it was.`
+        : `No part could be enhanced without changing the design, so the original is kept exactly as it was: ${[...new Set(unchanged.map((u) => u.reason))].join('; ')}.` };
+  }
+  const mesh = joinParts(result);
+  const after = facetDeviation(mesh, CREASE_ANGLE_DEG);
+  const c = compare(input, mesh);
+  const used = (Object.keys(methods) as PartMethod[]).map((k) => `${METHOD_LABEL[k]} (${methods[k]} part${methods[k] === 1 ? '' : 's'})`).join(', ');
+  return { ...base, mesh, partsRefined: refined, faceting: { before: fb, after: { max: after.max, p95: after.p95 } }, comparison: c,
+    verdict: c.enhancedToOriginal.max < 0.002 ? 'no-visible-change' : 'improved',
+    message: c.enhancedToOriginal.max < 0.002
+      ? `The original is already finer than the printer can reproduce: the enhanced surface differs by at most ${(c.enhancedToOriginal.max * 1000).toFixed(1)} µm. The original is recommended.`
+      : `Faceting reduced from ${(before.max * 1000).toFixed(0)} µm to ${(after.max * 1000).toFixed(0)} µm at worst (typical ${(before.p95 * 1000).toFixed(1)} → ${(after.p95 * 1000).toFixed(1)} µm) on ${refined} part${refined === 1 ? '' : 's'} using ${used}. Every original vertex is unchanged and sharp edges were kept.${alreadyFine ? ` ${alreadyFine} part${alreadyFine === 1 ? ' was' : 's were'} already smooth and kept as they were.` : ''}` };
 }
 
 // ---------- methods measured for comparison only ----------

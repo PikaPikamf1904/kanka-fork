@@ -39,7 +39,7 @@ export function readModel(name: string, data: ArrayBuffer, pixelMm: number): { m
   return { mesh, out: { name, format: soup.format, warnings: soup.warnings, report: analyze(mesh, pixelMm), soup: soup.positions } };
 }
 
-export function enhanceModel(M: ManifoldModule, original: Mesh, opts: { strength: number; maxTriangles: number; minWallMm: number; pixelMm: number }, progress: Progress): EnhanceOutput {
+export function enhanceModel(M: ManifoldModule | null, original: Mesh, opts: { maxTriangles: number; minWallMm: number; pixelMm: number }, progress: Progress): EnhanceOutput {
   const t: Record<string, number> = {};
   let t0 = performance.now();
   const lap = (k: string) => { const n = performance.now(); t[k] = Math.round(n - t0); t0 = n; };
@@ -47,7 +47,7 @@ export function enhanceModel(M: ManifoldModule, original: Mesh, opts: { strength
   const { mesh: fixed, log } = repair({ pos: original.pos, tri: Uint32Array.from(original.tri) });
   const repaired = analyze(fixed, opts.pixelMm);
   lap('repair');
-  const r = enhance(M, fixed, { strength: opts.strength, maxTriangles: opts.maxTriangles }, repaired.edgeLengthMm.median, (f, l) => progress(0.1 + f * 0.5, l));
+  const r = enhance(M, fixed, { maxTriangles: opts.maxTriangles }, (f, l) => progress(0.1 + f * 0.5, l));
   lap('enhance');
   progress(0.65, 'Checking thin and fragile areas');
   const fo = fragileGeometry(fixed, opts.minWallMm, opts.pixelMm);

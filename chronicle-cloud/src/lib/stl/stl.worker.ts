@@ -2,13 +2,13 @@
 // never uploaded or stored. The geometry library (WebAssembly) is loaded only when enhancement starts.
 // Cancelling terminates this worker, which also releases all of its memory.
 import type { Mesh } from './mesh.ts';
-import { facetDeviation, settingsFor, type ManifoldModule } from './enhance.ts';
+import { CREASE_ANGLE_DEG, facetDeviation, type ManifoldModule } from './enhance.ts';
 import { enhanceModel, readModel } from './pipeline.ts';
 import { StlError } from './stlIO.ts';
 
 export type WorkerIn =
   | { type: 'analyze'; name: string; data: ArrayBuffer; pixelMm: number }
-  | { type: 'enhance'; strength: number; minWallMm: number; pixelMm: number; maxTriangles: number };
+  | { type: 'enhance'; minWallMm: number; pixelMm: number; maxTriangles: number };
 
 let mesh: Mesh | null = null;
 let manifold: Promise<ManifoldModule> | null = null;
@@ -33,15 +33,16 @@ self.onmessage = async (ev: MessageEvent<WorkerIn>) => {
       const { mesh: m, out } = readModel(msg.name, msg.data, msg.pixelMm);
       mesh = m;
       post({ type: 'progress', fraction: 0.8, label: 'Measuring the facets' });
-      const facet = facetDeviation(m, settingsFor(0.5).minSharpAngle);
+      const facet = facetDeviation(m, CREASE_ANGLE_DEG);
       post({ type: 'analyzed', name: out.name, format: out.format, warnings: out.warnings, report: out.report, facet, soup: out.soup }, [out.soup.buffer]);
       return;
     }
     if (msg.type === 'enhance') {
       if (!mesh) throw new Error('No model is loaded.');
       post({ type: 'progress', fraction: 0.01, label: 'Loading the geometry library' });
-      const M = await loadManifold();
-      const out = enhanceModel(M, mesh, { strength: msg.strength, maxTriangles: msg.maxTriangles, minWallMm: msg.minWallMm, pixelMm: msg.pixelMm },
+      // If the WebAssembly library cannot load, enhancement still runs without it (curved PN triangles).
+      const M = await loadManifold().catch(() => { manifold = null; return null; });
+      const out = enhanceModel(M, mesh, { maxTriangles: msg.maxTriangles, minWallMm: msg.minWallMm, pixelMm: msg.pixelMm },
         (fraction, label) => post({ type: 'progress', fraction, label }));
       post({ type: 'enhanced', out }, [out.stl, out.enhancedSoup.buffer, out.repairedSoup.buffer, out.enhancedFlags.buffer, out.originalFlags.buffer]);
     }

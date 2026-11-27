@@ -1,4 +1,5 @@
-// STL Workshop (DM only): upload, analyse, enhance, compare, print estimate, download. Synthetic models.
+// STL Workshop (DM only): upload, then everything is automatic (analyse, repair, enhance, verify), compare,
+// download. Optional print estimate. Synthetic models only.
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -14,7 +15,7 @@ function stlFile(name: string, m: { pos: Float64Array; tri: Uint32Array }) {
   return file;
 }
 
-test('the DM enhances a coarse model, compares it in 3D, estimates the print and downloads a valid STL', async ({ page }) => {
+test('uploading a coarse model optimises it automatically; the DM compares it in 3D and downloads a valid STL', async ({ page }) => {
   test.setTimeout(120_000);
   const coarse = stlFile('coarse-sphere.stl', uvSphere(10, 16, 8));
   await signInAsDm(page);
@@ -31,15 +32,17 @@ test('the DM enhances a coarse model, compares it in 3D, estimates the print and
   const analysis = page.getByRole('region', { name: 'Analysis' });
   await expect(analysis).toContainText('20.00 mm × 20.00 mm × 20.00 mm');
   await expect(analysis).toContainText('224 (114 vertices)');
-  await expect(analysis).toContainText('can round them out');
-
-  await page.getByRole('button', { name: 'Enhance' }).click();
+  // No settings and no button: the result arrives on its own.
+  await expect(page.getByRole('button', { name: /^Enhance/ })).toHaveCount(0);
+  await expect(page.getByRole('slider')).toHaveCount(0);
   const result = page.getByRole('region', { name: 'Result' });
-  await expect(result).toContainText('Curved surfaces were refined', { timeout: 60_000 });
+  await expect(result).toContainText('Faceting reduced', { timeout: 60_000 });
+  await expect(result).toContainText('Every original vertex is unchanged');
   await expect(result).toContainText('Original vertices moved');
-  await expect(page.getByRole('img', { name: /3D view: Original \(repaired\) and Enhanced/ })).toBeVisible();
-  // The print estimate follows the oriented height.
-  const printPanel = page.getByRole('region', { name: /Print on the Anycubic Photon Mono 2/ });
+  await expect(page.getByRole('img', { name: /3D view: Original \(repaired\) and Optimised/ })).toBeVisible();
+  // The optional print estimate follows the oriented height.
+  await page.getByText(/Print estimate for the Anycubic Photon Mono 2/).click();
+  const printPanel = page.locator('details.stl-print');
   await expect(printPanel).toContainText('Layers');
   const layersBefore = await printPanel.locator('dd').nth(1).innerText();
   await printPanel.getByLabel('Layer height (mm)').fill('0.025');
@@ -47,8 +50,8 @@ test('the DM enhances a coarse model, compares it in 3D, estimates the print and
   await screenshot(page, 'stl-workshop-desktop');
 
   // The download is a valid binary STL: re-read and analysed here.
-  const [dl] = await Promise.all([page.waitForEvent('download'), result.getByRole('button', { name: 'Download enhanced STL' }).click()]);
-  expect(dl.suggestedFilename()).toBe('coarse-sphere-enhanced.stl');
+  const [dl] = await Promise.all([page.waitForEvent('download'), result.getByRole('button', { name: 'Download optimised STL' }).click()]);
+  expect(dl.suggestedFilename()).toBe('coarse-sphere-optimised.stl');
   const buf = fs.readFileSync(await dl.path());
   const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
   expect(new TextDecoder().decode(new Uint8Array(ab, 0, 5))).not.toBe('solid');
@@ -58,19 +61,27 @@ test('the DM enhances a coarse model, compares it in 3D, estimates the print and
   expect(Math.abs(r.sizeMm[2] - 20)).toBeLessThan(0.01);
 });
 
-test('cancelling stops the work and leaves the original ready; a fine model is reported as already printer-fine', async ({ page }) => {
+test('cancelling stops the work; an already-fine model is kept exactly and the reason is given', async ({ page }) => {
   test.setTimeout(180_000);
   await signInAsDm(page);
   await page.goto('/dm/stl');
-  await page.locator('input[type=file]').setInputFiles(stlFile('fine.stl', icosphere(8, 6)));
-  await expect(page.getByRole('region', { name: 'Analysis' })).toContainText('81,920', { timeout: 60_000 });
-  await expect(page.getByRole('region', { name: 'Analysis' })).toContainText('unlikely to change the print');
-  await page.getByRole('button', { name: 'Enhance' }).click();
+  const fine = stlFile('fine.stl', icosphere(8, 6));
+  await page.locator('input[type=file]').setInputFiles(fine);
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('alert')).toContainText('Cancelled');
+  await expect(page.getByRole('region', { name: 'Result' })).toHaveCount(0);
+  // Choosing the file again starts over, automatically.
+  await page.locator('input[type=file]').setInputFiles(fine);
   await expect(page.getByRole('region', { name: 'Analysis' })).toContainText('81,920', { timeout: 60_000 });
-  await page.getByRole('button', { name: 'Enhance' }).click();
-  await expect(page.getByRole('region', { name: 'Result' })).toContainText('original is recommended', { timeout: 120_000 });
+  const result = page.getByRole('region', { name: 'Result' });
+  await expect(result).toContainText('Already optimal', { timeout: 120_000 });
+  await expect(result).toContainText('kept exactly as it was');
+  await expect(page.getByRole('img', { name: /3D view: Original \(repaired\) and Kept as it was/ })).toBeVisible();
+  const [dl] = await Promise.all([page.waitForEvent('download'), result.getByRole('button', { name: 'Download STL' }).click()]);
+  expect(dl.suggestedFilename()).toBe('fine-print-ready.stl');
+  const buf = fs.readFileSync(await dl.path());
+  const r = analyze(weld(parseStl(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer).positions));
+  expect(r.triangles).toBe(81_920);
 });
 
 test('works at tablet width without sideways scrolling', async ({ browser }) => {
@@ -79,8 +90,7 @@ test('works at tablet width without sideways scrolling', async ({ browser }) => 
   await signInAsDm(page);
   await page.goto('/dm/stl');
   await page.locator('input[type=file]').setInputFiles(stlFile('tablet.stl', uvSphere(10, 16, 8)));
-  await page.getByRole('button', { name: 'Enhance' }).click();
-  await expect(page.getByRole('region', { name: 'Result' })).toContainText('Curved surfaces were refined', { timeout: 60_000 });
+  await expect(page.getByRole('region', { name: 'Result' })).toContainText('Faceting reduced', { timeout: 60_000 });
   await noHorizontalOverflow(page);
   await screenshot(page, 'stl-workshop-tablet');
 });

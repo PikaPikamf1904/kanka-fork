@@ -1,4 +1,5 @@
-// DM: STL Workshop. Upload -> Analyse -> Enhance -> Compare -> Download, entirely on this device.
+// DM: STL Workshop. Upload, then everything is automatic: analyse -> repair -> enhance (measured and
+// guarded per part) -> verify -> compare -> download. Entirely on this device.
 // The model never leaves the browser: nothing is uploaded, stored or sent anywhere.
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { StlCompare } from '../../components/stl/StlCompare.tsx';
@@ -11,6 +12,8 @@ import '../../styles/stl.css';
 
 const MAX_FILE = 600 * 1024 * 1024;
 const MAX_OUT_TRIANGLES = 6_000_000;
+/** Walls thinner than this are flagged as fragile (a common minimum for resin miniatures). */
+const MIN_WALL_MM = 0.5;
 
 interface Analysis { name: string; format: 'binary' | 'ascii'; warnings: string[]; report: MeshReport; facet: { max: number; p95: number; smoothEdges: number }; soup: Float32Array }
 type Busy = { label: string; fraction: number } | null;
@@ -29,15 +32,11 @@ function download(name: string, data: ArrayBuffer) {
 
 export function StlWorkshop() {
   const worker = useRef<Worker | null>(null);
-  const fileData = useRef<ArrayBuffer | null>(null);
   const [fileName, setFileName] = useState('');
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [result, setResult] = useState<EnhanceOutput | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState('');
-  const [auto, setAuto] = useState(true);
-  const [strength, setStrength] = useState(0.5);
-  const [minWall, setMinWall] = useState(0.5);
   const [highlight, setHighlight] = useState(true);
   const [wire, setWire] = useState(false);
   const [print, setPrint] = useState<PrintSettings>(DEFAULT_PRINT);
@@ -52,7 +51,12 @@ export function StlWorkshop() {
     w.onmessage = (ev: MessageEvent) => {
       const m = ev.data as { type: string } & Record<string, unknown>;
       if (m.type === 'progress') setBusy({ label: m.label as string, fraction: m.fraction as number });
-      else if (m.type === 'analyzed') { setAnalysis(m as unknown as Analysis); setBusy(null); }
+      else if (m.type === 'analyzed') {
+        setAnalysis(m as unknown as Analysis);
+        // No settings: enhancement starts as soon as the model is read.
+        setBusy({ label: 'Repairing', fraction: 0.02 });
+        send(w, { type: 'enhance', minWallMm: MIN_WALL_MM, pixelMm: PHOTON_MONO_2.pixelMm, maxTriangles: MAX_OUT_TRIANGLES });
+      }
       else if (m.type === 'enhanced') { setResult(m.out as EnhanceOutput); setBusy(null); }
       else if (m.type === 'error') { setError(m.message as string); setBusy(null); }
     };
@@ -75,25 +79,16 @@ export function StlWorkshop() {
     if (!/\.stl$/i.test(file.name)) { setError('Choose an .stl file.'); return; }
     if (file.size > MAX_FILE) { setError(`This file is ${(file.size / 1e6).toFixed(0)} MB; the workshop handles up to ${MAX_FILE / 1024 / 1024} MB.`); return; }
     const data = await file.arrayBuffer();
-    fileData.current = data;
     setFileName(file.name);
     analyse(file.name, data);
-  }
-
-  function enhanceNow() {
-    if (!worker.current || !analysis) return;
-    setError(''); setResult(null);
-    setBusy({ label: 'Starting', fraction: 0 });
-    send(worker.current, { type: 'enhance', strength: auto ? 0.5 : strength, minWallMm: minWall, pixelMm: PHOTON_MONO_2.pixelMm, maxTriangles: MAX_OUT_TRIANGLES });
   }
 
   function cancel() {
     worker.current?.terminate();
     worker.current = null;
     setBusy(null);
-    // The stopped thread held the model; load it again so the workshop is ready, then say what happened.
-    if (fileData.current && analysis) analyse(fileName, fileData.current);
-    setError('Cancelled. The original is unchanged.');
+    setResult(null);
+    setError('Cancelled. The original is unchanged; choose the file again to start over.');
   }
 
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDragging(false); void pick(e.dataTransfer.files[0]); };
@@ -105,13 +100,13 @@ export function StlWorkshop() {
   const oriented = useMemo(() => (printSoup ? orientedSize(printSoup, orientation) : null), [printSoup, orientation]);
   const estimate = oriented ? estimatePrint(oriented, print) : null;
   const leftView = useMemo(() => (result ? { soup: result.repairedSoup, flags: result.originalFlags, label: 'Original (repaired)' } : analysis ? { soup: analysis.soup, label: 'Original' } : null), [analysis, result]);
-  const rightView = useMemo(() => (result ? { soup: result.enhancedSoup, flags: result.enhancedFlags, label: result.result.verdict === 'improved' ? 'Enhanced' : 'Enhanced (no printable change)' } : null), [result]);
+  const rightView = useMemo(() => (result ? (useEnhanced ? { soup: result.enhancedSoup, flags: result.enhancedFlags, label: 'Optimised' } : { soup: result.repairedSoup, flags: result.originalFlags, label: 'Kept as it was' }) : null), [result, useEnhanced]);
   const setP = (k: keyof PrintSettings, v: number) => setPrint((p) => ({ ...p, [k]: Number.isFinite(v) ? v : p[k] }));
 
   return (
     <div className="stl-workshop">
       <h1 className="page-title">STL Workshop</h1>
-      <p className="muted">Improve a miniature's geometry for resin printing: repair, refine curved surfaces, check fragile parts, estimate the print. Everything runs on this device; the model is never uploaded or stored.</p>
+      <p className="muted">Drop in a miniature and download a print-ready version for the {PHOTON_MONO_2.name}. Everything is automatic: defects are repaired, faceted curves are smoothed while sharp edges and fine detail are kept, and the result is checked before you get it. If the model is already as good as it can print, it is kept and you are told why. Everything runs on this device; the model is never uploaded or stored.</p>
 
       <section className={dragging ? 'panel stl-drop stl-drop-active' : 'panel stl-drop'} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
         <p><strong>Drop an STL file here</strong>, or</p>
@@ -145,26 +140,6 @@ export function StlWorkshop() {
               {(r.degenerateTriangles > 0 || r.duplicateTriangles > 0) && <><dt>Broken / repeated triangles</dt><dd>{n(r.degenerateTriangles)} / {n(r.duplicateTriangles)} (will be removed)</dd></>}
               {(r.inconsistentEdges > 0 || r.invertedParts > 0) && <><dt>Wrong-facing faces</dt><dd>{n(r.inconsistentEdges)} edges, {r.invertedParts} inside-out parts (will be turned)</dd></>}
             </dl>
-            <p className="fine-print">
-              {analysis.facet.max < 0.0035
-                ? 'The curved surfaces are already within a few microns of smooth: enhancement is unlikely to change the print. The analysis and printing checks below still apply.'
-                : `Curved surfaces are up to ${um(analysis.facet.max)} off a smooth surface; enhancement can round them out without moving any existing vertex.`}
-            </p>
-          </section>
-
-          <section className="panel" aria-labelledby="stl-enhance">
-            <h2 id="stl-enhance">Enhance</h2>
-            <label className="checkbox"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Automatic (recommended)</label>
-            {!auto && (
-              <label className="stl-range">Strength: {strength < 0.34 ? 'gentle' : strength < 0.67 ? 'balanced' : 'strong'}
-                <input type="range" min={0} max={1} step={0.05} value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
-                <span className="fine-print">Gentle keeps more edges sharp and adds fewer triangles; strong rounds more and refines further. Original vertices never move.</span>
-              </label>
-            )}
-            <label className="stl-number">Minimum wall to flag as fragile
-              <span className="stl-unit"><input type="number" min={0.1} max={3} step={0.05} value={minWall} onChange={(e) => setMinWall(Number(e.target.value) || 0.5)} /> mm</span>
-            </label>
-            <button type="button" className="button" disabled={!!busy} onClick={enhanceNow}>Enhance</button>
           </section>
         </>
       )}
@@ -172,30 +147,35 @@ export function StlWorkshop() {
       {result && (
         <section className="panel" aria-labelledby="stl-result">
           <h2 id="stl-result">Result</h2>
-          <p className={result.result.verdict === 'rejected' ? 'form-error' : result.result.verdict === 'improved' ? 'form-ok' : 'stl-note'}>{result.result.message}</p>
-          <table className="table stl-table">
-            <thead><tr><th scope="col" /><th scope="col">Original</th><th scope="col">Enhanced</th></tr></thead>
+          {useEnhanced && (
+            <p className="fine-print">Methods chosen automatically for each part{result.result.fallbacks > 0 ? `; ${result.result.fallbacks} attempt(s) were refused by the checks and a safer method was used instead` : ''}. Creases sharper than {result.result.settings.creaseAngleDeg}° were kept sharp.</p>
+          )}
+          <p className={useEnhanced ? 'form-ok' : 'stl-note'}>{result.result.message}</p>
+          {useEnhanced && <table className="table stl-table">
+            <thead><tr><th scope="col" /><th scope="col">Original</th><th scope="col">Optimised</th></tr></thead>
             <tbody>
+              <tr><th scope="row">Faceting on curves</th><td>max {um(result.result.faceting.before.max)}, 95 % under {um(result.result.faceting.before.p95)}</td><td>max {um(result.result.faceting.after.max)}, 95 % under {um(result.result.faceting.after.p95)}</td></tr>
               <tr><th scope="row">Triangles</th><td>{n(result.repaired.triangles)}</td><td>{n(result.enhanced.triangles)}</td></tr>
               <tr><th scope="row">Size (mm)</th><td>{result.repaired.sizeMm.map((v) => v.toFixed(3)).join(' × ')}</td><td>{result.enhanced.sizeMm.map((v) => v.toFixed(3)).join(' × ')}</td></tr>
               <tr><th scope="row">Volume</th><td>{(result.repaired.volumeMm3 / 1000).toFixed(3)} ml</td><td>{(result.enhanced.volumeMm3 / 1000).toFixed(3)} ml ({result.result.comparison.volumeChangePct >= 0 ? '+' : ''}{result.result.comparison.volumeChangePct.toFixed(2)} %)</td></tr>
               <tr><th scope="row">Surface moved</th><td>—</td><td>max {um(result.result.comparison.enhancedToOriginal.max)}, mean {um(result.result.comparison.enhancedToOriginal.mean)}</td></tr>
               <tr><th scope="row">Original vertices moved</th><td>—</td><td>max {um(result.result.comparison.originalVerticesToEnhanced.max)}</td></tr>
               <tr><th scope="row">Watertight</th><td>{result.repaired.watertight ? 'Yes' : 'No'}</td><td>{result.verified.watertight ? 'Yes' : 'No'} (checked in the written file)</td></tr>
-              <tr><th scope="row">Fragile (thinner than {minWall} mm)</th><td>{result.fragile.original.thinAreaPct.toFixed(1)} % of surface</td><td>{result.fragile.enhanced.thinAreaPct.toFixed(1)} % of surface</td></tr>
+              <tr><th scope="row">Fragile (thinner than {MIN_WALL_MM} mm)</th><td>{result.fragile.original.thinAreaPct.toFixed(1)} % of surface</td><td>{result.fragile.enhanced.thinAreaPct.toFixed(1)} % of surface</td></tr>
               <tr><th scope="row">Walls under one pixel</th><td>{n(result.fragile.original.subPixelTriangles)} triangles</td><td>{n(result.fragile.enhanced.subPixelTriangles)} triangles</td></tr>
             </tbody>
-          </table>
+          </table>}
           <p className="fine-print">
             Repairs: {result.repairLog.removedDegenerate} broken and {result.repairLog.removedDuplicate} repeated triangles removed; {result.repairLog.flippedTriangles} faces turned the right way ({result.repairLog.flippedParts} inside-out parts).
             {result.result.partsUnchanged.length > 0 && ` Left exactly as they were: ${result.result.partsUnchanged.length} part(s) — ${[...new Set(result.result.partsUnchanged.map((p) => p.reason))].join('; ')}.`}
             {' '}Holes are never filled and no part is removed.
           </p>
           <div className="button-row">
-            <button type="button" className="button" onClick={() => download(`${base}-enhanced.stl`, result.stl)} disabled={result.result.verdict === 'rejected'}>Download enhanced STL</button>
-            <button type="button" className="button secondary" onClick={() => download(`${base}-repaired.stl`, writeBinaryStl(result.repairedSoup, result.repairedSoup.length / 9))}>Download repaired original</button>
+            {useEnhanced
+              ? <button type="button" className="button" onClick={() => download(`${base}-optimised.stl`, result.stl)}>Download optimised STL</button>
+              : <button type="button" className="button" onClick={() => download(`${base}-print-ready.stl`, writeBinaryStl(result.repairedSoup, result.repairedSoup.length / 9))}>Download STL</button>}
           </div>
-          <p className="fine-print">Binary STL in millimetres, for Lychee or any slicer. Your uploaded file is not changed.</p>
+          <p className="fine-print">Binary STL in millimetres, for Lychee or any slicer. {useEnhanced ? 'Optimised geometry, repaired and verified.' : 'The original geometry, with only the safe repairs listed above.'} Your uploaded file is not changed.</p>
         </section>
       )}
 
@@ -207,13 +187,13 @@ export function StlWorkshop() {
             <label className="checkbox"><input type="checkbox" checked={wire} onChange={(e) => setWire(e.target.checked)} /> Wireframe</label>
           </div>
           <StlCompare left={leftView} right={rightView} highlight={highlight} wireframe={wire} />
-          {result && <p className="fine-print"><span className="stl-key stl-key-thin" /> thinner than {minWall} mm <span className="stl-key stl-key-red" /> thinner than one printer pixel (34 µm): will not print. Thickness is measured straight through each surface; it is a guide, not a guarantee.</p>}
+          {result && <p className="fine-print"><span className="stl-key stl-key-thin" /> thinner than {MIN_WALL_MM} mm <span className="stl-key stl-key-red" /> thinner than one printer pixel (34 µm): will not print. Thickness is measured straight through each surface; it is a guide, not a guarantee.</p>}
         </section>
       )}
 
       {analysis && estimate && oriented && (
-        <section className="panel" aria-labelledby="stl-print">
-          <h2 id="stl-print">Print on the {PHOTON_MONO_2.name}</h2>
+        <details className="panel stl-print" aria-labelledby="stl-print">
+          <summary><h2 id="stl-print">Print estimate for the {PHOTON_MONO_2.name} (optional)</h2></summary>
           <p className="fine-print">Nominal 34 µm XY pixel; build volume {PHOTON_MONO_2.buildMm.join(' × ')} mm (nominal). Settings are starting values: use your resin's exposure times. {useEnhanced ? 'Estimated for the enhanced model.' : 'Estimated for the original model.'}</p>
           <div className="stl-grid">
             <label>Tilt about X (°)<input type="number" min={-90} max={90} step={5} value={orientation.tiltXDeg} onChange={(e) => setOrientation({ ...orientation, tiltXDeg: Number(e.target.value) || 0 })} /></label>
@@ -235,7 +215,7 @@ export function StlWorkshop() {
             <dt>Build volume</dt><dd className={estimate.fits ? '' : 'form-error'}>{estimate.fitNote}</dd>
           </dl>
           <p className="fine-print">Print time on a resin printer depends on height, not width: every layer is exposed at once. This is an estimate from the settings above; supports, hollowing and printability are decided in Lychee, and nothing here guarantees a successful print.</p>
-        </section>
+        </details>
       )}
     </div>
   );
