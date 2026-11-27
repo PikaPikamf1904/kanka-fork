@@ -1,8 +1,10 @@
 // The workshop's whole process for one file, as used by the browser worker (and by the tests):
-// read -> weld -> analyse -> repair -> enhance (measured, guarded) -> fragile check -> write -> re-read.
-import { analyze, repair, toSoup, weld, type Mesh, type MeshReport, type RepairLog } from './mesh.ts';
+// read -> weld -> analyse -> repair -> enhance (measured, guarded) -> fragile check -> write -> re-read ->
+// slice the original and the written file at the same layers (print check).
+import { analyze, bounds, repair, toSoup, weld, type Mesh, type MeshReport, type RepairLog } from './mesh.ts';
 import { enhance, type EnhanceResult, type ManifoldModule } from './enhance.ts';
 import { fragileGeometry, type FragileReport } from './printer.ts';
+import { sliceCheck, type SliceReport } from './slice.ts';
 import { parseStl, writeBinaryStl } from './stlIO.ts';
 
 export interface AnalyzeResult {
@@ -28,8 +30,12 @@ export interface EnhanceOutput {
   stl: ArrayBuffer;
   /** The written file, re-read and analysed: what the slicer will see. */
   verified: MeshReport;
+  /** The repaired original and the written file, cut at the same layers (see slice.ts). */
+  slices: { original: SliceSummary; optimised: SliceSummary };
   timingsMs: Record<string, number>;
 }
+
+export type SliceSummary = Omit<SliceReport, 'exposed'>;
 
 export type Progress = (fraction: number, label: string) => void;
 
@@ -56,8 +62,15 @@ export function enhanceModel(M: ManifoldModule | null, original: Mesh, opts: { m
   progress(0.85, 'Writing and re-reading the STL');
   const enhancedSoup = toSoup(r.mesh);
   const stl = writeBinaryStl(enhancedSoup, r.mesh.tri.length / 3);
-  const verified = analyze(weld(parseStl(stl).positions), opts.pixelMm);
+  const written = weld(parseStl(stl).positions);
+  const verified = analyze(written, opts.pixelMm);
   lap('write+verify');
+  progress(0.92, 'Slicing both versions into layers');
+  const b = bounds(fixed);
+  const zRange: [number, number] = [b.min[2]!, b.max[2]!];
+  const summary = ({ exposed: _e, ...rest }: SliceReport): SliceSummary => { void _e; return rest; };
+  const slices = { original: summary(sliceCheck(fixed, { zRange })), optimised: summary(sliceCheck(written, { zRange })) };
+  lap('slice');
   const { mesh: _m, ...result } = r;
   void _m;
   const strip = ({ flags: _f, ...rest }: FragileReport) => { void _f; return rest; };
@@ -65,6 +78,6 @@ export function enhanceModel(M: ManifoldModule | null, original: Mesh, opts: { m
   return {
     repaired, repairLog: log, enhanced: analyze(r.mesh, opts.pixelMm), result,
     fragile: { original: strip(fo), enhanced: strip(fe) }, enhancedFlags: fe.flags, originalFlags: fo.flags,
-    enhancedSoup, repairedSoup: toSoup(fixed), stl, verified, timingsMs: t,
+    enhancedSoup, repairedSoup: toSoup(fixed), stl, verified, slices, timingsMs: t,
   };
 }

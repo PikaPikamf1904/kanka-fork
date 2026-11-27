@@ -23,12 +23,16 @@ export interface PnOptions {
   maxLevel: number;
   /** Stop before producing more triangles than this. */
   maxTriangles: number;
+  /** Also return, per output triangle, the input triangle it came from (for measurements). */
+  trackOrigin?: boolean;
 }
 
 export interface PnResult {
   mesh: Mesh; level: number; curvedTriangles: number;
   /** Largest distance a curved crease line moves from its straight chord (mm). */
   creaseMaxMm: number;
+  /** For each output triangle, the input triangle it was made from. */
+  origin?: Uint32Array;
 }
 
 const sub3 = (p: Float64Array, a: number, b: number): [number, number, number] => [p[a]! - p[b]!, p[a + 1]! - p[b + 1]!, p[a + 2]! - p[b + 2]!];
@@ -201,8 +205,11 @@ export function pnRefine(m: Mesh, o: PnOptions): PnResult | null {
   const along = (ei: number, from: number, s: number) => (e.a[ei] === from ? edgePoints(ei)[s - 1]! : edgePoints(ei)[level - 1 - s]!);
 
   const out: number[] = [];
-  const tri = (a: number[], b: number[], c: number[]) => out.push(a[0]!, a[1]!, a[2]!, b[0]!, b[1]!, b[2]!, c[0]!, c[1]!, c[2]!);
+  const originList: number[] = [];
+  let current = 0;
+  const tri = (a: number[], b: number[], c: number[]) => { if (o.trackOrigin) originList.push(current); out.push(a[0]!, a[1]!, a[2]!, b[0]!, b[1]!, b[2]!, c[0]!, c[1]!, c[2]!); };
   for (let t = 0; t < nt; t++) {
+    current = t;
     const V = [m.tri[t * 3]!, m.tri[t * 3 + 1]!, m.tri[t * 3 + 2]!];
     const p = V.map(pt);
     const e01 = e.ofCorner[t * 3]!, e12 = e.ofCorner[t * 3 + 1]!, e20 = e.ofCorner[t * 3 + 2]!;
@@ -256,5 +263,5 @@ export function pnRefine(m: Mesh, o: PnOptions): PnResult | null {
   }
   // Merge the shared points (identical up to rounding) back into an indexed mesh.
   const res = weld(Float64Array.from(out));
-  return { mesh: res, level, curvedTriangles: curvedCount, creaseMaxMm: creaseMax };
+  return { mesh: res, level, curvedTriangles: curvedCount, creaseMaxMm: creaseMax, origin: o.trackOrigin ? Uint32Array.from(originList) : undefined };
 }
