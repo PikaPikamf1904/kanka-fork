@@ -209,6 +209,63 @@ describe('drafting', () => {
   });
 });
 
+describe('Gazette proposals: suggested release times and the new correspondents', () => {
+  const story = { body: 'MCPBATCH body, exactly as approved.', section: 'war', reliability: 'rumor' };
+
+  it('keeps a suggested time exactly, accepts the new correspondents, and publishes nothing', async () => {
+    await world();
+    await admin('delete from public.news_proposals');
+    await admin("delete from public.articles where type = 'news'");
+    const at = '2026-12-01T05:45:00-07:00';
+    const r = await call('chronicle_draft_gazette_story', { ...story, headline: 'Zz Black Rose Returns', reporter: 'gribble-senior-investigative', suggested_publish_at: at }, dm());
+    expect(r.isError, r.raw).toBe(false);
+    expect(r.data.suggested_publish_at).toBe('2026-12-01T12:45:00.000Z');
+    const row = (await admin('select reporter, suggested_publish_at, status, article_id, created_via from public.news_proposals where id = $1', [r.data.proposal_id])).rows[0]!;
+    expect(new Date(row.suggested_publish_at).toISOString()).toBe('2026-12-01T12:45:00.000Z');
+    expect(row).toMatchObject({ reporter: 'gribble-senior-investigative', status: 'pending', article_id: null, created_via: 'synthetic-mcp-client' });
+    for (const key of ['gribble', 'snikkit', 'snikkit-food', 'bogwart', 'gribble-investigative']) {
+      const ok = await call('chronicle_draft_gazette_story', { ...story, headline: `Zz By ${key}`, reporter: key }, dm());
+      expect(ok.isError, `${key}: ${ok.raw}`).toBe(false);
+    }
+    expect((await admin("select count(*)::int n from public.articles where type = 'news'")).rows[0]!.n).toBe(0);
+    // The discoverable tool says which keys exist.
+    const list = await post({ jsonrpc: '2.0', id: ++n, method: 'tools/list' }, dm());
+    const tool = (list.json!.result as { tools: { name: string; description: string }[] }).tools.find((t) => t.name === 'chronicle_draft_gazette_story')!;
+    expect(tool.description).toMatch(/gribble-senior-investigative = Gribble Inkfinger, Senior Investigative Correspondent/);
+    expect(tool.description).toMatch(/suggested_publish_at/);
+  });
+
+  it('refuses a time without an offset, an impossible date, and a headline already on the desk', async () => {
+    await world();
+    await admin('delete from public.news_proposals');
+    await admin("delete from public.articles where type = 'news'");
+    const base = { ...story, reporter: 'bogwart' };
+    for (const bad of ['2026-12-01T05:45', '2026-12-01 05:45:00-07:00', 'tomorrow morning', '2026-13-45T05:45:00-07:00', '2031-12-01T05:45:00Z']) {
+      const r = await call('chronicle_draft_gazette_story', { ...base, headline: 'Zz Bad Time', suggested_publish_at: bad }, dm());
+      expect(r.error?.code, bad).toBe('VALIDATION_FAILED');
+    }
+    expect((await admin('select count(*)::int n from public.news_proposals')).rows[0]!.n).toBe(0);
+    expect((await call('chronicle_draft_gazette_story', { ...base, headline: 'Zz Once Only' }, dm())).isError).toBe(false);
+    expect((await call('chronicle_draft_gazette_story', { ...base, headline: '  zz once only ' }, dm())).error.code).toBe('ALREADY_EXISTS');
+    expect((await admin('select count(*)::int n from public.news_proposals')).rows[0]!.n).toBe(1);
+  });
+
+  it('a time that has already passed is accepted as a suggestion but flagged for the DM', async () => {
+    await world();
+    await admin('delete from public.news_proposals');
+    const r = await call('chronicle_draft_gazette_story', { ...story, headline: 'Zz Missed Date', reporter: 'gribble', suggested_publish_at: '2020-01-01T05:45:00-07:00' }, dm());
+    expect(r.isError, r.raw).toBe(false);
+    expect(r.data.warnings.join(' ')).toMatch(/already passed/);
+  });
+
+  it('only the DM can file; a player is refused, and the tool cannot approve, schedule or print', async () => {
+    await world();
+    expect((await call('chronicle_draft_gazette_story', { ...story, headline: 'Zz Player', reporter: 'nib' }, player())).error.code).toBe('FORBIDDEN');
+    const names = ((await post({ jsonrpc: '2.0', id: ++n, method: 'tools/list' }, dm())).json!.result as { tools: { name: string }[] }).tools.map((t) => t.name);
+    expect(names.filter((x) => /approve|schedule|publish|print/.test(x))).toEqual([]);
+  });
+});
+
 describe('staged imports through MCP', () => {
   const files = [
     { name: 'npcs/zz-ferryman.md', text: '---\ntitle: Zz Ferryman\ncanon: confirmed\n---\nRows boats at [[Zz Harbour Town]].\n\n## Facts\n- Race: Human' },

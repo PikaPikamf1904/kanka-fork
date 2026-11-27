@@ -326,11 +326,12 @@ export const CAMPAIGN_TOOLS: Tool[] = [
   },
   {
     name: 'chronicle_draft_gazette_story', scope: 'chronicle:preview', dmOnly: true, annotations: STAGE,
-    description: 'DM only. Files a proposed Goblin Gazette story (headline, deck, opening, body, section, reporter, kind of reporting) on the news desk. It saves no story and can never print: the DM accepts it there as a private draft (or dismisses it), then reviews and prints it as usual. Base it on documented campaign events; mark rumours with reliability "rumor".',
+    description: `DM only. Files one COMPLETE Goblin Gazette story (headline, deck, opening, body, section, reporter, kind of reporting) on the news desk, optionally with a suggested release time. It saves no story and can never approve, schedule or print: the DM reads the proposals together and, in one action on the website, accepts, approves and schedules the ones they choose (or dismisses them). Send each story once, exactly as approved, with its text unchanged; a story whose headline already exists on the desk or in the Gazette is refused. Base it on documented campaign events; mark rumours with reliability "rumor". Reporter keys (name, title): ${STAFF.filter((r) => !r.variantOf || r.title).map((r) => `${r.key} = ${r.name}, ${r.title}`).join('; ')}. Use suggested_publish_at (ISO 8601 with a UTC offset, e.g. 2026-12-01T05:45:00-07:00; Arizona has no daylight saving) to say when the story should appear; it is only a suggestion, and the DM decides.`,
     inputSchema: { type: 'object', required: ['headline', 'body', 'section', 'reliability', 'reporter'], additionalProperties: false, properties: {
       headline: { type: 'string', maxLength: 200 }, deck: { type: 'string', maxLength: 200 }, opening: { type: 'string', maxLength: 2000 }, body: { type: 'string', maxLength: 30000 },
       section: { enum: SECTIONS.map((s) => s.key) }, reliability: { enum: Object.keys(RELIABILITY) }, reporter: { enum: STAFF.map((s) => s.key) },
-      dateline: { type: 'string', maxLength: 120 }, in_world_date: { type: 'string', maxLength: 120, description: 'Only if documented.' }, based_on: { type: 'array', maxItems: 20, items: { type: 'string' }, description: 'Addresses of the wiki pages the story is based on.' } } },
+      dateline: { type: 'string', maxLength: 120 }, in_world_date: { type: 'string', maxLength: 120, description: 'Only if documented.' },
+      suggested_publish_at: { type: 'string', maxLength: 40, description: 'When the story should appear, ISO 8601 with an explicit UTC offset or Z. A suggestion only; the DM chooses the real time.' }, based_on: { type: 'array', maxItems: 20, items: { type: 'string' }, description: 'Addresses of the wiki pages the story is based on.' } } },
     async run(a: Json, ctx: CampaignCtx) {
       const section = SECTIONS.find((s) => s.key === a.section)?.key ?? bad('section is not valid.');
       const reliability = (Object.keys(RELIABILITY) as NewsReliability[]).find((r) => r === a.reliability) ?? bad('reliability is not valid.');
@@ -339,19 +340,35 @@ export const CAMPAIGN_TOOLS: Tool[] = [
       const pages = based.length ? await ctx.db.get<Art>(`articles?select=${ART}&slug=in.(${based.join(',')})`) : [];
       const body = text(a.body, 'body', 30000, true);
       const warnings: string[] = [];
+      const headline = text(a.headline, 'headline', 200, true).trim();
+      // A suggested time must say which instant it means (an offset or Z); a bare time would be a guess.
+      const rawAt = text(a.suggested_publish_at, 'suggested_publish_at', 40).trim();
+      let suggested: string | null = null;
+      if (rawAt) {
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(rawAt)) bad('suggested_publish_at must be an ISO 8601 time with a UTC offset, e.g. 2026-12-01T05:45:00-07:00.');
+        const when = new Date(rawAt);
+        if (Number.isNaN(when.getTime())) bad('suggested_publish_at is not a real date and time.');
+        if (when.getTime() > Date.now() + 366 * 86_400_000) bad('suggested_publish_at is more than a year away.');
+        suggested = when.toISOString();
+        if (when.getTime() <= Date.now()) warnings.push('The suggested time has already passed: the DM will be offered to print it now or choose a new time.');
+      }
+      // No second copy: a headline already waiting on the news desk or already in the Gazette is refused.
+      const norm = (t: string) => t.trim().toLowerCase();
+      const taken = [...(await ctx.db.get<{ title: string }>('news_proposals?select=title&status=eq.pending&limit=200')), ...(await ctx.db.get<{ title: string }>('articles?select=title&type=eq.news&limit=1000'))];
+      if (taken.some((t) => norm(t.title) === norm(headline))) throw new ToolError('ALREADY_EXISTS', 'A story with this headline is already on the news desk or in the Gazette. Do not send it again.');
       if (pages.length === 0) warnings.push('No source pages were given: check every fact against the campaign record.');
       if (based.some((b) => !pages.some((p) => p.slug === b))) warnings.push(`Unknown source pages: ${based.filter((b) => !pages.some((p) => p.slug === b)).join(', ')}.`);
       const hidden = pages.filter((p) => !isPublic(p));
       if (hidden.length) warnings.push(`Based on pages players cannot see (${hidden.map((p) => p.slug).join(', ')}): printing this story could reveal them.`);
       if (reliability === 'confirmed' && section === 'rumors') warnings.push('A story in Rumors is marked as confirmed; check the kind of reporting.');
       const row = await ctx.db.insert<{ id: string }>('news_proposals', {
-        title: text(a.headline, 'headline', 200, true).trim(), subtitle: text(a.deck, 'deck', 200), summary: text(a.opening, 'opening', 2000), body,
+        title: headline, subtitle: text(a.deck, 'deck', 200), summary: text(a.opening, 'opening', 2000), body, suggested_publish_at: suggested,
         section: section as NewsSection, reliability, reporter: reporter.key, dateline: text(a.dateline, 'dateline', 120), in_world_date: text(a.in_world_date, 'in_world_date', 120),
         based_on: pages.map((p) => p.slug), warnings: warnings.map((w) => clip(w, 290)), // the database refuses items over 300 characters
       }, 'id');
-      return { proposal_id: row.id, review_url: `${ctx.reviewBase}/dm/news#proposals`, reporter: { name: reporter.name, voice: reporter.voice }, reliability_label: RELIABILITY[reliability].label,
+      return { proposal_id: row.id, suggested_publish_at: suggested, review_url: `${ctx.reviewBase}/dm/news#proposals`, reporter: { name: reporter.name, voice: reporter.voice }, reliability_label: RELIABILITY[reliability].label,
         based_on: pages.map((p) => ({ slug: p.slug, title: p.title, player_visible: isPublic(p) })), warnings,
-        next_step: 'Tell the DM the proposal is waiting on the news desk (review_url). Only the DM can accept it as a draft, review it and print it.' };
+        next_step: 'Tell the DM the proposal is waiting on the news desk (review_url). Only the DM can read it, then accept, approve and schedule it there (one action covers several stories); you cannot approve, schedule or print.' };
     },
   },
   {
