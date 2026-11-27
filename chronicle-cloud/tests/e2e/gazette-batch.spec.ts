@@ -39,7 +39,7 @@ test.describe('Gazette batch approval', () => {
     await expect(approve).toBeDisabled();
     await expect(panel.getByText('3 not read yet')).toBeVisible();
     for (const t of [A, B, C]) {
-      await panel.getByTestId('news-proposal').filter({ hasText: t }).getByRole('button', { name: 'Read the whole story' }).click();
+      await panel.getByTestId('news-proposal').filter({ hasText: t }).getByRole('button', { name: 'Read it' }).click();
       await expect(panel.getByText(`BATCHE2E full text of ${t}.`)).toBeVisible();
     }
     await expect(approve).toBeDisabled(); // still needs the DM's explicit confirmation

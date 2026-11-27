@@ -583,8 +583,8 @@ function NewsProposals({ onDone }: { onDone: (message: string) => void }) {
                 </div>
               )}
               <div className="row-wrap">
-                <button type="button" className="button small secondary" aria-expanded={open === p.id} onClick={() => openStory(p.id)}>{open === p.id ? 'Hide' : 'Read the whole story'}</button>
-                <button type="button" className="button small secondary" disabled={busy !== ''} onClick={() => void decide(p.id, true)}>{busy === p.id ? 'Saving…' : 'Accept as a draft only'}</button>
+                <button type="button" className="button small secondary" aria-expanded={open === p.id} onClick={() => openStory(p.id)}>{open === p.id ? 'Hide' : 'Read it'}</button>
+                <button type="button" className="button small secondary" disabled={busy !== ''} onClick={() => void decide(p.id, true)}>{busy === p.id ? 'Saving…' : 'Accept as a private draft'}</button>
                 <button type="button" className="button small secondary" disabled={busy !== ''} onClick={() => void decide(p.id, false)}>Dismiss</button>
               </div>
             </li>
@@ -596,7 +596,7 @@ function NewsProposals({ onDone }: { onDone: (message: string) => void }) {
           <strong>{picked.length}</strong> chosen
           {pending.length > 1 && <> · <button type="button" className="link-button" onClick={() => { setConfirmed(false); setChosen(new Set(pending.map((x) => x.id))); }}>Choose all</button> · <button type="button" className="link-button" onClick={() => { setConfirmed(false); setChosen(new Set()); }}>Clear</button></>}
         </p>
-        {unread.length > 0 && <p className="fine-print">Read every chosen story first (“Read the whole story”): {unread.length} not read yet.</p>}
+        {unread.length > 0 && <p className="fine-print">Read every chosen story first (“Read it”): {unread.length} not read yet.</p>}
         <label className="checkbox">
           <input type="checkbox" checked={confirmed} disabled={picked.length === 0 || unread.length > 0} onChange={(ev) => setConfirmed(ev.target.checked)} />
           {' '}I have read {picked.length === 1 ? 'this story' : `these ${picked.length} stories`} in full and approve {picked.length === 1 ? 'it' : 'them'} for the Gazette.

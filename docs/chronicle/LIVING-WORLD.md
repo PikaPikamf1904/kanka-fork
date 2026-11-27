@@ -32,7 +32,7 @@ the same zone.
    and `suggested_publish_at`, for example `2026-12-01T05:45:00-07:00`). The tool refuses a headline that is
    already on the desk or in the Gazette. It cannot approve, schedule or print anything.
 2. **DM → News desk → Proposed by an assistant.** Every proposal shows who filed it, its suggested time in the
-   campaign time zone, and a **Read the whole story** button.
+   campaign time zone, and a **Read it** button.
 3. Tick the stories you want (or **Choose all**), and read each one. The approve button stays off until every
    chosen story has been read and you tick *I have read these stories in full and approve them*.
 4. For each story choose **Schedule for the time below** (the suggestion, which you can change), **Print now**, or
