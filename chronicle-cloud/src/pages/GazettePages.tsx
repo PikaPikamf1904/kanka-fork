@@ -219,7 +219,7 @@ function StaffBox() {
     <section className="gz-box gz-staff">
       <h2 className="gz-box-title">The Masthead</h2>
       <ul>
-        {STAFF.map((r) => (
+        {STAFF.filter((r) => !r.variantOf).map((r) => (
           <li key={r.key}><strong>{r.name}</strong>, {r.title}. <em>{r.sign}</em></li>
         ))}
       </ul>
