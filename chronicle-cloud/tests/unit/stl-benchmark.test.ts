@@ -1,9 +1,13 @@
 // Method comparison and performance for the STL Workshop. Not part of the normal test run (slow):
 //   STL_BENCH=1 npx vitest run --project unit tests/unit/stl-benchmark.test.ts
-// Prints Markdown tables; the numbers in docs/chronicle/STL-WORKSHOP.md come from this file.
+// Prints Markdown tables (or writes them to $STL_BENCH_OUT); the numbers in docs/chronicle/STL-WORKSHOP.md
+// come from this file.
 import { describe, it } from 'vitest';
 import Module from 'manifold-3d';
-import { enhance, loopSubdivide, manifoldUniform, midpointSubdivide, settingsFor, taubinSmooth, type ManifoldModule } from '../../src/lib/stl/enhance.ts';
+import { CREASE_ANGLE_DEG, enhance, joinParts, loopSubdivide, midpointSubdivide, refinePart, splitParts, taubinSmooth, TOLERANCE_MM, type ManifoldModule } from '../../src/lib/stl/enhance.ts';
+import { bilateral, hcLaplacian, selectiveSmooth, taubinFeature } from '../../src/lib/stl/alternatives.ts';
+import { pnRefine } from '../../src/lib/stl/pn.ts';
+import { weld } from '../../src/lib/stl/mesh.ts';
 import { analyze, signedVolume, toSoup, type Mesh } from '../../src/lib/stl/mesh.ts';
 import { compare, samplePoints } from '../../src/lib/stl/metrics.ts';
 import { enhanceModel, readModel } from '../../src/lib/stl/pipeline.ts';
@@ -28,14 +32,20 @@ function cylErr(m: Mesh, r: number, h: number) {
 describe.runIf(process.env.STL_BENCH)('STL Workshop benchmark', () => {
   it('compares methods and measures performance', { timeout: 900_000 }, async () => {
     const w = await Module(); w.setup(); const M = w as unknown as ManifoldModule;
-    const s = settingsFor(0.5);
+    const C = CREASE_ANGLE_DEG;
     const methods: [string, (m: Mesh, edge: number) => Mesh | null][] = [
       ['Original', (m) => m],
       ['Midpoint subdivision ×1', (m) => midpointSubdivide(m)],
       ['Loop subdivision ×1', (m) => loopSubdivide(m)],
       ['Taubin smoothing (10 it.)', (m) => taubinSmooth(m)],
-      ['manifold-3d smooth + uniform refine', (m, e) => manifoldUniform(M, m, s.minSharpAngle, e / 3)],
-      ['manifold-3d smooth + adaptive refine (chosen)', (m, e) => enhance(M, m, { strength: 0.5, maxTriangles: 10_000_000 }, e).mesh],
+      ['Feature-preserving Taubin', (m) => taubinFeature(m, C)],
+      ['HC Laplacian (Vollmer 1999)', (m) => hcLaplacian(m, C)],
+      ['Bilateral filtering (Fleishman 2003)', (m) => bilateral(m, C)],
+      ['Curvature-selective smoothing', (m) => selectiveSmooth(m, C)],
+      ['Hybrid: midpoint + selective smoothing', (m) => selectiveSmooth(midpointSubdivide(m), C)],
+      ['manifold-3d smooth + adaptive refine (closed parts)', (m) => joinParts(splitParts(m).map((p) => refinePart(M, p, C, TOLERANCE_MM) ?? p))],
+      ['Curved PN, adaptive (unguarded)', (m) => joinParts(splitParts(m).map((p) => pnRefine(p, { creaseAngleDeg: C, toleranceMm: TOLERANCE_MM, maxLevel: 6, maxTriangles: 1e7 })?.mesh ?? p))],
+      ['Automatic pipeline (chosen)', (m) => enhance(M, m, { maxTriangles: 10_000_000 }).mesh],
     ];
     const out: string[] = [];
     const run = (title: string, m: Mesh, cols: string[], row: (r: Mesh, ms: number) => string[]) => {
@@ -55,6 +65,13 @@ describe.runIf(process.env.STL_BENCH)('STL Workshop benchmark', () => {
     run('Coarse cylinder, R = 5 mm, h = 20 mm, 12 sides (truth known)', cylinder(5, 20, 12), ['Side error vs true cylinder (µm)', 'Cap overhang (µm)', 'Height (mm)'], (r) => {
       const e = cylErr(r, 5, 20); return [µm(e.mean), µm(e.capOverhang), e.height.toFixed(4)];
     });
+    // An open surface (as many Hero Forge parts are): only methods that accept open meshes can help.
+    const hs = uvSphere(R, 16, 8), keep: number[] = [];
+    for (let t = 0; t < hs.tri.length / 3; t++) if ([0, 1, 2].reduce((a, k) => a + hs.pos[hs.tri[t * 3 + k]! * 3 + 2]!, 0) > 0) keep.push(hs.tri[t * 3]!, hs.tri[t * 3 + 1]!, hs.tri[t * 3 + 2]!);
+    const half = weld(toSoup({ pos: hs.pos, tri: Uint32Array.from(keep) }));
+    run('Open hemisphere, R = 10 mm (truth known; not a closed solid)', half, ['Mean error vs true sphere (µm)', 'Max error (µm)', 'Original vertices moved (max µm)'], (r) => {
+      const e = sphereErr(r, R); return [µm(e.mean), µm(e.max), µm(compare(half, r).originalVerticesToEnhanced.max)];
+    });
     run('Cube, 20 mm (sharp edges)', box(20, 20, 20), ['Hausdorff vs original (µm)', 'Volume change'], (r) => {
       const c = compare(box(20, 20, 20), r); return [µm(c.hausdorff), `${c.volumeChangePct.toFixed(3)} %`];
     });
@@ -67,7 +84,8 @@ describe.runIf(process.env.STL_BENCH)('STL Workshop benchmark', () => {
       const e = sphereErr(r, 4); return [µm(e.mean), µm(e.max)];
     });
 
-    console.log(out.join('\n'));
+    if (process.env.STL_BENCH_OUT) (await import('node:fs')).writeFileSync(process.env.STL_BENCH_OUT, out.join('\n'));
+    else console.log(out.join('\n'));
   });
 
   // Writes the large synthetic STL files used for the pipeline measurements:
@@ -92,8 +110,9 @@ describe.runIf(process.env.STL_BENCH)('STL Workshop benchmark', () => {
     const t0 = performance.now();
     const { mesh, out } = readModel('bench.stl', data, 0.034);
     const tRead = performance.now() - t0;
-    const r = enhanceModel(M, mesh, { strength: 0.5, maxTriangles: 12_000_000, minWallMm: 0.5, pixelMm: 0.034 }, () => undefined);
+    const r = enhanceModel(M, mesh, { maxTriangles: 12_000_000, minWallMm: 0.5, pixelMm: 0.034 }, () => undefined);
     const peak = process.resourceUsage().maxRSS * 1024;
-    console.log(`PIPELINE | ${(file.byteLength / 1e6).toFixed(1)} MB | ${out.report.triangles.toLocaleString('en')} | ${r.enhanced.triangles.toLocaleString('en')} | ${r.result.verdict} | ${tRead.toFixed(0)} ms | ${r.timingsMs.repair} ms | ${r.timingsMs.enhance} ms | ${r.timingsMs.fragile} ms | ${r.timingsMs['write+verify']} ms | ${((peak - rssBefore) / 1e6).toFixed(0)} MB |`);
+    const line = `PIPELINE | ${(file.byteLength / 1e6).toFixed(1)} MB | ${out.report.triangles.toLocaleString('en')} | ${r.enhanced.triangles.toLocaleString('en')} | ${r.result.verdict} | ${tRead.toFixed(0)} ms | ${r.timingsMs.repair} ms | ${r.timingsMs.enhance} ms | ${r.timingsMs.fragile} ms | ${r.timingsMs['write+verify']} ms | ${((peak - rssBefore) / 1e6).toFixed(0)} MB |`;
+    if (process.env.STL_BENCH_OUT) fs.appendFileSync(process.env.STL_BENCH_OUT, line + '\n'); else console.log(line);
   });
 });

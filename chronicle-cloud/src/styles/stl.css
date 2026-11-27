@@ -25,3 +25,6 @@
 .stl-key-thin { background: #e0a43a; }
 .stl-key-red { background: #c8463b; }
 .stl-unit { display: flex; align-items: center; gap: 0.4rem; }
+.stl-print > summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; }
+.stl-print > summary h2 { display: inline; margin: 0; font-size: 1.1rem; }
+.stl-print[open] > summary { margin-bottom: 0.75rem; }
