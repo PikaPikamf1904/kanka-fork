@@ -120,3 +120,63 @@ export function recoverFromStaleBuild(reload: () => void = () => window.location
 export function reloadNow() {
   window.location.reload();
 }
+
+// ---------------------------------------------------------------------------------------------
+// Prevention: notice a release before the reader needs a file from it.
+// ---------------------------------------------------------------------------------------------
+// While the tab is visible it re-reads the home page now and then (a small static file, free on
+// Pages). Once a newer release is out, the next click on a link inside Chronicle loads that page in
+// full instead of switching inside this old copy, so the old copy never asks for a file the release
+// deleted. Links opened with a modifier key, in another tab, or as a download are left alone, and a
+// page with unsaved changes still gets the browser's own "leave this page?" question.
+
+export const RELEASE_CHECK_MS = 5 * 60 * 1000;
+let newReleaseOut = false;
+
+/** The address a click should load in full, or null to let the app handle it as usual. */
+export function fullLoadTarget(e: Pick<MouseEvent, 'button' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'defaultPrevented'>, link: { href: string; target: string; hasDownload: boolean }, here: URL): string | null {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return null;
+  if (link.hasDownload || (link.target && link.target !== '_self')) return null;
+  let to: URL;
+  try {
+    to = new URL(link.href, here);
+  } catch {
+    return null;
+  }
+  if (to.origin !== here.origin || to.pathname.startsWith('/api/')) return null;
+  if (to.pathname === here.pathname && to.search === here.search) return null; // only the #fragment changes
+  return to.href;
+}
+
+export function watchForNewRelease(): () => void {
+  const running = runningEntry();
+  if (!running) return () => undefined; // development server: nothing to compare
+  let checking = false;
+  const check = async () => {
+    if (newReleaseOut || checking || document.visibilityState === 'hidden') return;
+    checking = true;
+    const latest = await latestEntry();
+    checking = false;
+    if (latest && latest !== running) newReleaseOut = true;
+  };
+  const onVisible = () => { if (document.visibilityState === 'visible') void check(); };
+  const onClick = (e: MouseEvent) => {
+    if (!newReleaseOut) return;
+    const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!a) return;
+    const target = fullLoadTarget(e, { href: a.href, target: a.target, hasDownload: a.hasAttribute('download') }, new URL(window.location.href));
+    if (!target) return;
+    // Before React Router sees the click (this listener runs in the capture phase on window).
+    e.preventDefault();
+    e.stopPropagation();
+    window.location.assign(target);
+  };
+  const timer = window.setInterval(() => void check(), RELEASE_CHECK_MS);
+  document.addEventListener('visibilitychange', onVisible);
+  window.addEventListener('click', onClick, true);
+  return () => {
+    window.clearInterval(timer);
+    document.removeEventListener('visibilitychange', onVisible);
+    window.removeEventListener('click', onClick, true);
+  };
+}

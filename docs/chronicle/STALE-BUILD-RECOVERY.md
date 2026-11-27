@@ -30,11 +30,49 @@
   rules, the loop guard) and `tests/e2e/stale-build.spec.ts` (plays a release against the real build:
   player, DM, no release, a broken release, a stale home page served again, and a phone).
 
+## Prevention (2026-11-23)
+
+What Cloudflare Pages does, read from its asset server (`pages-shared`, shipped in `wrangler`):
+
+- A missing file is first looked up in an **asset preservation cache**: files served by earlier
+  deployments are kept for **7 days**, but only in the data centres that served them. That is why some
+  old files survive a release and others do not.
+- Then it looks for the nearest `404.html` up the path. With none, it serves `index.html` with `200`
+  (the single-page fallback). Every `404` response has its `Cache-Control` replaced by `no-store`.
+
+Changes:
+
+1. **`public/assets/404.html`**. A file missing under `/assets/` now gets a real **404** with
+   `no-store`, so HTML is never cached under a JavaScript address and the browser fails fast.
+   `/graph`, `/wiki/...` and every other app address still get `index.html`, because there is still
+   no top-level `404.html`.
+2. **Release check while the tab is open** (`watchForNewRelease` in `chunkRecovery.ts`). Every
+   5 minutes while the tab is visible, and whenever it comes back to the front, it re-reads the home
+   page (a static file, free on Pages). Once a newer release is out, the next click on a link inside
+   Chronicle loads that page in full, so the old copy never asks for a deleted file.
+3. The recovery above stays for a click that comes before the check has run.
+
+Considered and not done:
+
+- **Carrying old files into each new deployment** (download the previous release's `/assets` during
+  the build). Pages already keeps them for 7 days where they were used, and the two measures above
+  cover the rest. Copying would make every build depend on the live site and grow each deployment.
+- **Versioned hosting outside Pages** (R2, a Worker, a second domain): new infrastructure for one
+  avoided reload.
+- **A Pages Function on `/assets/*`**: it would run on every file request and count against the
+  free daily request limit.
+- **Moving to Workers static assets**: a platform migration for the same result as one `404.html`.
+
+Tests: `tests/e2e/release-transition.spec.ts` swaps two real builds under an open tab on Cloudflare's
+local runtime: a release, a rollback, two releases in a row, prevention with no missing file
+requested, and recovery after one real 404.
+
 ## Limits
 
 - A tab already open on a build **older than this fix** cannot recover on its own; its next reload does.
 - Reloading drops anything not saved. It happens only when the page the reader asked for cannot be
   shown, and an editor with unsaved changes still gets the browser's own "leave this page?" question.
-- A browser that cached the HTML answer under an old chunk name keeps it for a year. After a Pages
-  *rollback* to a release that has that name, that browser can fail on it until its next reload; the
-  friendly screen's **Reload the page** button covers that.
+- Before the `assets/404.html` change, a browser could cache the HTML answer under an old chunk name
+  for a year. Such entries already in browsers stay until they expire; a 404 is never cached now.
+- Production's preservation cache could not be exercised from here: it is per data centre, and the
+  local runtime has none. The tests cover the case where it does not have the file.
