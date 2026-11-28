@@ -227,7 +227,7 @@ export function HomePage() {
             </div>
             <aside className="home-side">
               {d.recent.length > 0 && <section className="panel">
-                <h2>{d.recent.some((a) => isNewSince(a.published_at, previousVisit)) ? 'New and recently updated' : 'Recently updated'}</h2>
+                <h2>Recently updated</h2>
                 <ul className="recent-list">
                   {d.recent.map((a) => (
                     <li key={a.id}>

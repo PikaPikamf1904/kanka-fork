@@ -236,7 +236,7 @@ describe('everyone without active membership sees nothing', () => {
   for (const who of ['outsider', 'revoked'] as const) {
     it(`${who}: every table and function returns nothing`, async () => {
       const all = await everythingVisibleTo(who);
-      expect(all).toBe(JSON.stringify(Array.from({ length: 25 }, () => [])));
+      expect(all).toBe(JSON.stringify(Array.from({ length: 33 }, () => [])));
     });
   }
 

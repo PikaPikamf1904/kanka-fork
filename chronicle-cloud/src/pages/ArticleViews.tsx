@@ -17,6 +17,7 @@ import { ribbonFor, statusFromInfobox } from '../lib/statusRibbon.ts';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { sectionAnchor, Toc } from '../components/Toc.tsx';
 import { articlesBySlugs, listSessions } from '../lib/api.ts';
+import { orderIsKnown, PLAY_DATE_LABELS, SESSION_NUMBER_LABELS } from '../lib/sessionOrder.ts';
 import { longDate } from '../lib/dates.ts';
 import { splitTimestamp } from '../lib/journal.ts';
 import { slugify, wikiLinkTargets } from '../lib/slug.ts';
@@ -311,8 +312,13 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
   const sessions = useLoad(listSessions, []);
   const list = sessions.data ?? [];
   const at = list.findIndex((s) => s.slug === v.slug);
-  const prev = at > 0 ? list[at - 1] : null;
-  const next = at >= 0 && at < list.length - 1 ? list[at + 1] : null;
+  // Numbers and previous/next only when the play order is known (dates or session numbers on every
+  // session); otherwise they would follow the titles and say something untrue.
+  const known = orderIsKnown(list);
+  const prev = known && at > 0 ? list[at - 1] : null;
+  const next = known && at >= 0 && at < list.length - 1 ? list[at + 1] : null;
+  // The order fields are shown in the header already; the side panel keeps the others.
+  const facts = v.infobox.filter((f) => f.value.trim() && !PLAY_DATE_LABELS.test(f.label.trim()) && !SESSION_NUMBER_LABELS.test(f.label.trim()));
   const playDate = v.infobox.find((f) => /^(date|played|play date|session date)$/i.test(f.label.trim()))?.value;
   const characters = linked.of('character');
   const places = linked.of('location');
@@ -325,7 +331,7 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
         <DmBar v={v} isDm={isDm} />
       </div>
       <header className="journal-header">
-        <p className="journal-number">{at >= 0 ? `Session ${at + 1} of ${list.length}` : 'Session journal'}{(v.sessionDate || playDate) && <> · <span>{longDate(v.sessionDate ?? '') || playDate}</span></>}</p>
+        <p className="journal-number">{known && at >= 0 ? `Session ${at + 1} of ${list.length}` : 'Session journal'}{(v.sessionDate || playDate) && <> · <span>{longDate(v.sessionDate ?? '') || playDate}</span></>}</p>
         <h1 className="article-title">{v.title}</h1>
         {v.subtitle && <p className="article-subtitle">{v.subtitle}</p>}
         {from && <p className="redirect-note">(Redirected from {from})</p>}
@@ -349,16 +355,16 @@ export function SessionJournal({ v, isDm, from }: ViewProps) {
           </nav>
           <Footer v={v} isDm={isDm} />
         </div>
-        {(characters.length + places.length + things.length > 0 || v.infobox.length > 0) && (
+        {(characters.length + places.length + things.length > 0 || facts.length > 0) && (
           <aside className="journal-side" aria-label="Who, where and what">
             <div className="panel">
               <h2>At the table</h2>
               <LinkList title="Characters" items={characters} />
               <LinkList title="Places" items={places} />
               <LinkList title="Quests, items and more" items={things} />
-              {v.infobox.filter((f) => f.value.trim()).length > 0 && (
+              {facts.length > 0 && (
                 <dl className="journal-facts">
-                  {v.infobox.filter((f) => f.value.trim()).map((f, i) => (
+                  {facts.map((f, i) => (
                     <div key={`${f.label}-${i}`}><dt>{f.label}{isDm && f.visibility === 'dm' && <VisibilityBadge visibility="dm" />}</dt><dd><Markdown text={f.value} /></dd></div>
                   ))}
                 </dl>

@@ -15,7 +15,7 @@ test('a returning player sees what was published since their last visit; a first
     localStorage.setItem(key, JSON.stringify({ current: '2000-01-01T00:00:00.000Z', previous: null }));
   });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'New and recently updated' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recently updated' })).toBeVisible();
   await expect(page.getByText('New since your last visit').first()).toBeVisible();
 
   // Reading around in the same visit keeps the marks.
