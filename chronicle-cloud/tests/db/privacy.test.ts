@@ -44,6 +44,15 @@ async function everythingVisibleTo(who: Who) {
     `select * from public.backlinks('${D}')`,
     `select * from public.backlinks('${E}')`,
     `select * from public.backlinks('${B}')`,
+    // Plain-text mentions (20261128000100): same rows a player can already read, never a hidden page.
+    `select * from public.mentions('${A}')`,
+    `select * from public.mentions('${B}')`,
+    `select * from public.mentions('${D}')`,
+    `select * from public.named_in('${A}')`,
+    `select * from public.named_in('${B}')`,
+    `select * from public.named_in('${D}')`,
+    'select * from public.mention_links(false)',
+    'select * from public.mention_links(true)',
     "select * from public.resolve_slug('traitor-captain')",
     "select * from public.resolve_slug('secret-article')",
   ];
