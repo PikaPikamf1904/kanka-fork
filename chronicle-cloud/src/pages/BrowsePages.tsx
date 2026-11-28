@@ -311,7 +311,14 @@ export function TimelinePage() {
         {isDm && <Link className="button" to="/dm/timeline">Edit timeline</Link>}
       </div>
       {events.error && <p className="form-error">{events.error}</p>}
-      {events.data?.length === 0 && <p className="muted">No events have been recorded yet.</p>}
+      {events.data?.length === 0 && (
+        // Not a dead end: the session journals are the story so far until the DM adds dated events.
+        <div className="panel">
+          <p>No events have been placed on the timeline yet.</p>
+          <p><Link to="/browse/session">Read the story so far in the session journals →</Link></p>
+          {isDm && <p className="fine-print">Add events with <Link to="/dm/timeline">Edit timeline</Link>; players see only published ones.</p>}
+        </div>
+      )}
       <ol className="timeline">
         {events.data?.map((e) => (
           <li key={e.id} className={isDm && (e.visibility === 'dm' || e.status === 'draft') ? 'dm-only' : undefined}>

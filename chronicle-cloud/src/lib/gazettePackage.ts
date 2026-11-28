@@ -13,7 +13,7 @@
 //   ---
 //
 // A top-level heading ("# Notes", "# Letters", …) ends the story before it: anything under it, up to
-// the next story heading, is not part of any story. Story bodies may use 
+// the next story heading, is not part of any story. Story bodies may use ### subheadings.
 import type { NewsReliability, NewsSection } from './gazette.ts';
 import { SECTIONS, STAFF } from './gazette.ts';
 import { zonedToUtc } from './schedule.ts';
