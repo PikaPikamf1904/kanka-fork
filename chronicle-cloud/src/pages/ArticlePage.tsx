@@ -6,6 +6,8 @@ import { recordRecentView } from '../lib/recentViews.ts';
 import { LightboxProvider } from '../components/Lightbox.tsx';
 import { CharacterProfile, EncyclopediaPage, SessionJournal } from './ArticleViews.tsx';
 import { getArticle, previewAsPlayer, resolveSlug, type ArticleBundle } from '../lib/api.ts';
+import { mergeAppearances } from '../lib/appearances.ts';
+import { loadMentions, loadNamedIn } from '../lib/mentions.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
 import type { ArticleRef, ArticleType, Visibility } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -29,6 +31,8 @@ export interface ViewModel {
   categories: { slug: string; name: string; kind: string; visibility?: Visibility }[];
   relations: { key: string; kind: string; label: string; other: ArticleRef; visibility?: Visibility; direction?: 'out' | 'in' }[];
   backlinks: ArticleRef[];
+  /** Pages this page's text names (plain-text mentions), for "At the table" and similar lists. */
+  named?: ArticleRef[];
   /** The DM's "preview as player" view, built from a function rather than the table rows. */
   previewing?: boolean;
 }
@@ -89,6 +93,16 @@ export function ArticlePage() {
   }, [data]);
 
   const viewed = data && !('redirect' in data) ? data : null;
+  // Plain-text mentions load after the page itself, so a slow query never delays reading. Never in
+  // the DM's player preview: it runs as the DM and could list pages players cannot read.
+  const mentions = useLoad(
+    async () => {
+      if (!viewed || viewed.previewing) return { in: [], named: [] };
+      const [inPages, named] = await Promise.all([loadMentions(viewed.id), loadNamedIn(viewed.id)]);
+      return { in: inPages, named };
+    },
+    [viewed?.id, viewed?.previewing],
+  );
   useEffect(() => {
     // Recently viewed lives in this browser only, per signed-in user (see lib/recentViews.ts).
     if (viewed && userId && !playerPreview && viewed.type !== 'news') recordRecentView(userId, { id: viewed.id, slug: viewed.slug, title: viewed.title });
@@ -100,7 +114,12 @@ export function ArticlePage() {
   if ('redirect' in data) return null;
 
   // A heading with nothing under it is noise for readers; the editor still shows it.
-  const v = { ...data, sections: data.sections.filter((x) => x.body.trim()) };
+  const v = {
+    ...data,
+    sections: data.sections.filter((x) => x.body.trim()),
+    backlinks: data.previewing ? [] : mergeAppearances(data.backlinks, mentions.data?.in ?? []),
+    named: data.previewing ? [] : mentions.data?.named ?? [],
+  };
   const from = params.get('from');
   // One viewer for the whole article body, so it steps through every picture on the page.
   return (

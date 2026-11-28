@@ -133,6 +133,8 @@ function useLinked(v: ViewModel) {
   const all = new Map<string, ArticleRef & { hero_media_id?: string | null }>();
   for (const a of linked.data ?? []) all.set(a.slug, a);
   for (const r of v.relations) if (!all.has(r.other.slug)) all.set(r.other.slug, r.other);
+  // Pages the text names without a [[link]] (database function named_in; reader's own access).
+  for (const n of v.named ?? []) if (!all.has(n.slug) && n.slug !== v.slug) all.set(n.slug, n);
   const of = (...types: ArticleType[]) => [...all.values()].filter((a) => types.includes(a.type)).sort((a, b) => a.title.localeCompare(b.title));
   return { of };
 }
@@ -147,7 +149,7 @@ function LinkList({ title, items }: { title: string; items: ArticleRef[] }) {
   );
 }
 
-function Backlinks({ items, title = 'What links here', id = 'what-links-here' }: { items: ArticleRef[]; title?: string; id?: string }) {
+function Backlinks({ items, title = 'Appears in', id = 'what-links-here' }: { items: ArticleRef[]; title?: string; id?: string }) {
   if (items.length === 0) return null;
   return (
     <section className="article-section what-links-here">
@@ -285,7 +287,7 @@ export function CharacterProfile({ v, isDm, from }: ViewProps) {
               </ol>
             </section>
           )}
-          <Backlinks items={others} title="Other mentions" />
+          <Backlinks items={others} title="Also appears in" />
           <Footer v={v} isDm={isDm} />
         </div>
         <div className="profile-side">

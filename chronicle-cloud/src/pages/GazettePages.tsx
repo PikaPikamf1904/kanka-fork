@@ -22,6 +22,7 @@ import { longDate } from '../lib/dates.ts';
 import { GAZETTE, isLetter, RELIABILITY, REVIEW_LABEL, reporter, SECTIONS, sectionLabel, STAFF, type NewsReliability, type NewsReviewState, type NewsSection } from '../lib/gazette.ts';
 import { useIsDm } from '../lib/session.tsx';
 import { slugify, wikiLinkTargets } from '../lib/slug.ts';
+import { loadNamedIn } from '../lib/mentions.ts';
 import { TEMPLATES } from '../lib/templates.ts';
 import type { ArticleRef } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -356,8 +357,12 @@ export function GazetteArticle() {
     const s = await getNewsStory(slug);
     if (!s) return null;
     const body = s.bundle.sections.map((x) => x.body).join('\n\n');
-    const linked = await articlesBySlugs(wikiLinkTargets(`${s.bundle.article.summary}\n${body}`).map((t) => slugify(t)));
-    const related = [...new Map([...linked.map((a) => ({ slug: a.slug, title: a.title, type: a.type })), ...s.bundle.relations.map((r) => r.other)]
+    const [linked, named] = await Promise.all([
+      articlesBySlugs(wikiLinkTargets(`${s.bundle.article.summary}\n${body}`).map((t) => slugify(t))),
+      // Pages the story names without a [[link]], from the reader's own access (see mentions.ts).
+      loadNamedIn(s.bundle.article.id),
+    ]);
+    const related = [...new Map([...linked.map((a) => ({ slug: a.slug, title: a.title, type: a.type })), ...s.bundle.relations.map((r) => r.other), ...named]
       .filter((a) => a.type !== 'news').map((a) => [a.slug, a])).values()];
     let corrects: { slug: string; title: string } | null = null;
     if (s.news?.corrects_article_id) {
