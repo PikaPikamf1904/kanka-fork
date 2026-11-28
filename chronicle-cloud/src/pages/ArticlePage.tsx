@@ -51,6 +51,9 @@ function fromBundle(b: ArticleBundle): ViewModel {
   };
 }
 
+/** How long a page waits for its "appears in" lists before opening without them. */
+const MENTIONS_WAIT_MS = 800;
+
 export function ArticlePage() {
   const { slug = '' } = useParams();
   const [params] = useSearchParams();
@@ -76,7 +79,17 @@ export function ArticlePage() {
       };
     }
     const bundle = await getArticle(slug);
-    if (bundle) return fromBundle(bundle);
+    if (bundle) {
+      // The "appears in" lists arrive with the page, so it renders once (no layout jump); if they take
+      // longer than MENTIONS_WAIT_MS (a very large wiki), the page opens without them.
+      const id = bundle.article.id;
+      const lists = await Promise.race([
+        Promise.all([loadMentions(id), loadNamedIn(id)]),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), MENTIONS_WAIT_MS)),
+      ]);
+      const v = fromBundle(bundle);
+      return lists ? { ...v, backlinks: mergeAppearances(v.backlinks, lists[0]), named: lists[1] } : v;
+    }
     const resolved = await resolveSlug(slug);
     if (resolved && resolved.slug !== slug) return { redirect: resolved.slug };
     return null;
@@ -93,16 +106,6 @@ export function ArticlePage() {
   }, [data]);
 
   const viewed = data && !('redirect' in data) ? data : null;
-  // Plain-text mentions load after the page itself, so a slow query never delays reading. Never in
-  // the DM's player preview: it runs as the DM and could list pages players cannot read.
-  const mentions = useLoad(
-    async () => {
-      if (!viewed || viewed.previewing) return { in: [], named: [] };
-      const [inPages, named] = await Promise.all([loadMentions(viewed.id), loadNamedIn(viewed.id)]);
-      return { in: inPages, named };
-    },
-    [viewed?.id, viewed?.previewing],
-  );
   useEffect(() => {
     // Recently viewed lives in this browser only, per signed-in user (see lib/recentViews.ts).
     if (viewed && userId && !playerPreview && viewed.type !== 'news') recordRecentView(userId, { id: viewed.id, slug: viewed.slug, title: viewed.title });
@@ -117,8 +120,9 @@ export function ArticlePage() {
   const v = {
     ...data,
     sections: data.sections.filter((x) => x.body.trim()),
-    backlinks: data.previewing ? [] : mergeAppearances(data.backlinks, mentions.data?.in ?? []),
-    named: data.previewing ? [] : mentions.data?.named ?? [],
+    // Never in the DM's player preview: those lists would be built from the DM's own access.
+    backlinks: data.previewing ? [] : data.backlinks,
+    named: data.previewing ? [] : data.named ?? [],
   };
   const from = params.get('from');
   // One viewer for the whole article body, so it steps through every picture on the page.
