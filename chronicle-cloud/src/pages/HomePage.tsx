@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
 import { BannerArt } from '../components/Banner.tsx';
@@ -10,7 +11,8 @@ import { campaignDay } from '../lib/schedule.ts';
 import { parsePlayDate, sessionKeys } from '../lib/sessionOrder.ts';
 import { longDate } from '../lib/dates.ts';
 import { GAZETTE, reporter, sectionLabel } from '../lib/gazette.ts';
-import { useIsDm } from '../lib/session.tsx';
+import { useIsDm, useSession } from '../lib/session.tsx';
+import { isNewSince, touchVisit } from '../lib/lastVisit.ts';
 import { TEMPLATES } from '../lib/templates.ts';
 import { useLoad } from '../lib/useLoad.ts';
 
@@ -33,6 +35,10 @@ const RELEASE_WAIT_MS = 1500;
 
 export function HomePage() {
   const isDm = useIsDm();
+  const { state } = useSession();
+  const userId = state.kind === 'member' ? state.userId : '';
+  // When this reader's previous visit began (this browser only); read once per page load.
+  const [previousVisit] = useState(() => (userId ? touchVisit(userId) : null));
   const home = useLoad(async () => {
     // Print anything scheduled whose time has come (the database clock decides), but never let that
     // hold the page up: releaseDueStories never throws, and we stop waiting for it after a moment.
@@ -221,11 +227,12 @@ export function HomePage() {
             </div>
             <aside className="home-side">
               {d.recent.length > 0 && <section className="panel">
-                <h2>Recently updated</h2>
+                <h2>{d.recent.some((a) => isNewSince(a.published_at, previousVisit)) ? 'New and recently updated' : 'Recently updated'}</h2>
                 <ul className="recent-list">
                   {d.recent.map((a) => (
                     <li key={a.id}>
                       <Link to={`/wiki/${a.slug}`}>{a.title}</Link>
+                      {isNewSince(a.published_at, previousVisit) && <span className="badge badge-ok">New since your last visit</span>}
                       <span className="muted"> · {TEMPLATES[a.type].label} · {longDate(a.updated_at)}</span>
                     </li>
                   ))}
