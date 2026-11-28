@@ -11,6 +11,9 @@ const HIDDEN = 'b1000000-0000-4000-8000-000000000005'; // DM-only character name
 const ALIASED = 'b1000000-0000-4000-8000-000000000006'; // item with a DM-only alias and a public alias
 const NOISE = 'b1000000-0000-4000-8000-000000000007'; // words that must NOT match
 const MARA = 'b1000000-0000-4000-8000-000000000008'; // "Mara Venn", named as "Mara"
+const NEWS = 'b1000000-0000-4000-8000-000000000009'; // a Gazette draft naming Bob (never part of the graph)
+const RATS = 'b1000000-0000-4000-8000-00000000000a'; // "Rats Out!" (trailing punctuation) with alias tower-of-the-stars
+const TAVERN = 'b1000000-0000-4000-8000-00000000000b'; // names "Rats Out" and "Tower of the Stars"
 
 beforeAll(async () => {
   await resetFixtures();
@@ -22,15 +25,18 @@ beforeAll(async () => {
     ($5, 'hidden-villain', 'character', 'Varkis Duskmantle', 'HIDDENVILLAINWORD', 'dm', 'published'),
     ($6, 'far-speaker', 'item', 'Far Speaker', 'A device.', 'players', 'published'),
     ($7, 'noise', 'lore', 'Noise Page', 'bob bobbed. Bobby and Bobcat. frost on the window.', 'players', 'published'),
-    ($8, 'mara-test', 'character', 'Mara Venn', 'An intelligence contact.', 'players', 'published')`,
-    [BOB, SESSION, SECRETPAGE, DRAFT, HIDDEN, ALIASED, NOISE, MARA]);
+    ($8, 'mara-test', 'character', 'Mara Venn', 'An intelligence contact.', 'players', 'published'),
+    ($9, 'gazette-bob', 'news', 'Bob Seen Again', 'Bob was seen at the docks.', 'players', 'draft'),
+    ($10, 'rats-out', 'lore', 'Rats Out!', 'A song.', 'players', 'published'),
+    ($11, 'tavern-talk', 'lore', 'Tavern Talk', 'They sang Rats Out under the Tower of the Stars.', 'players', 'published')`,
+    [BOB, SESSION, SECRETPAGE, DRAFT, HIDDEN, ALIASED, NOISE, MARA, NEWS, RATS, TAVERN]);
   await admin(`insert into public.article_sections (article_id, position, heading, body, visibility, status) values
     ($1, 1, 'Out', 'The party saw Varkis Duskmantle from the ridge, and later used the Fargab.', 'players', 'published'),
     ($2, 1, 'Seen by all', 'The council met.', 'players', 'published'),
     ($2, 2, 'DM only', 'Bob will betray them. Whisperline is listening.', 'dm', 'published'),
     ($3, 1, 'Not yet', 'Bob again.', 'players', 'published')`, [SESSION, SECRETPAGE, DRAFT]);
   await admin(`insert into public.redirects (from_slug, article_id, visibility) values
-    ('fargab', $1, 'players'), ('whisperline', $1, 'dm')`, [ALIASED]);
+    ('fargab', $1, 'players'), ('whisperline', $1, 'dm'), ('tower-of-the-stars', $2, 'players')`, [ALIASED, RATS]);
 });
 afterAll(() => pool.end());
 
@@ -101,5 +107,43 @@ describe('named_in()', () => {
   it('is refused to visitors who are not signed in', async () => {
     const r = await as('anon', 'select * from public.named_in($1)', [SESSION]);
     expect(r.error?.message).toMatch(/permission denied/);
+  });
+});
+
+describe('mention_links() (the knowledge graph)', () => {
+  const OURS = new Set([BOB, SESSION, SECRETPAGE, DRAFT, HIDDEN, ALIASED, NOISE, MARA, NEWS, RATS, TAVERN]);
+  const pairs = async (who: 'player' | 'dm', playersOnly: boolean) => {
+    const r = await as<{ article_id: string; target_slug: string }>(who, 'select article_id, target_slug from public.mention_links($1)', [playersOnly]);
+    expect(r.error).toBeUndefined();
+    return r.rows.filter((x) => OURS.has(x.article_id)).map((x) => `${x.article_id.slice(-2)}>${x.target_slug}`).sort();
+  };
+  // Expected player view of our fixtures: Quarry Night names Bob, Mara and the Fargab (public alias);
+  // Tavern Talk names "Rats Out" (punctuation trimmed) through its title and its alias.
+  const PLAYER = ['02>bob-test', '02>far-speaker', '02>mara-test', '0b>rats-out'];
+  it('a player gets only pairs between pages, sections and aliases they may read', async () => {
+    expect(await pairs('player', false)).toEqual(PLAYER);
+    expect(await pairs('player', true)).toEqual(PLAYER);
+  });
+  it("the DM's player view uses player-visible pages, sections and aliases only", async () => {
+    expect(await pairs('dm', true)).toEqual(PLAYER);
+  });
+  it("the DM's own view includes drafts, DM-only sections, DM-only aliases and hidden pages, never Gazette stories", async () => {
+    const dm = await pairs('dm', false);
+    expect(dm).toEqual(expect.arrayContaining([...PLAYER, '02>hidden-villain', '03>bob-test', '03>far-speaker', '04>bob-test']));
+    expect(dm.some((p) => p.startsWith('09>'))).toBe(false); // a Gazette story is never a source
+    expect(dm.some((p) => p.endsWith('>gazette-bob'))).toBe(false); // nor a target
+  });
+  it('is refused to visitors who are not signed in', async () => {
+    const r = await as('anon', 'select * from public.mention_links(false)');
+    expect(r.error?.message).toMatch(/permission denied/);
+  });
+});
+
+describe('names with punctuation and aliases with small words', () => {
+  it('"Rats Out!" is found as "Rats Out", and alias tower-of-the-stars as "Tower of the Stars"', async () => {
+    const r = await as<{ slug: string }>('player', 'select slug from public.mentions($1)', [RATS]);
+    expect(columns(r.rows, 'slug')).toEqual(['tavern-talk']);
+    const pattern = await admin<{ p: string }>('select private.mention_pattern($1) as p', [RATS]);
+    expect(pattern.rows[0]!.p).toContain('Tower of the Stars');
   });
 });

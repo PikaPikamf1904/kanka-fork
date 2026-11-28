@@ -27,3 +27,15 @@ test('the DM sees the same appearances on the normal page view', async ({ page }
   await page.goto('/wiki/port-vellmoor');
   await expect(page.locator('section.what-links-here')).toBeVisible();
 });
+
+test('if the mention lists fail, the page, the Gazette story and the graph still open', async ({ page }) => {
+  await enrollAsPlayer(page, 'Unlucky Reader');
+  // Every mention request fails on the server.
+  await page.route(/\/rest\/v1\/rpc\/(mentions|named_in|mention_links)/, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"boom"}' }));
+  await page.goto('/wiki/port-vellmoor');
+  await expect(page.getByRole('heading', { name: 'Port Vellmoor', level: 1 })).toBeVisible();
+  await page.goto('/news/fires-on-the-coast-road');
+  await expect(page.getByRole('heading', { level: 1, name: 'Fires on the Coast Road as Wagons Turn Back' })).toBeVisible();
+  await page.goto('/graph');
+  await expect(page.getByTestId('graph-count')).toContainText('lines shown');
+});

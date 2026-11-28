@@ -16,7 +16,8 @@
 --   * for characters, each part of the name with four or more letters that is not an honorific or a
 --     common word ("Mara Venn" -> "Mara", "Venn"; "Mayor Raven" -> "Raven"; "Swift Claw" -> none);
 --   * every redirect (alias) of the page that the caller can read, written as words
---     ("fargab" -> "Fargab").
+--     ("fargab" -> "Fargab", "tower-of-stars" -> "Tower of Stars").
+-- Punctuation at the start or end of a name is ignored ("Rats Out!" is matched as "Rats Out").
 --
 -- Rollback:
 --   drop function if exists public.named_in(uuid);
@@ -49,11 +50,20 @@ as $$
                     'Silver', 'Gold', 'Golden', 'Green', 'Brown', 'Grey', 'Gray', 'Long', 'Little', 'Great',
                     'High', 'Hill', 'Young', 'Dragon', 'Shadow', 'Moon', 'Star', 'Storm')
     union
-    select initcap(replace(r.from_slug, '-', ' '))
+    -- An alias written as words, with small connecting words in lower case ("tower-of-stars" ->
+    -- "Tower of Stars"), as a writer would type it.
+    select ltrim(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+             ' ' || initcap(replace(r.from_slug, '-', ' ')) || ' ',
+             ' Of ', ' of '), ' The ', ' the '), ' And ', ' and '), ' In ', ' in '), ' On ', ' on '),
+             ' At ', ' at '), ' To ', ' to '), ' For ', ' for '), ' A ', ' a '), ' An ', ' an '))
     from public.redirects r join target t on r.article_id = t.id
     where not p_players_only or r.visibility = 'players'
+  ),
+  -- Punctuation at either end can never sit inside a word boundary ("Rats Out!"): trim it.
+  clean as (
+    select regexp_replace(regexp_replace(btrim(term), '^[^[:alnum:]]+', ''), '[^[:alnum:]]+$', '') as term from terms
   )
-  select distinct btrim(term) from terms where char_length(btrim(term)) >= 3;
+  select distinct term from clean where char_length(term) >= 3;
 $$;
 
 -- A regular expression matching any of the page's words as whole words, or null.
