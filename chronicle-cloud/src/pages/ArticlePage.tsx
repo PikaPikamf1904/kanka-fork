@@ -6,6 +6,8 @@ import { recordRecentView } from '../lib/recentViews.ts';
 import { LightboxProvider } from '../components/Lightbox.tsx';
 import { CharacterProfile, EncyclopediaPage, SessionJournal } from './ArticleViews.tsx';
 import { getArticle, previewAsPlayer, resolveSlug, type ArticleBundle } from '../lib/api.ts';
+import { mergeAppearances } from '../lib/appearances.ts';
+import { loadMentions, loadNamedIn } from '../lib/mentions.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
 import type { ArticleRef, ArticleType, Visibility } from '../lib/types.ts';
 import { useLoad } from '../lib/useLoad.ts';
@@ -29,6 +31,8 @@ export interface ViewModel {
   categories: { slug: string; name: string; kind: string; visibility?: Visibility }[];
   relations: { key: string; kind: string; label: string; other: ArticleRef; visibility?: Visibility; direction?: 'out' | 'in' }[];
   backlinks: ArticleRef[];
+  /** Pages this page's text names (plain-text mentions), for "At the table" and similar lists. */
+  named?: ArticleRef[];
   /** The DM's "preview as player" view, built from a function rather than the table rows. */
   previewing?: boolean;
 }
@@ -46,6 +50,9 @@ function fromBundle(b: ArticleBundle): ViewModel {
     backlinks: b.backlinks,
   };
 }
+
+/** How long a page waits for its "appears in" lists before opening without them. */
+const MENTIONS_WAIT_MS = 800;
 
 export function ArticlePage() {
   const { slug = '' } = useParams();
@@ -72,7 +79,17 @@ export function ArticlePage() {
       };
     }
     const bundle = await getArticle(slug);
-    if (bundle) return fromBundle(bundle);
+    if (bundle) {
+      // The "appears in" lists arrive with the page, so it renders once (no layout jump); if they take
+      // longer than MENTIONS_WAIT_MS (a very large wiki), the page opens without them.
+      const id = bundle.article.id;
+      const lists = await Promise.race([
+        Promise.all([loadMentions(id), loadNamedIn(id)]),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), MENTIONS_WAIT_MS)),
+      ]);
+      const v = fromBundle(bundle);
+      return lists ? { ...v, backlinks: mergeAppearances(v.backlinks, lists[0]), named: lists[1] } : v;
+    }
     const resolved = await resolveSlug(slug);
     if (resolved && resolved.slug !== slug) return { redirect: resolved.slug };
     return null;
@@ -100,7 +117,13 @@ export function ArticlePage() {
   if ('redirect' in data) return null;
 
   // A heading with nothing under it is noise for readers; the editor still shows it.
-  const v = { ...data, sections: data.sections.filter((x) => x.body.trim()) };
+  const v = {
+    ...data,
+    sections: data.sections.filter((x) => x.body.trim()),
+    // Never in the DM's player preview: those lists would be built from the DM's own access.
+    backlinks: data.previewing ? [] : data.backlinks,
+    named: data.previewing ? [] : data.named ?? [],
+  };
   const from = params.get('from');
   // One viewer for the whole article body, so it steps through every picture on the page.
   return (

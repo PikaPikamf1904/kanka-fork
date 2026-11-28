@@ -1,0 +1,34 @@
+// Where a page is named in text the reader can already read (database function `mentions`, see
+// supabase/migrations/20261128000100_mentions.sql). It complements backlinks(), which only finds
+// [[links]]. The database applies the reader's own row-level security, so a player only ever gets
+// pages and text they may read. Every loader here returns an empty list on failure: these lists are
+// extras, and a page must still open if they cannot be built.
+import { supabase } from './supabase.ts';
+import type { ArticleRef } from './types.ts';
+
+/** Pages that mention this one by name. Empty if the database function is not installed yet. */
+export async function loadMentions(articleId: string): Promise<ArticleRef[]> {
+  const { data, error } = await supabase.rpc('mentions', { p_article: articleId });
+  // A missing function (migration not applied yet), a timeout or any other failure: empty list.
+  if (error) return [];
+  return (data ?? []) as ArticleRef[];
+}
+
+/**
+ * Every plain-text mention between pages the reader can read, as graph links (page id, named slug).
+ * `playersOnly` builds it from player-visible pages, sections and aliases only (the DM's player view).
+ */
+export async function loadMentionLinks(playersOnly: boolean): Promise<{ article_id: string; target_slug: string }[]> {
+  const { data, error } = await supabase.rpc('mention_links', { p_players_only: playersOnly });
+  // A missing function (migration not applied yet), a timeout or any other failure: empty list.
+  if (error) return [];
+  return (data ?? []) as { article_id: string; target_slug: string }[];
+}
+
+/** Pages this page's own visible text names (never Gazette stories). Empty if not installed yet. */
+export async function loadNamedIn(articleId: string): Promise<ArticleRef[]> {
+  const { data, error } = await supabase.rpc('named_in', { p_article: articleId });
+  // A missing function (migration not applied yet), a timeout or any other failure: empty list.
+  if (error) return [];
+  return (data ?? []) as ArticleRef[];
+}

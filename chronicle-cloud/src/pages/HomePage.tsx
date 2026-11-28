@@ -1,14 +1,18 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
 import { BannerArt } from '../components/Banner.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { SearchBox } from '../components/SearchBox.tsx';
-import { dailyDiscovery, getCampaignZone, getSettings, latestDatedSession, latestHeadline, listArticles, listCharacterFacts, listLetters, listMaps, releaseDueStories } from '../lib/api.ts';
+import { dailyDiscovery, getCampaignZone, getSettings, latestHeadline, latestSession, listArticles, listCharacterFacts, listLetters, listMaps, releaseDueStories } from '../lib/api.ts';
+import { questState } from '../lib/questState.ts';
 import { campaignDay } from '../lib/schedule.ts';
+import { parsePlayDate, sessionKeys } from '../lib/sessionOrder.ts';
 import { longDate } from '../lib/dates.ts';
 import { GAZETTE, reporter, sectionLabel } from '../lib/gazette.ts';
-import { useIsDm } from '../lib/session.tsx';
+import { useIsDm, useSession } from '../lib/session.tsx';
+import { isNewSince, touchVisit } from '../lib/lastVisit.ts';
 import { TEMPLATES } from '../lib/templates.ts';
 import { useLoad } from '../lib/useLoad.ts';
 
@@ -26,29 +30,55 @@ const QUICK: { to: string; label: string; glyph: string }[] = [
   { to: '/news', label: 'The Gazette', glyph: '✒' },
 ];
 
+/** Give up waiting for the scheduled-story release after this long; the page does not depend on it. */
+const RELEASE_WAIT_MS = 1500;
+
 export function HomePage() {
   const isDm = useIsDm();
+  const { state } = useSession();
+  const userId = state.kind === 'member' ? state.userId : '';
+  // When this reader's previous visit began (this browser only); read once per page load.
+  const [previousVisit] = useState(() => (userId ? touchVisit(userId) : null));
   const home = useLoad(async () => {
-    // Print anything scheduled whose time has come before reading the page (the database clock decides).
-    await releaseDueStories();
-    const zone = await getCampaignZone();
-    const [settings, featured, recent, party, latestSession, quests, maps, headline, letters, discovery] = await Promise.all([
-      getSettings(),
-      listArticles({ featured: true, order: 'importance', limit: 6 }),
-      listArticles({ order: 'updated', limit: 8 }),
-      listArticles({ party: true, order: 'title', limit: 8 }),
-      latestDatedSession(),
-      listArticles({ type: 'quest', order: 'updated', limit: 6 }),
-      listMaps(),
-      latestHeadline(),
-      listLetters(1),
-      dailyDiscovery(campaignDay(new Date(), zone)),
+    // Print anything scheduled whose time has come (the database clock decides), but never let that
+    // hold the page up: releaseDueStories never throws, and we stop waiting for it after a moment.
+    await Promise.race([releaseDueStories(), new Promise((resolve) => setTimeout(resolve, RELEASE_WAIT_MS))]);
+    // Only the list of recent pages is essential. Every other part may fail on its own: its card is
+    // left out and the page says so, instead of the whole page turning into an error.
+    const failed: string[] = [];
+    const soft = async <T,>(name: string, load: () => Promise<T>, fallback: T): Promise<T> => {
+      try {
+        return await load();
+      } catch {
+        failed.push(name);
+        return fallback;
+      }
+    };
+    const recent = await listArticles({ order: 'updated', limit: 8 });
+    const zone = await soft('the date', getCampaignZone, 'UTC');
+    const [settings, featured, party, latest, quests, maps, headline, letters, discovery] = await Promise.all([
+      soft('the campaign details', getSettings, null),
+      soft('featured pages', () => listArticles({ featured: true, order: 'importance', limit: 6 }), []),
+      soft('the company', () => listArticles({ party: true, order: 'title', limit: 8 }), []),
+      soft('the latest session', latestSession, null),
+      soft('the quests', () => listArticles({ type: 'quest', order: 'updated', limit: 12 }), []),
+      soft('the maps', listMaps, []),
+      soft('the Gazette headline', latestHeadline, null),
+      soft('the latest letter', () => listLetters(1), []),
+      soft('the daily archive page', () => dailyDiscovery(campaignDay(new Date(), zone)), null),
     ]);
-    const facts = await listCharacterFacts(party.map((p) => p.id));
-    return { settings, featured, hasContent: recent.length > 0, recent: recent.filter((a) => a.type !== 'news'), party, facts, latestSession, quests, maps, headline, letter: letters[0] ?? null, discovery };
+    const facts = await soft('status details', () => listCharacterFacts([...party, ...quests].map((p) => p.id)), new Map());
+    return { settings, featured, hasContent: recent.length > 0, recent: recent.filter((a) => a.type !== 'news'), party, facts, latest, quests, maps, headline, letter: letters[0] ?? null, discovery, failed };
   }, [isDm]);
 
-  if (home.error) return <p className="form-error">{home.error}</p>;
+  if (home.error) {
+    return (
+      <div className="notice" role="alert">
+        <p>The home page could not load: {home.error}</p>
+        <button type="button" className="button secondary small" onClick={home.reload}>Try again</button>
+      </div>
+    );
+  }
   const d = home.data;
   const title = d?.settings?.title || 'Chronicle';
   const intro = d?.settings?.overview ? firstParagraph(d.settings.overview) : '';
@@ -56,6 +86,14 @@ export function HomePage() {
   const empty = d !== undefined && d !== null && !d.hasContent;
   const where = d?.settings?.current_location ?? null;
   const status = d?.settings?.current_status ?? '';
+  // Quests: open ones first (the threads still hanging), then those with no status; finished ones are
+  // not listed one by one, only counted.
+  const questRows = (d?.quests ?? []).map((q) => ({ q, status: d?.facts.get(q.id)?.status ?? '', state: questState(d?.facts.get(q.id)?.status) }));
+  const openQuests = questRows.filter((r) => r.state === 'open');
+  const otherQuests = questRows.filter((r) => r.state === 'unknown');
+  const doneCount = questRows.filter((r) => r.state === 'done').length;
+  const shownQuests = [...openQuests, ...otherQuests].slice(0, 6);
+  const sessionDate = d?.latest ? parsePlayDate(sessionKeys(d.latest.session).date) : null;
 
   return (
     <div className="home">
@@ -97,19 +135,29 @@ export function HomePage() {
             ))}
           </nav>
 
+          {d.failed.length > 0 && (
+            <div className="notice" role="status" data-testid="home-partial">
+              <p>Some parts of this page could not load ({d.failed.join(', ')}).</p>
+              <button type="button" className="button secondary small" onClick={home.reload}>Try again</button>
+            </div>
+          )}
+
           <div className="now-row">
-            <section className="now-card now-where" aria-labelledby="now-where">
-              <h2 id="now-where">Where things stand</h2>
-              {where ? <p className="now-big"><Link to={`/wiki/${where.slug}`}>{where.title}</Link></p> : <p className="now-big muted">Somewhere on Krynn</p>}
-              {status ? <p>{status}</p> : isDm && <p className="fine-print">Set the party’s location and a line about how things stand in <Link to="/dm/settings">wiki settings</Link>.</p>}
-            </section>
-            {d.latestSession && (
+            {(where || status || isDm) && (
+              <section className="now-card now-where" aria-labelledby="now-where">
+                <h2 id="now-where">Where things stand</h2>
+                {where ? <p className="now-big"><Link to={`/wiki/${where.slug}`}>{where.title}</Link></p> : isDm && <p className="now-big muted">Somewhere on Krynn</p>}
+                {status ? <p>{status}</p> : isDm && <p className="fine-print">Set the party’s location and a line about how things stand in <Link to="/dm/settings">wiki settings</Link>.</p>}
+              </section>
+            )}
+            {d.latest && (
               <section className="now-card now-session" aria-labelledby="now-session">
-                <h2 id="now-session">Latest dated session</h2>
-                <p className="now-big"><Link to={`/wiki/${d.latestSession.slug}`}>{d.latestSession.title}</Link></p>
-                {longDate(d.latestSession.session_date) && <p className="muted">Played {longDate(d.latestSession.session_date)}</p>}
-                {d.latestSession.summary && <p className="now-summary">{plain(d.latestSession.summary)}</p>}
-                {isDm && (d.latestSession.status !== 'published' || d.latestSession.visibility !== 'players') && <p className="fine-print dm-note">Not published: players do not see this card yet.</p>}
+                <h2 id="now-session">{d.latest.orderKnown ? 'Latest session' : 'From the session journals'}</h2>
+                <p className="now-big"><Link to={`/wiki/${d.latest.session.slug}`}>{d.latest.session.title}</Link></p>
+                {longDate(sessionDate) && <p className="muted">Played {longDate(sessionDate)}</p>}
+                {d.latest.session.summary && <p className="now-summary">{plain(d.latest.session.summary)}</p>}
+                <p className="now-more"><Link to={`/wiki/${d.latest.session.slug}`}>Read the session journal →</Link></p>
+                {isDm && (d.latest.session.status !== 'published' || d.latest.session.visibility !== 'players') && <p className="fine-print dm-note">Not published: players do not see this card yet.</p>}
               </section>
             )}
             <section className="now-card now-gazette" aria-labelledby="now-gazette">
@@ -148,17 +196,19 @@ export function HomePage() {
 
           <div className="home-grid">
             <div className="home-main">
-              {d.quests.length > 0 && (
+              {(shownQuests.length > 0 || doneCount > 0) && (
                 <section className="panel">
-                  <h2>Recently updated quests</h2>
+                  <h2>{openQuests.length > 0 ? 'Open threads' : 'Quests'}</h2>
                   <ul className="thread-list">
-                    {d.quests.map((a) => (
-                      <li key={a.id}>
-                        <Link to={`/wiki/${a.slug}`}>{a.title}</Link>
-                        {a.summary && <span className="muted"> {plain(a.summary)}</span>}
+                    {shownQuests.map(({ q, status: st }) => (
+                      <li key={q.id}>
+                        <Link to={`/wiki/${q.slug}`}>{q.title}</Link>
+                        {st && <span className="thread-status"> {st}</span>}
+                        {q.summary && <span className="muted"> {plain(q.summary)}</span>}
                       </li>
                     ))}
                   </ul>
+                  {doneCount > 0 && <p className="fine-print">{doneCount} finished {doneCount === 1 ? 'quest' : 'quests'} not listed here.</p>}
                   <Link to="/browse/quest" className="more-link">All quests →</Link>
                 </section>
               )}
@@ -182,6 +232,7 @@ export function HomePage() {
                   {d.recent.map((a) => (
                     <li key={a.id}>
                       <Link to={`/wiki/${a.slug}`}>{a.title}</Link>
+                      {isNewSince(a.published_at, previousVisit) && <span className="badge badge-ok">New since your last visit</span>}
                       <span className="muted"> · {TEMPLATES[a.type].label} · {longDate(a.updated_at)}</span>
                     </li>
                   ))}

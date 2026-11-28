@@ -25,9 +25,11 @@ test('the latest played session and the newest printed headline, for a player', 
     order by coalesce(n.issue_number, 0) desc, coalesce(a.published_at, a.updated_at) desc limit 1`);
   await enrollAsPlayer(page, 'Home Now Tester');
   await page.goto('/');
-  const cards = page.locator('.now-big');
+  // Scoped to the session card: the daily "From the archive today" card (also a .now-big) may show
+  // the very same session on some days, which made an unscoped count flaky.
+  const cards = page.locator('.now-session .now-big');
   await expect(cards.filter({ hasText: DATED })).toHaveCount(1);
-  // The undated page may appear elsewhere (recently updated), never as the latest session.
+  // The undated page may appear elsewhere (recently updated), never as the session card.
   await expect(cards.filter({ hasText: UNDATED })).toHaveCount(0);
   if (expected) await expect(page.locator('.now-headline')).toHaveText(expected.title);
 });
