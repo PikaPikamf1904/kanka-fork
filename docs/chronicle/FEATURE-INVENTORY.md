@@ -1,5 +1,8 @@
 # Chronicle: feature inventory (2026-11-17)
 
+> **2026-11-28:** "Appears in" from plain-text mentions, the honest home page, session play order and
+> "new since your last visit" are described in [LIVING-WORLD-2.md](LIVING-WORLD-2.md).
+
 Status: this describes what exists in the code on the development branch `claude/chronicle-website-features` and the migrations written so far. **Nothing here is deployed to production.** Migrations from `20261117000100` onward are not applied to the hosted project and await owner approval (see `MIGRATIONS-2026-11-17.md`).
 
 Sources: `chronicle-cloud/src/App.tsx` (routes), `src/components/Layout.tsx` (menu), `src/components/CommandPalette.tsx` (palette entries), `chronicle-cloud/tests/e2e` (browser tests), `chronicle-cloud/tests/db` (database tests), `chronicle-cloud/functions` (server functions).
