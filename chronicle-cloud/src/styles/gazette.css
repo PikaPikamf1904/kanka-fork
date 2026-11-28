@@ -50,6 +50,8 @@
 .gz-tagline { font-family: var(--gz-head); font-style: italic; margin: 0 0 0.45rem; font-size: clamp(1rem, 2.2vw, 1.2rem); }
 .gz-sections { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.15rem 1.1rem; border-top: 1px solid var(--gz-rule); padding-top: 0.4rem; font-family: var(--gz-body); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .gz-sections a { text-decoration: none; padding: 0.2rem 0; }
+@media (max-width: 900px), (pointer: coarse) { .gz-sections a { display: inline-flex; align-items: center; min-height: 44px; } .gz-sections { gap: 0 1.1rem; } }
+@media (max-width: 900px), (pointer: coarse) { .gz-more, .gz-back a { display: inline-flex; align-items: center; min-height: 44px; } }
 .gz-sections a:hover, .gz-sections a:focus-visible { text-decoration: underline; }
 .gz-masthead-compact .gz-title { font-size: clamp(1.9rem, 5.5vw, 3.2rem); }
 .gz-masthead-compact .gz-tagline { display: none; }
@@ -109,6 +111,8 @@
 .gz-reliability-note { font-size: 0.9rem; background: var(--gz-paper-2); border-left: 4px solid var(--gz-red); padding: 0.4rem 0.7rem; margin: 0 0 1rem; }
 .gz-body { font-size: 1.08rem; line-height: 1.62; hyphens: auto; }
 .gz-body .prose p { margin: 0 0 0.8rem; text-align: justify; text-justify: inter-word; }
+/* Phones: justified, hyphenated text in a narrow column leaves wide gaps; read it left-aligned. */
+@media (max-width: 520px) { .gz-body .prose p { text-align: left; } .gz-body { hyphens: manual; } }
 .gz-standfirst .prose p { font-weight: 700; font-size: 1.12rem; line-height: 1.5; text-align: left; }
 .gz-standfirst .prose > p:first-child::first-letter, .gz-text-first .prose > p:first-child::first-letter {
   float: left; font-family: var(--gz-head); font-size: 3.6em; line-height: 0.8; padding: 0.08em 0.08em 0 0; font-weight: 400;

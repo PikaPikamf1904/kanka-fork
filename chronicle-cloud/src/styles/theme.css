@@ -606,7 +606,9 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .journal-trail li::before { content: ''; position: absolute; left: -6px; top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); }
 @media (max-width: 900px) {
   .profile-layout { grid-template-columns: 1fr; }
-  .profile-side { order: -1; }
+  /* The page's own words come first; the facts box follows the text (it used to push the first line below the fold). */
+  .profile-side { order: 0; grid-column: 1; grid-row: 2; }
+  .article-character .profile-layout .article-body { grid-column: 1; grid-row: 1; }
 }
 @media (max-width: 560px) {
   .profile-header { grid-template-columns: 1fr; justify-items: center; text-align: center; }
@@ -672,7 +674,7 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .now-where { border-top-color: #3f7a52; }
 .now-discovery { border-top-color: #7a5a2c; }
 .now-more { font-family: var(--font-ui); font-size: 0.95rem; }
-.thread-status { font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+.thread-status { display: block; font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-top: 0.1rem; }
 .now-letter { margin-top: 0.6rem !important; font-size: 0.95rem; }
 .now-session { border-top-color: #2c6e73; }
 .now-gazette { border-top-color: #1d1914; background: linear-gradient(#f4eedd, #ece3cc); color: #1d1914; }
@@ -1127,3 +1129,16 @@ fieldset { min-width: 0; }
 /* The maintenance notice above the first screen; nothing at all when there is no notice. */
 .access-notice { position: relative; width: min(640px, 100%); }
 .access-notice:empty { display: none; }
+
+/* ---------- Touch and phone fixes (audited in a real browser at 390 and 820 px) ---------- */
+@media (max-width: 900px), (pointer: coarse) {
+  /* Inline links ignore min-height; make the stand-alone link rows real 44px targets. */
+  .breadcrumbs a, .character-page-nav a { display: inline-flex; align-items: center; min-height: 44px; }
+  .character-page-nav { gap: 0 0.85rem; }
+  .brand, .now-more a, .more-link, .article-section > p.fine-print > a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+@media (max-width: 560px) {
+  /* A character with no portrait shows a short crest banner, not a full-height card, so the text starts sooner. */
+  .profile-portrait-empty { aspect-ratio: auto; width: min(240px, 70vw); min-height: 150px; padding: 0.75rem 0; }
+  .profile-portrait-empty .crest, .profile-portrait-empty svg { max-height: 96px; width: auto; }
+}
