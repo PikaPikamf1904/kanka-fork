@@ -11,6 +11,9 @@
 //   **Section: War**            (optional; otherwise the DM chooses)
 //   …body…
 //   ---
+//
+// A top-level heading ("# Notes", "# Letters", …) ends the story before it: anything under it, up to
+// the next story heading, is not part of any story. Story bodies may use 
 import type { NewsReliability, NewsSection } from './gazette.ts';
 import { SECTIONS, STAFF } from './gazette.ts';
 import { zonedToUtc } from './schedule.ts';
@@ -58,7 +61,10 @@ export function parseGazettePackage(markdown: string, campaignZone: string): { s
   const notes: string[] = [];
   if (starts.length === 0) notes.push('No stories found. Each story starts with a heading like "## 2026-11-26 05:45 MST — Headline".');
   const stories = starts.map((start, n) => {
-    const end = starts[n + 1] ?? lines.length;
+    const next = starts[n + 1] ?? lines.length;
+    // A top-level "# " heading closes the story (notes or letters after the last story must not be printed).
+    let end = next;
+    for (let k = start + 1; k < next; k++) if (/^#\s/.test(lines[k]!)) { end = k; break; }
     const m = HEADING.exec(lines[start]!)!;
     const [, date, hh, mm, zoneLabel, headline] = m;
     const problems: string[] = [];

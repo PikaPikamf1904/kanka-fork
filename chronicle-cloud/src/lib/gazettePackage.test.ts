@@ -50,4 +50,16 @@ describe('Gazette package import', () => {
     const dup = duplicateHeadlines(twice.stories, ['  SYNTHETIC SOUP: food or philosophy? ']);
     expect([...dup.entries()]).toEqual([[2, 'Already on the news desk or in the Gazette.'], [4, 'Same headline as story 1 in this file.']]);
   });
+
+  it('a top-level heading after a story ends it: notes or letters at the end are never printed', () => {
+    const md = [
+      '## 2026-12-01 05:45 MST — Synthetic Last Story', '**By Professor Bogwart, Department of Questionable Science**', '**Reliability: Satire**',
+      '', 'The soup was cold.', '', '### Still part of the story', 'Yes.', '---', '',
+      '# Letters (enter by hand)', '', 'Dear Editor, this is a letter and must not be printed.', '',
+    ].join('\n');
+    const { stories: s } = parseGazettePackage(md, 'America/Phoenix');
+    expect(s).toHaveLength(1);
+    expect(s[0]!.body).toBe('The soup was cold.\n\n### Still part of the story\nYes.');
+    expect(s[0]!.body).not.toMatch(/Dear Editor/);
+  });
 });
