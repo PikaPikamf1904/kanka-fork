@@ -656,7 +656,9 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 }
 .quick-link:hover, .quick-link:focus-visible { border-color: var(--gold); }
 .quick-glyph { font-size: 1.3rem; color: var(--gold); line-height: 1; }
-@media (max-width: 720px) { .quick-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .quick-bar { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; } .quick-link { min-height: 56px; padding: 0.5rem 0.2rem; font-size: 0.85rem; text-align: center; } }
+/* Phones: the hero keeps its first lines of introduction; the whole overview is further down the page. */
+@media (max-width: 560px) { .hero-intro .prose { display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; } .hero { min-height: 0; } }
 .now-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
 @media (max-width: 960px) { .now-row { grid-template-columns: 1fr; } }
 .now-card { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: var(--radius); padding: 0.9rem 1.1rem; box-shadow: var(--shadow); }
@@ -669,6 +671,8 @@ textarea { font-family: var(--font-body) !important; line-height: 1.5; resize: v
 .now-summary { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .now-where { border-top-color: #3f7a52; }
 .now-discovery { border-top-color: #7a5a2c; }
+.now-more { font-family: var(--font-ui); font-size: 0.95rem; }
+.thread-status { font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700; color: var(--muted); }
 .now-letter { margin-top: 0.6rem !important; font-size: 0.95rem; }
 .now-session { border-top-color: #2c6e73; }
 .now-gazette { border-top-color: #1d1914; background: linear-gradient(#f4eedd, #ece3cc); color: #1d1914; }

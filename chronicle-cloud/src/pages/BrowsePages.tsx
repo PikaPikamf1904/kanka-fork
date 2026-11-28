@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ArticleCard } from '../components/ArticleCard.tsx';
-import { categoryCounts, getCategory, listArticles, listCharacterFacts, listRelations, searchWithOperators, timeline } from '../lib/api.ts';
+import { categoryCounts, getCategory, listArticles, listSessions, listCharacterFacts, listRelations, searchWithOperators, timeline } from '../lib/api.ts';
 import { parseSearch } from '../lib/searchQuery.ts';
+import { orderIsKnown, parsePlayDate, sessionKeys } from '../lib/sessionOrder.ts';
+import { longDate } from '../lib/dates.ts';
 import { useIsDm, useSession } from '../lib/session.tsx';
 import { addSaved, clearHistory, excerpt, highlightSegments, loadHistory, loadSaved, queryTerms, recordSearch, removeSaved, storeSaved, type SavedSearch } from '../lib/searchHistory.ts';
 import { StatusRibbon } from '../components/StatusRibbon.tsx';
@@ -17,7 +19,8 @@ export function BrowsePage() {
   const { type = '' } = useParams();
   const isDm = useIsDm();
   const valid = (TYPE_ORDER as string[]).includes(type);
-  const list = useLoad(() => (valid ? listArticles({ type: type as ArticleType, order: type === 'session' ? 'session' : 'title', limit: 500 }) : Promise.resolve([])), [type, isDm]);
+  // Sessions come in play order (src/lib/sessionOrder.ts); everything else by title.
+  const list = useLoad(() => (!valid ? Promise.resolve([]) : type === 'session' ? listSessions() : listArticles({ type: type as ArticleType, order: 'title', limit: 500 })), [type, isDm]);
   const [filter, setFilter] = useState('');
   // Race, class and status as the reader may see them: status ribbons on every kind of card.
   const pageIds = (list.data ?? []).map((a) => a.id);
@@ -26,6 +29,15 @@ export function BrowsePage() {
   if (!valid) return <NotFound />;
   const t = TEMPLATES[type as ArticleType];
   const isCharacter = type === 'character';
+  const isSession = type === 'session';
+  const sessionsOrdered = isSession && orderIsKnown(list.data ?? []);
+  // "Session N" is only the position in the list when that position is known, not a guess.
+  const sessionMeta = (a: (typeof matching)[number]) => {
+    if (!isSession) return undefined;
+    const date = parsePlayDate(sessionKeys(a as never).date);
+    const n = sessionsOrdered ? (list.data ?? []).findIndex((x) => x.id === a.id) + 1 : 0;
+    return [n ? `Session ${n}` : '', longDate(date)].filter(Boolean).join(' · ') || undefined;
+  };
   const matching = (list.data ?? []).filter((a) => a.title.toLowerCase().includes(filter.toLowerCase()));
   const shown = isCharacter
     ? matching.filter((a) => characterCategory === 'all' || (characterCategory === 'party' ? a.is_party_member : !a.is_party_member))
@@ -53,6 +65,7 @@ export function BrowsePage() {
         {isDm && <Link className="button" to={`/dm/new?type=${type}`}>New {t.label.toLowerCase()}</Link>}
       </div>
       {list.error && <p className="form-error">{list.error}</p>}
+      {isDm && isSession && list.data && !sessionsOrdered && <p className="fine-print" data-testid="sessions-order-note">Players see these sessions in title order. Give each session its play date (Date played) in the editor to put them in order.</p>}
       {list.data && shown.length === 0 && <p className="muted">{(list.data.length > 0) ? `No ${t.plural.toLowerCase()} match those filters.` : 'Nothing here yet.'}</p>}
       {isCharacter ? (
         <div className="character-directory">
@@ -94,7 +107,7 @@ export function BrowsePage() {
           ))}
         </div>
       ) : (
-        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} status={facts.data?.get(a.id)?.status} />)}</div>
+        <div className="card-grid">{shown.map((a) => <ArticleCard key={a.id} article={a} showState={isDm} meta={sessionMeta(a)} status={facts.data?.get(a.id)?.status} />)}</div>
       )}
     </div>
   );

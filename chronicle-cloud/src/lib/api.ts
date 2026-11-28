@@ -8,6 +8,7 @@ import { mapChips, placeChips, type MapChip, type PlaceChip, type PlaceMapRow, t
 import { likeLiteral } from './azIndex.ts';
 import { pickWander } from './wander.ts';
 import { slugify } from './slug.ts';
+import { orderIsKnown, sortSessions } from './sessionOrder.ts';
 import { pickDaily } from './discovery.ts';
 import { safeZone } from './schedule.ts';
 import type { AuditData } from './visibilityAudit.ts';
@@ -98,18 +99,24 @@ export async function articlesBySlugs(slugs: string[]): Promise<(ArticleRef & { 
   return must(await supabase.from('articles').select('id, slug, title, type, hero_media_id, summary').in('slug', unique));
 }
 
-/** The most recently played session with a play date (ties: the first written), or none. */
-export async function latestDatedSession(): Promise<Pick<Article, 'id' | 'slug' | 'title' | 'summary' | 'session_date' | 'status' | 'visibility' | 'updated_at'> | null> {
-  const rows = must(await supabase.from('articles').select('id, slug, title, summary, session_date, status, visibility, updated_at')
-    .eq('type', 'session').not('session_date', 'is', null)
-    .order('session_date', { ascending: false }).order('created_at', { ascending: true }).limit(1)) as Article[];
-  return rows[0] ?? null;
+/** A session page with what the play order is read from (see sessionOrder.ts). */
+export type SessionListItem = Article & { created_at: string; infobox: { label: string; value: string }[] };
+
+/**
+ * Session journals in play order, oldest first: by play date, then session number, then title
+ * (src/lib/sessionOrder.ts). One query; the infobox fields come through Row Level Security like
+ * everything else, so a player only receives the fields players may read.
+ */
+export async function listSessions(): Promise<SessionListItem[]> {
+  const rows = must(await supabase.from('articles').select(`${ARTICLE_COLUMNS}, created_at, infobox:infobox_fields(label, value)`).eq('type', 'session').limit(500)) as unknown as (Article & { created_at: string; infobox: { label: string; value: string }[] | null })[];
+  return sortSessions(rows.map((r) => ({ ...r, infobox: r.infobox ?? [] })));
 }
 
-/** Session journals in play order: by play date, then by when they were written. */
-export async function listSessions(): Promise<Pick<Article, 'id' | 'slug' | 'title' | 'summary' | 'session_date' | 'status' | 'visibility' | 'updated_at'>[]> {
-  const rows = must(await supabase.from('articles').select('id, slug, title, summary, session_date, status, visibility, updated_at, created_at').eq('type', 'session').limit(500)) as (Article & { created_at: string })[];
-  return rows.sort((a, b) => (a.session_date ?? '9999').localeCompare(b.session_date ?? '9999') || a.created_at.localeCompare(b.created_at));
+/** The newest session in play order, whether that order is known, and how many sessions there are; null when none. */
+export async function latestSession(): Promise<{ session: SessionListItem; orderKnown: boolean; count: number } | null> {
+  const all = await listSessions();
+  const session = all[all.length - 1];
+  return session ? { session, orderKnown: orderIsKnown(all), count: all.length } : null;
 }
 
 // ---------- The Goblin Gazette ----------
@@ -373,7 +380,7 @@ export async function listArticles(opts: {
   if (opts.party) q = q.eq('is_party_member', true);
   if (opts.order === 'title') q = q.order('title');
   else if (opts.order === 'importance') q = q.order('importance', { ascending: false }).order('title');
-  else if (opts.order === 'session') q = q.order('session_date', { ascending: false, nullsFirst: false });
+  else if (opts.order === 'session') q = q.order('session_date', { ascending: true, nullsFirst: true }).order('title');
   else q = q.order('updated_at', { ascending: false });
   return must(await q.limit(opts.limit ?? 100));
 }
