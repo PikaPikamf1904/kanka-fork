@@ -16,6 +16,19 @@ export async function loadMentions(articleId: string): Promise<ArticleRef[]> {
   return (data ?? []) as ArticleRef[];
 }
 
+/**
+ * Every plain-text mention between pages the reader can read, as graph links (page id, named slug).
+ * `playersOnly` builds it from player-visible pages, sections and aliases only (the DM's player view).
+ */
+export async function loadMentionLinks(playersOnly: boolean): Promise<{ article_id: string; target_slug: string }[]> {
+  const { data, error } = await supabase.rpc('mention_links', { p_players_only: playersOnly });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42883') return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as { article_id: string; target_slug: string }[];
+}
+
 /** Pages this page's own visible text names (never Gazette stories). Empty if not installed yet. */
 export async function loadNamedIn(articleId: string): Promise<ArticleRef[]> {
   const { data, error } = await supabase.rpc('named_in', { p_article: articleId });

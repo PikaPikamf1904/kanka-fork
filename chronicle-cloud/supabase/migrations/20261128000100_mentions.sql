@@ -21,10 +21,14 @@
 -- Rollback:
 --   drop function if exists public.named_in(uuid);
 --   drop function if exists public.mentions(uuid);
---   drop function if exists private.mention_pattern(uuid);
+--   drop function if exists public.mention_links(boolean);
+--   drop function if exists private.mention_pattern(uuid, boolean);
+--   drop function if exists private.mention_regex(text[]);
+--   drop function if exists private.mention_terms(uuid, boolean);
 
-create or replace function private.mention_pattern(p_article uuid)
-returns text
+-- The words that name a page (see the rules above), one per row.
+create or replace function private.mention_terms(p_article uuid, p_players_only boolean default false)
+returns setof text
 language sql stable security invoker set search_path = ''
 as $$
   with target as (
@@ -43,19 +47,32 @@ as $$
                     'Madame', 'Master', 'Mistress', 'King', 'Queen', 'Prince', 'Princess', 'Doctor', 'Brother',
                     'Sister', 'Father', 'Mother', 'Elder', 'Swift', 'Claw', 'Iron', 'Stone', 'Black', 'White',
                     'Silver', 'Gold', 'Golden', 'Green', 'Brown', 'Grey', 'Gray', 'Long', 'Little', 'Great',
-                    'High', 'Hill', 'Young', 'Elder', 'Dragon', 'Shadow', 'Moon', 'Star', 'Storm')
+                    'High', 'Hill', 'Young', 'Dragon', 'Shadow', 'Moon', 'Star', 'Storm')
     union
     select initcap(replace(r.from_slug, '-', ' '))
     from public.redirects r join target t on r.article_id = t.id
-  ),
-  usable as (
-    select distinct term from terms where char_length(btrim(term)) >= 3
+    where not p_players_only or r.visibility = 'players'
   )
-  select case when count(*) = 0 then null else
-    -- \m and \M are word boundaries; every term is escaped so it is matched literally.
-    '\m(' || string_agg(regexp_replace(btrim(term), '([.\\+*?^$(){}|\[\]-])', '\\\1', 'g'), '|' order by char_length(term) desc) || ')\M'
-  end
-  from usable;
+  select distinct btrim(term) from terms where char_length(btrim(term)) >= 3;
+$$;
+
+-- A regular expression matching any of the page's words as whole words, or null.
+create or replace function private.mention_regex(p_terms text[])
+returns text
+language sql immutable set search_path = ''
+as $$
+  select case when coalesce(array_length(p_terms, 1), 0) = 0 then null else
+    -- \m and \M are word boundaries; every term is escaped so it is matched literally; longest first.
+    '\m(' || (select string_agg(regexp_replace(t, '([.\\+*?^$(){}|\[\]-])', '\\\1', 'g'), '|' order by char_length(t) desc, t)
+              from unnest(p_terms) t) || ')\M'
+  end;
+$$;
+
+create or replace function private.mention_pattern(p_article uuid, p_players_only boolean default false)
+returns text
+language sql stable security invoker set search_path = ''
+as $$
+  select private.mention_regex(array(select private.mention_terms(p_article, p_players_only)));
 $$;
 
 create or replace function public.mentions(p_article uuid)
@@ -77,9 +94,13 @@ as $$
   order by a.title;
 $$;
 
-revoke all on function private.mention_pattern(uuid) from public, anon;
+revoke all on function private.mention_terms(uuid, boolean) from public, anon;
+revoke all on function private.mention_regex(text[]) from public, anon;
+revoke all on function private.mention_pattern(uuid, boolean) from public, anon;
 revoke all on function public.mentions(uuid) from public, anon;
-grant execute on function private.mention_pattern(uuid) to authenticated, service_role;
+grant execute on function private.mention_terms(uuid, boolean) to authenticated, service_role;
+grant execute on function private.mention_regex(text[]) to authenticated, service_role;
+grant execute on function private.mention_pattern(uuid, boolean) to authenticated, service_role;
 grant execute on function public.mentions(uuid) to authenticated, service_role;
 
 -- The other direction: the pages this page's own text names ("At the table" on a session journal,
@@ -96,16 +117,56 @@ as $$
     where a.id = p_article
     group by a.id, a.summary
   ),
-  candidates as (
-    select a.id, a.slug, a.title, a.type, private.mention_pattern(a.id) as re
-    from public.articles a
+  terms as (
+    select a.id, a.slug, a.title, a.type, t.term
+    from public.articles a, lateral private.mention_terms(a.id) as t(term)
     where a.id <> p_article and a.type <> 'news'
+  ),
+  big as (select private.mention_regex(array(select distinct term from terms)) as re),
+  hits as (
+    select distinct m[1] as term from doc, big, regexp_matches(doc.txt, big.re, 'g') as m where big.re is not null
   )
-  select c.slug, c.title, c.type
-  from candidates c, doc
-  where c.re is not null and doc.txt ~ c.re
-  order by c.title;
+  select distinct t.slug, t.title, t.type from hits h join terms t on t.term = h.term
+  order by t.title;
 $$;
 
 revoke all on function public.named_in(uuid) from public, anon;
 grant execute on function public.named_in(uuid) to authenticated, service_role;
+
+-- Every mention between pages the caller can read, for the knowledge graph: (page whose text names,
+-- slug of the page named). p_players_only = true builds it from player-visible pages, sections and
+-- aliases only, for the DM's "view as a player" graph (row-level security already limits players).
+-- Gazette stories are left out, as the graph leaves out their links.
+create or replace function public.mention_links(p_players_only boolean default false)
+returns table (article_id uuid, target_slug text)
+language sql stable security invoker set search_path = ''
+as $$
+  with pages as (
+    select a.id, a.slug, a.summary from public.articles a
+    where a.type <> 'news' and (not p_players_only or (a.visibility = 'players' and a.status = 'published'))
+  ),
+  terms as (
+    select p.id, p.slug, t.term from pages p, lateral private.mention_terms(p.id, p_players_only) as t(term)
+  ),
+  -- One pattern for every word of every page, scanned once per page (not once per pair).
+  big as (
+    select private.mention_regex(array(select distinct term from terms)) as re
+  ),
+  docs as (
+    select p.id, coalesce(p.summary, '') || E'\n' || coalesce(string_agg(s.body, E'\n'), '') as txt
+    from pages p
+    left join public.article_sections s on s.article_id = p.id
+      and (not p_players_only or (s.visibility = 'players' and s.status = 'published'))
+    group by p.id, p.summary
+  ),
+  hits as (
+    select distinct d.id as source, m[1] as term
+    from docs d, big, regexp_matches(d.txt, big.re, 'g') as m
+    where big.re is not null
+  )
+  select distinct h.source, t.slug
+  from hits h join terms t on t.term = h.term and t.id <> h.source;
+$$;
+
+revoke all on function public.mention_links(boolean) from public, anon;
+grant execute on function public.mention_links(boolean) to authenticated, service_role;

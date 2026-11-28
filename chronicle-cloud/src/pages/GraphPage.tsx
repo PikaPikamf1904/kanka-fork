@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEven
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { MediaImage } from '../components/MediaImage.tsx';
 import { getPagePreview, loadGraphData } from '../lib/api.ts';
+import { loadMentionLinks } from '../lib/mentions.ts';
 import {
   buildGraph, connectedCluster, connectionRows, easeView, legendEntries, nearestInDirection, neighbourhood, onlyTypes, relationshipSummary, ringPositions, searchNodes,
   summaryText, TYPE_COLOURS, withoutLoners, type Direction, type Graph, type GraphNode, type SummaryItem,
@@ -62,7 +63,11 @@ function useGraphParams() {
 
 export function GraphPage() {
   const { playerPreview } = useSession();
-  const data = useLoad(() => loadGraphData(playerPreview), [playerPreview]);
+  // Pages named in each other's text are joined too, not only [[links]] (drawn the same way, "mentions").
+  const data = useLoad(async () => {
+    const [g, named] = await Promise.all([loadGraphData(playerPreview), loadMentionLinks(playerPreview)]);
+    return { ...g, links: [...g.links, ...named] };
+  }, [playerPreview]);
   const p = useGraphParams();
   const full = useMemo(() => (data.data ? buildGraph(data.data) : null), [data.data]);
   const savedConnections = useMemo(() => (full ? connectionRows(full) : []), [full]);
